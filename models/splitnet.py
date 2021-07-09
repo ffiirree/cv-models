@@ -4,12 +4,14 @@ from torch.nn.modules.linear import Linear
 
 __all__ = ['SplitNet', 'SplitNetv2', 'SplitNetv3', 'SplitNetv4']
 
+
 class Conv2dBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size:int = 3, stride: int = 1, padding: int = 1, groups: int = 1):
+    def __init__(self, in_channels, out_channels, kernel_size: int = 3, stride: int = 1, padding: int = 1, groups: int = 1):
         super().__init__()
 
         self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, bias=False, stride=stride, padding=padding, groups=groups),
+            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
+                      bias=False, stride=stride, padding=padding, groups=groups),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(out_channels)
         )
@@ -17,8 +19,9 @@ class Conv2dBlock(nn.Module):
     def forward(self, x):
         return self.layer(x)
 
+
 class SplitNet(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         self.filters = filters
@@ -44,7 +47,7 @@ class SplitNet(nn.Module):
             Conv2dBlock(filters * 8, filters * 8, 7, padding=0)
         )
 
-        self.group2 =  nn.Sequential(
+        self.group2 = nn.Sequential(
             Conv2dBlock(filters * 8, filters * 16, 3),
             Conv2dBlock(filters * 16,        1000, 1, padding=0)
         )
@@ -69,14 +72,15 @@ class SplitNet(nn.Module):
 
         return x1
 
+
 class SplitNetv2(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         self.filters = filters
 
         self.features = nn.Sequential(
-            Conv2dBlock(     in_channels, self.filters * 1, 5, 2, padding=2),
+            Conv2dBlock(in_channels, self.filters * 1, 5, 2, padding=2),
             Conv2dBlock(self.filters * 1, self.filters * 1, 3),
             Conv2dBlock(self.filters * 1, self.filters * 1, 3),
             Conv2dBlock(self.filters * 1, self.filters * 2, 5, 2, padding=2),
@@ -91,17 +95,20 @@ class SplitNetv2(nn.Module):
             Conv2dBlock(self.filters * 2, self.filters * 4, 5, 2, padding=2),
             Conv2dBlock(self.filters * 4, self.filters * 4, 3),
             Conv2dBlock(self.filters * 4, self.filters * 4, 3),
-            Conv2dBlock(self.filters * 4, self.filters * 8, 5, stride=2, padding=2),
+            Conv2dBlock(self.filters * 4, self.filters *
+                        8, 5, stride=2, padding=2),
             Conv2dBlock(self.filters * 8, self.filters * 8, 3),
-            Conv2dBlock(self.filters * 8, self.filters * 8, 7, stride=1, padding=0)
+            Conv2dBlock(self.filters * 8, self.filters *
+                        8, 7, stride=1, padding=0)
         )
 
-        self.group2 =  nn.Sequential(
+        self.group2 = nn.Sequential(
             Conv2dBlock(self.filters * 2, self.filters * 2, 3),
             Conv2dBlock(self.filters * 2, self.filters * 4, 5, 2, padding=2),
             Conv2dBlock(self.filters * 4, self.filters * 4, 3),
             Conv2dBlock(self.filters * 4, self.filters * 4, 3),
-            Conv2dBlock(self.filters * 4, self.filters * 8, 5, stride=2, padding=2),
+            Conv2dBlock(self.filters * 4, self.filters *
+                        8, 5, stride=2, padding=2),
             Conv2dBlock(self.filters * 8, self.filters * 8, 3),
             Conv2dBlock(self.filters * 8,      num_classes, 3),
         )
@@ -126,15 +133,16 @@ class SplitNetv2(nn.Module):
 
         return x1
 
+
 class SplitNetv3(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         self.filters = filters
         self.num_classes = num_classes
 
         self.features = nn.Sequential(
-            Conv2dBlock(     in_channels, self.filters * 1, 7, stride=2, padding=3),
+            Conv2dBlock(in_channels, self.filters * 1, 7, stride=2, padding=3),
             Conv2dBlock(self.filters * 1, self.filters * 1, 3),
             Conv2dBlock(self.filters * 1, self.filters * 1, 3),
             Conv2dBlock(self.filters * 1, self.filters * 2, 3, stride=2),
@@ -151,15 +159,16 @@ class SplitNetv3(nn.Module):
             Conv2dBlock(self.filters * 2, self.filters * 2, 3),
             Conv2dBlock(self.filters * 2, self.filters * 4, 3, stride=2),
             Conv2dBlock(self.filters * 4, self.filters * 4, 3),
-            Conv2dBlock(self.filters * 4, self.filters * 4, 7, stride=1, padding=0)
+            Conv2dBlock(self.filters * 4, self.filters *
+                        4, 7, stride=1, padding=0)
         )
 
-        self.group2 =  nn.Sequential(
-            Conv2dBlock(self.filters *  3, self.filters *  3, 3),
-            Conv2dBlock(self.filters *  3, self.filters *  6, 3, stride=2),
-            Conv2dBlock(self.filters *  6, self.filters *  6, 3),
-            Conv2dBlock(self.filters *  6, self.filters *  6, 3),
-            Conv2dBlock(self.filters *  6, self.filters * 12, 3, stride=2),
+        self.group2 = nn.Sequential(
+            Conv2dBlock(self.filters * 3, self.filters * 3, 3),
+            Conv2dBlock(self.filters * 3, self.filters * 6, 3, stride=2),
+            Conv2dBlock(self.filters * 6, self.filters * 6, 3),
+            Conv2dBlock(self.filters * 6, self.filters * 6, 3),
+            Conv2dBlock(self.filters * 6, self.filters * 12, 3, stride=2),
             Conv2dBlock(self.filters * 12, self.filters * 12, 3),
             Conv2dBlock(self.filters * 12,  self.num_classes, 3),
         )
@@ -203,6 +212,7 @@ class BasicGroup(nn.Module):
     def forward(self, x):
         return self.block(x)
 
+
 class MappingGroup(nn.Module):
     def __init__(self, filters: int, num_classes: int):
         super().__init__()
@@ -221,8 +231,9 @@ class MappingGroup(nn.Module):
     def forward(self, x):
         return self.block(x)
 
+
 class SplitNetv4(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         self.filters = filters

@@ -3,12 +3,14 @@ import torch.nn as nn
 
 __all__ = ['MicroNet', 'MicroNetv2', 'MicroNetv3', 'MicroNetv4']
 
+
 class Conv2dBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size:int = 3, stride: int = 1, padding: int = 1):
+    def __init__(self, in_channels, out_channels, kernel_size: int = 3, stride: int = 1, padding: int = 1):
         super().__init__()
 
         self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, bias=False, stride=stride, padding=padding),
+            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
+                      bias=False, stride=stride, padding=padding),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(out_channels)
         )
@@ -16,62 +18,69 @@ class Conv2dBlock(nn.Module):
     def forward(self, x):
         return self.layer(x)
 
+
 class DWBlock(nn.Module):
-    def __init__(self, in_channels, kernel_size:int = 3, stride: int = 1, padding: int = 1):
+    def __init__(self, in_channels, kernel_size: int = 3, stride: int = 1, padding: int = 1):
         super().__init__()
 
         self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, bias=False, stride=stride, padding=padding, groups=in_channels),
+            nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size,
+                      bias=False, stride=stride, padding=padding, groups=in_channels),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(in_channels)
         )
-    
+
     def forward(self, x):
         return self.layer(x)
+
 
 class Conv1x1Block(nn.Module):
     def __init__(self, in_channels, out_channels, stride: int = 1):
         super().__init__()
 
         self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False, padding=0),
+            nn.Conv2d(in_channels, out_channels, kernel_size=1,
+                      stride=stride, bias=False, padding=0),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(out_channels),
         )
-    
+
     def forward(self, x):
         return self.layer(x)
 
 
 class DWBlock2(nn.Module):
-    def __init__(self, in_channels, kernel_size:int = 3, stride: int = 1, padding: int = 1):
+    def __init__(self, in_channels, kernel_size: int = 3, stride: int = 1, padding: int = 1):
         super().__init__()
 
         self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, bias=False, stride=stride, padding=padding, groups=in_channels),
+            nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size,
+                      bias=False, stride=stride, padding=padding, groups=in_channels),
             # nn.ReLU(inplace=True),
             # nn.BatchNorm2d(in_channels)
         )
-    
+
     def forward(self, x):
         return self.layer(x)
+
 
 class Conv1x1Block2(nn.Module):
     def __init__(self, in_channels, out_channels, stride: int = 1):
         super().__init__()
 
         self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False, padding=0),
+            nn.Conv2d(in_channels, out_channels, kernel_size=1,
+                      stride=stride, bias=False, padding=0),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(out_channels),
         )
-    
+
     def forward(self, x):
         return self.layer(x)
 
 
 class MicroNet(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         self.dwblock16 = DWBlock(filters * 16)
@@ -137,7 +146,7 @@ class MicroNet(nn.Module):
 
 
 class MicroNetv2(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         # self.dwblock16 = DWBlock(filters * 16)
@@ -196,8 +205,9 @@ class MicroNetv2(nn.Module):
         x = self.fc(x)
         return x
 
+
 class MicroNetv3(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         self.dwblock16 = DWBlock2(filters * 16)
@@ -258,7 +268,7 @@ class MicroNetv3(nn.Module):
 
 
 class MicroNetv4(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         self.dwblock16 = DWBlock(filters * 16)
@@ -307,7 +317,7 @@ class MicroNetv4(nn.Module):
 
 
 class MicroNetv5(nn.Module):
-    def __init__(self, in_channels:int=3, num_classes:int=1000, filters:int=32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 
         self.dwblock16 = DWBlock(filters * 16)
@@ -364,4 +374,3 @@ class MicroNetv5(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
-

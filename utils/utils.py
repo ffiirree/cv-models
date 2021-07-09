@@ -8,6 +8,7 @@ import random
 
 __all__ = ['Benchmark', 'env_info', 'manual_seed']
 
+
 class Benchmark:
     def __init__(self) -> None:
         self._start = None
@@ -23,6 +24,7 @@ class Benchmark:
 
         return _elapsed
 
+
 def env_info(json: bool = False):
     kvs = {
         'Python': platform.python_version(),
@@ -31,11 +33,11 @@ def env_info(json: bool = False):
         'CUDA': torch.version.cuda,
         'cuDNN': torch.backends.cudnn.version(),
         'GPU': {
-           f'#{i}' : { 
-               'name': torch.cuda.get_device_name(i), 
-               'memory': f'{torch.cuda.get_device_properties(i).total_memory / (1024 * 1024 * 1024):.2f}GB' 
-            } 
-            for i in range(torch.cuda.device_count() )
+            f'#{i}': {
+                'name': torch.cuda.get_device_name(i),
+                'memory': f'{torch.cuda.get_device_properties(i).total_memory / (1024 * 1024 * 1024):.2f}GB'
+            }
+            for i in range(torch.cuda.device_count())
         },
         'Platform': {
             'system': platform.system(),
