@@ -6,7 +6,7 @@ import platform
 import numpy as np
 import random
 
-__all__ = ['Benchmark', 'env_info', 'manual_seed']
+__all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers']
 
 
 class Benchmark:
@@ -66,3 +66,17 @@ def manual_seed(seed: int = 0):
     torch.backends.cudnn.deterministic = True
 
     torch.set_printoptions(precision=10)
+
+def named_layers(module, memo = None, prefix: str = ''):
+    if memo is None:
+        memo = set()
+    if module not in memo:
+        memo.add(module)
+        if not module._modules.items():
+            yield prefix, module
+        for name, module in module._modules.items():
+            if module is None:
+                continue
+            submodule_prefix = prefix + ('.' if prefix else '') + name
+            for m in named_layers(module, memo, submodule_prefix):
+                yield m

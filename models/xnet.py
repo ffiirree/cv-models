@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
+from typing import Optional, Callable
 
-__all__ = ['XNet', 'XNetv2', 'XNetv3', 'XNetv4']
+__all__ = ['XNet', 'XNetv2', 'XNetv3', 'XNetv4', 'XNetv5']
 
 
 class Conv2dBlock(nn.Module):
@@ -170,7 +171,7 @@ class XNetv4(nn.Module):
         x = self.fc(x)
         return x
 
-
+# v3 + Group
 class XNetv5(nn.Module):
     def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
@@ -182,18 +183,21 @@ class XNetv5(nn.Module):
             Conv2dBlock(in_channels * 16, 32, 3),
 
             Conv2dBlock(32, filters * 1, 3),
-            Conv2dBlock(filters * 1, filters * 2, 3),
-            Conv2dBlock(filters * 2, filters * 2, 3),
-            Conv2dBlock(filters * 2, filters * 2, 3),
-            Conv2dBlock(filters * 2, filters * 4, 5, stride=2, padding=2),
-            Conv2dBlock(filters * 4, filters * 4, 3),
-            Conv2dBlock(filters * 4, filters * 4, 3),
-            Conv2dBlock(filters * 4, filters * 8, 5, stride=2, padding=2),
-            Conv2dBlock(filters * 8, filters * 8, 3),
-            Conv2dBlock(filters * 8, filters * 8, 3),
-            Conv2dBlock(filters * 8, filters * 16, 5, stride=2, padding=2),
-            Conv2dBlock(filters * 16, filters * 16, 3),
-            Conv2dBlock(filters * 16, filters * 16, 3),
+            Conv2dBlock(filters * 1, filters * 2, 3, groups=4),
+            Conv2dBlock(filters * 2, filters * 2, 3, groups=6),
+            Conv2dBlock(filters * 2, filters * 2, 3, groups=4),
+            Conv2dBlock(filters * 2, filters * 4, 5,
+                        stride=2, padding=2, groups=6),
+            Conv2dBlock(filters * 4, filters * 4, 3, groups=4),
+            Conv2dBlock(filters * 4, filters * 4, 3, groups=6),
+            Conv2dBlock(filters * 4, filters * 8, 5,
+                        stride=2, padding=2, groups=4),
+            Conv2dBlock(filters * 8, filters * 8, 3, groups=6),
+            Conv2dBlock(filters * 8, filters * 8, 3, groups=4),
+            Conv2dBlock(filters * 8, filters * 16, 5,
+                        stride=2, padding=2, groups=6),
+            Conv2dBlock(filters * 16, filters * 16, 3, groups=4),
+            Conv2dBlock(filters * 16, filters * 16, 3, groups=6),
         )
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))

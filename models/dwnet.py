@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-__all__ = ['DWNet', 'DWNetv2']
+__all__ = ['DWNet', 'DWNetv2', 'DWNetv3']
 
 
 class Conv2dBlock(nn.Module):
@@ -147,10 +147,11 @@ class DWBlockv3(nn.Module):
     def forward(self, x):
         return self.layer(x)
 
-
 class DWNetv3(nn.Module):
     def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
+
+        filters = 24
 
         self.features = nn.Sequential(
             Conv2dBlock(in_channels, filters * 1, stride=2),
@@ -158,15 +159,15 @@ class DWNetv3(nn.Module):
             DWBlockv3(filters * 2, filters * 4, stride=2),
             DWBlockv3(filters * 4, filters * 4),
             DWBlockv3(filters * 4, filters * 8, stride=2),
-            DWBlockv3(filters * 8, filters * 8),
-            DWBlockv3(filters * 8, filters * 16, stride=2),
-            DWBlockv3(filters * 16, filters * 16),
-            DWBlockv3(filters * 16, filters * 16),
-            DWBlockv3(filters * 16, filters * 16),
-            DWBlockv3(filters * 16, filters * 16),
-            DWBlockv3(filters * 16, filters * 16),
-            DWBlockv3(filters * 16, filters * 32, stride=2),
-            DWBlockv3(filters * 32, filters * 32),
+            DWBlockv3(filters * 8, filters * 8, groups=4),
+            DWBlockv3(filters * 8, filters * 16, stride=2, groups=6),
+            DWBlockv3(filters * 16, filters * 16, groups=4),
+            DWBlockv3(filters * 16, filters * 16, groups=6),
+            DWBlockv3(filters * 16, filters * 16, groups=4),
+            DWBlockv3(filters * 16, filters * 16, groups=6),
+            DWBlockv3(filters * 16, filters * 16, groups=4),
+            DWBlockv3(filters * 16, filters * 32, stride=2, groups=6),
+            DWBlockv3(filters * 32, filters * 32, groups=4),
         )
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))

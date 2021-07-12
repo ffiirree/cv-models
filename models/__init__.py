@@ -6,3 +6,4 @@ from .multiinputnet import  *
 from .dwnet import *
 from .micronet import *
 from .vgglite import *
+from .muxnet import *
