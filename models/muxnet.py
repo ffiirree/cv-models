@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
+from .core import blocks
 
-__all__ = ['MUXNet', 'MUXNetv2', 'MUXNetv3']
+__all__ = ['MUXNet', 'MUXNetv2', 'MUXNetv3', 'MUXNetv4']
 
 
 class Conv2dBlock(nn.Module):
@@ -174,7 +175,10 @@ class MUXNetv2(nn.Module):
         self.features = self.make_layers()
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(filters * 32, num_classes)
+        self.fc = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(filters * 32, num_classes)
+        )
 
     def make_layers(self):
         dw1 = DWBlockv2(self.filters * 1)
@@ -243,6 +247,7 @@ class MUXNetv2(nn.Module):
         x = self.fc(x)
         return x
 
+
 class NonLinearBlock(nn.Module):
     def __init__(self, channels: int):
         super().__init__()
@@ -254,6 +259,7 @@ class NonLinearBlock(nn.Module):
 
     def forward(self, x):
         return self.layer(x)
+
 
 class MUXNetv3(nn.Module):
     def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
@@ -337,6 +343,83 @@ class MUXNetv3(nn.Module):
 
             dw32,
             NonLinearBlock(self.filters * 32),
+            PWBlock(self.filters * 32, self.filters * 32),
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+
+
+class MUXNetv4(nn.Module):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+        super().__init__()
+
+        self.in_channels = in_channels
+        self.filters = filters
+
+        self.features = self.make_layers()
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(filters * 32, num_classes)
+
+    def make_layers(self):
+        dw1 = DWBlockv2(self.filters * 1)
+
+        dw2 = DWBlockv2(self.filters * 2)
+        dw2s2 = DWBlockv2(self.filters * 2, stride=2)
+
+        dw4 = DWBlockv2(self.filters * 4, mux_layer=dw2)
+        dw4s2 = DWBlockv2(self.filters * 4, stride=2, mux_layer=dw2s2)
+
+        dw8 = DWBlockv2(self.filters * 8, mux_layer=dw4)
+        dw8s2 = DWBlockv2(self.filters * 8, stride=2, mux_layer=dw4s2)
+
+        dw16 = DWBlockv2(self.filters * 16, mux_layer=dw8)
+
+        return nn.Sequential(
+            Conv2dBlock(self.in_channels, self.filters * 1, stride=2),
+
+            dw1,
+            PWBlock(self.filters * 1, self.filters * 2),
+
+            dw2s2,
+            PWBlock(self.filters * 2, self.filters * 4),
+
+            DWBlockv2(self.filters * 4, mux_layer=dw2),
+            PWBlock(self.filters * 4, self.filters * 4),
+
+            dw4,
+            PWBlock(self.filters * 4, self.filters * 8),
+
+            dw8,
+            PWBlock(self.filters * 8, self.filters * 8),
+
+            dw8s2,
+            PWBlock(self.filters * 8, self.filters * 16),
+
+            DWBlockv2(self.filters * 16, mux_layer=dw8),
+            PWBlock(self.filters * 16, self.filters * 16),
+
+            DWBlockv2(self.filters * 16, mux_layer=dw8),
+            PWBlock(self.filters * 16, self.filters * 16),
+
+            DWBlockv2(self.filters * 16, mux_layer=dw8),
+            PWBlock(self.filters * 16, self.filters * 16),
+
+            DWBlockv2(self.filters * 16, mux_layer=dw8),
+            PWBlock(self.filters * 16, self.filters * 16),
+
+            DWBlockv2(self.filters * 16, mux_layer=dw8),
+            PWBlock(self.filters * 16, self.filters * 16),
+
+            dw16,
+            PWBlock(self.filters * 16, self.filters * 32),
+
+            DWBlockv2(self.filters * 32, mux_layer=dw16),
             PWBlock(self.filters * 32, self.filters * 32),
         )
 

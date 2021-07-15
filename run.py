@@ -8,7 +8,8 @@ def run_script(script:str, args:str=''):
     time.sleep(1)
 
 if __name__ == '__main__':
-    cmd = '-m torch.distributed.launch --nproc_per_node=2 imagenet.py "/datasets/ILSVRC2012" --workers 8 --dali_cpu --amp --lr 0.2 --batch-size 512 --epochs 60'
+    # cmd = '-m torch.distributed.launch --nproc_per_node=2 imagenet.py "/datasets/ILSVRC2012" --workers 8 --dali_cpu --amp --lr 0.2 --batch-size 512 --epochs 60'
+    cmd = '-m torch.distributed.launch --nproc_per_node=4 cifar10.py "~/data/datasets/CIFAR10" --workers 4 --amp --lr 0.05 --batch-size 128 --epochs 35'
     # run_script(cmd, '-a XNetv3')
     # run_script(cmd, '-a DWNetv2')
     # run_script(cmd, '-a MicroNet')
@@ -18,6 +19,6 @@ if __name__ == '__main__':
     # run_script(cmd, '-a XNetv5')
     # run_script(cmd, '-a DWNetv3')
     # run_script(cmd, '-a MUXNet --filters 64')
-    run_script(cmd, '-a MUXNetv3')
     run_script(cmd, '-a MUXNetv2')
-    run_script(cmd, '-a MUXNetv1')
+    run_script(cmd, '-a XNet')
+    run_script(cmd, '-a DWNetv2')

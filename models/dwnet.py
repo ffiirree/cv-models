@@ -1,26 +1,19 @@
 import torch
 import torch.nn as nn
+from .core import blocks
 
 __all__ = ['DWNet', 'DWNetv2', 'DWNetv3']
 
 
-class Conv2dBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size: int = 3, stride: int = 1, padding: int = 1):
-        super().__init__()
-
-        self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
-                      bias=False, stride=stride, padding=padding),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(out_channels)
-        )
-
-    def forward(self, x):
-        return self.layer(x)
-
-
 class DWBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size: int = 3, stride: int = 1, padding: int = 1):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: int = 1
+    ):
         super().__init__()
 
         self.layer = nn.Sequential(
@@ -43,7 +36,7 @@ class DWNet(nn.Module):
         super().__init__()
 
         self.features = nn.Sequential(
-            Conv2dBlock(in_channels, filters * 1, stride=2),
+            blocks.Conv2dBlock(in_channels, filters * 1, stride=2),
             DWBlock(filters * 1, filters * 2),
             DWBlock(filters * 2, filters * 4, stride=2),
             DWBlock(filters * 4, filters * 4),
@@ -94,7 +87,7 @@ class DWNetv2(nn.Module):
         super().__init__()
 
         self.features = nn.Sequential(
-            Conv2dBlock(in_channels, filters * 1, stride=2),
+            blocks.Conv2dBlock(in_channels, filters * 1, stride=2),
             DWBlock2(filters * 1, filters * 2),
             DWBlock2(filters * 2, filters * 4, stride=2),
             DWBlock2(filters * 4, filters * 4),
@@ -147,6 +140,7 @@ class DWBlockv3(nn.Module):
     def forward(self, x):
         return self.layer(x)
 
+
 class DWNetv3(nn.Module):
     def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
@@ -154,7 +148,7 @@ class DWNetv3(nn.Module):
         filters = 24
 
         self.features = nn.Sequential(
-            Conv2dBlock(in_channels, filters * 1, stride=2),
+            blocks.Conv2dBlock(in_channels, filters * 1, stride=2),
             DWBlockv3(filters * 1, filters * 2),
             DWBlockv3(filters * 2, filters * 4, stride=2),
             DWBlockv3(filters * 4, filters * 4),
