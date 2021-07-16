@@ -7,6 +7,7 @@ __all__ = ['EfficientNet', 'efficientnet_b0', 'efficientnet_b1', 'efficientnet_b
            'efficientnet_b4', 'efficientnet_b5', 'efficientnet_b6', 'efficientnet_b7', 'efficientnet_b8',
            'efficientnet_l2', 'efficientnet_params']
 
+_BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
@@ -95,7 +96,7 @@ class EfficientNet(nn.Module):
         num_classes: int = 1000,
         width_coefficient: float = 1,
         depth_coefficient: float = 1,
-        dropout_rate: float = 1,
+        dropout_rate: float = 0.2,
     ):
         super().__init__()
 
@@ -117,6 +118,7 @@ class EfficientNet(nn.Module):
                 self.c[0],
                 kernel_size=3,
                 stride=2,
+                bn_epsilon=_BN_EPSILON,
                 bn_momentum=_BN_MOMENTUM,
                 activation_layer=self.activation_layer
             )
@@ -141,6 +143,7 @@ class EfficientNet(nn.Module):
             blocks.Conv2d1x1Block(
                 self.c[-2],
                 self.c[-1],
+                bn_epsilon=_BN_EPSILON,
                 bn_momentum=_BN_MOMENTUM,
                 activation_layer=self.activation_layer
             )
@@ -149,7 +152,7 @@ class EfficientNet(nn.Module):
         self.features = nn.Sequential(*features)
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Sequential(
+        self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate),
             nn.Linear(self.c[-1], num_classes)
         )
@@ -176,7 +179,8 @@ class EfficientNet(nn.Module):
                     inp, oup, t,
                     kernel_size=kernel_size, stride=stride,
                     survival_prob=survival_prob, se_ratio=se_ratio,
-                    bn_momentum=_BN_MOMENTUM, activation_layer=self.activation_layer
+                    bn_epsilon=_BN_EPSILON, bn_momentum=_BN_MOMENTUM,
+                    activation_layer=self.activation_layer
                 )
             )
 
@@ -202,5 +206,5 @@ class EfficientNet(nn.Module):
         x = self.features(x)
         x = self.avg(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x

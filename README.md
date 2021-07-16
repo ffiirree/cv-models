@@ -48,6 +48,10 @@
 |EfficientNet-B4    | 2019 | Paper       | 83.000 | 96.300 |  19.3416 |  1544.606 |
 |EfficientNet-B5    | 2019 | Paper       | 83.700 | 96.700 |  30.3898 |  2413.021 |
 |EfficientNet-B6    | 2019 | Paper       | 84.200 | 96.800 |  43.0407 |  3432.558 |
-|EfficientNet-B7    | 2019 | Paper       | 84.400 | 97.100 |  66.3480 |  5267.130 |
+|EfficientNet-B7    | 2019 | Paper       | 84.400 |        |  66.3480 |  5267.130 |
+|EfficientNetV2-S   | 2021 | Paper       | 83.900 |        |  22.0000 |           |
+|EfficientNetV2-M   | 2021 | Paper       | 85.100 |        |  54.0000 |           |
+|EfficientNetV2-L   | 2021 | Paper       | 85.700 |        | 120.0000 |           |
+|EfficientNetV2-XL  | 2021 |             |        |        | 208.0000 |           |
 
 > **MACs** : Multiply-Accumulate Operations
