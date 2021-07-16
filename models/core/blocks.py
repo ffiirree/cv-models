@@ -395,6 +395,7 @@ class InvertedResidualBlock(nn.Module):
         stride: int = 1,
         padding: int = None,
         se_ratio: float = None,
+        se_ind: bool = False,
         survival_prob: float = None,
         bn_momentum: float = 0.1,
         norm_layer: nn.Module = nn.BatchNorm2d,
@@ -403,25 +404,28 @@ class InvertedResidualBlock(nn.Module):
         super().__init__()
 
         self.inp = inp
+        self.planes = int(self.inp * t)
         self.oup = oup
         self.stride = stride
         self.padding = padding if padding is not None else (kernel_size // 2)
         self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
+        self.se_ratio = se_ratio if se_ind or se_ratio is None else (se_ratio / t)
+        self.has_se = (self.se_ratio is not None) and (self.se_ratio > 0) and (self.se_ratio <= 1)
 
         layers = []
         if t != 1:
             layers.append(Conv2d1x1Block(
-                inp, inp * t, bn_momentum=bn_momentum, norm_layer=norm_layer,
+                inp, self.planes, bn_momentum=bn_momentum, norm_layer=norm_layer,
                 activation_layer=activation_layer))
 
-        layers.append(DepthwiseBlock(inp * t, inp * t, kernel_size, stride=self.stride, padding=self.padding,
+        layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
                                      bn_momentum=bn_momentum, norm_layer=norm_layer, activation_layer=activation_layer))
 
-        if (se_ratio is not None) and (se_ratio > 0) and (se_ratio <= 1):
-            layers.append(SEBlock(inp * t, se_ratio / t))
+        if self.has_se:
+            layers.append(SEBlock(self.planes, self.se_ratio))
 
         layers.append(Conv2d1x1BN(
-            inp * t, oup, bn_momentum=bn_momentum, norm_layer=norm_layer))
+            self.planes, oup, bn_momentum=bn_momentum, norm_layer=norm_layer))
 
         if self.apply_residual and survival_prob:
             layers.append(DropBlock(survival_prob))

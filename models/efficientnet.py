@@ -8,7 +8,7 @@ __all__ = ['EfficientNet', 'efficientnet_b0', 'efficientnet_b1', 'efficientnet_b
            'efficientnet_l2', 'efficientnet_params']
 
 # Paper suggests 0.99 momentum
-_BN_MOMENTUM = 1 - 0.99
+_BN_MOMENTUM = 0.01
 
 
 def efficientnet_params(model_name):

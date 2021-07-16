@@ -5,7 +5,7 @@ from .core import blocks
 __all__ = ['MnasNet', 'mnasnet_a1']
 
 # Paper suggests 0.99 momentum
-_BN_MOMENTUM = 1 - 0.99
+_BN_MOMENTUM = 0.01
 
 
 class MnasNet(nn.Module):
