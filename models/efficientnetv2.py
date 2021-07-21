@@ -9,6 +9,9 @@ _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
+blocks.BN_EPSILON = _BN_EPSILON
+blocks.BN_MOMENTUM = _BN_MOMENTUM
+
 
 def efficientnet_params(model_name):
     """Get efficientnet params based on model name."""
@@ -40,7 +43,7 @@ efficientnetv2_params = {
 }
 
 
-def efficientnet_v2_s():
+def efficientnet_v2_s(pretrained: bool = False):
     return EfficientNetv2(
         dropout_rate=0.2,
         block_type=[0, 0, 0, 1, 1, 1],
@@ -52,35 +55,35 @@ def efficientnet_v2_s():
     )
 
 
-def efficientnet_v2_m():
+def efficientnet_v2_m(pretrained: bool = False):
     return EfficientNetv2(
         dropout_rate=0.3,
-        block_type=[0, 0, 0, 1, 1, 1, 1], 
-        expand_ratio=[1, 4, 4, 4, 6, 6, 6], 
+        block_type=[0, 0, 0, 1, 1, 1, 1],
+        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
         filters=[24, 24, 48, 80, 160, 176, 304, 512, 1280],
         layers=[3, 5, 5, 7, 14, 18, 5],
-        strides=[1, 2, 2, 2, 1, 2, 1], 
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25]    
-    )
-
-
-def efficientnet_v2_l():
-    return EfficientNetv2(
-        dropout_rate=0.3, 
-        block_type=[0, 0, 0, 1, 1, 1, 1], 
-        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
-        filters=[32, 32, 64, 96, 192, 224, 384, 640, 1280],
-        layers=[4, 7, 7, 10, 19, 25, 7], 
-        strides=[1, 2, 2, 2, 1, 2, 1], 
+        strides=[1, 2, 2, 2, 1, 2, 1],
         se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25]
     )
 
 
-def efficientnet_v2_xl():
+def efficientnet_v2_l(pretrained: bool = False):
+    return EfficientNetv2(
+        dropout_rate=0.3,
+        block_type=[0, 0, 0, 1, 1, 1, 1],
+        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
+        filters=[32, 32, 64, 96, 192, 224, 384, 640, 1280],
+        layers=[4, 7, 7, 10, 19, 25, 7],
+        strides=[1, 2, 2, 2, 1, 2, 1],
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25]
+    )
+
+
+def efficientnet_v2_xl(pretrained: bool = False):
     return EfficientNetv2(
         dropout_rate=0.4,
-        block_type=[0, 0, 0, 1, 1, 1, 1], 
-        expand_ratio=[1, 4, 4, 4, 6, 6, 6], 
+        block_type=[0, 0, 0, 1, 1, 1, 1],
+        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
         filters=[32, 32, 64, 96, 192, 256, 512, 640, 1280],
         layers=[4, 8, 8, 16, 24, 32, 8],
         strides=[1, 2, 2, 2, 1, 2, 1],
@@ -113,9 +116,7 @@ class EfficientNetv2(nn.Module):
 
         features = [
             blocks.Conv2dBlock(
-                in_channels, filters[0], stride=2, 
-                bn_epsilon=_BN_EPSILON, bn_momentum=_BN_MOMENTUM,
-                activation_layer=self.activation_layer)
+                in_channels, filters[0], stride=2, activation_layer=self.activation_layer)
         ]
 
         for i in range(len(expand_ratio)):
@@ -126,9 +127,7 @@ class EfficientNetv2(nn.Module):
                 )
             )
 
-        features.append(blocks.Conv2d1x1Block(
-            filters[-2], filters[-1], bn_epsilon=_BN_EPSILON, bn_momentum=_BN_MOMENTUM)
-        )
+        features.append(blocks.Conv2d1x1Block(filters[-2], filters[-1]))
 
         self.features = nn.Sequential(*features)
 
@@ -161,7 +160,6 @@ class EfficientNetv2(nn.Module):
                     inp, oup, t,
                     stride=stride,
                     survival_prob=survival_prob, se_ratio=se_ratio,
-                    bn_epsilon=_BN_EPSILON, bn_momentum=_BN_MOMENTUM,
                     activation_layer=self.activation_layer
                 )
             )

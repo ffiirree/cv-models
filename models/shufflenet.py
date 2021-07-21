@@ -42,7 +42,7 @@ class ShuffleCatBlock(nn.Module):
         super().__init__()
 
         g_1st = g if apply_first else 1
-        
+
         self.branch1 = nn.Sequential(OrderedDict([
             ('gconv1', blocks.Conv2d1x1Block(in_channels, out_channels, groups=g_1st)),
             ('shuffle', blocks.ChannelShuffle(groups=g)),
@@ -60,30 +60,30 @@ class ShuffleCatBlock(nn.Module):
         return x
 
 
-def shufflenet_g1(in_channels: int = 3, num_classes: int = 1000):
-    return ShuffleNet(in_channels, num_classes, [4, 8, 4], [24, 144, 288, 576], g=1)
+def shufflenet_g1(pretrained: bool = False):
+    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 144, 288, 576], g=1)
 
 
-def shufflenet_g2(in_channels: int = 3, num_classes: int = 1000):
-    return ShuffleNet(in_channels, num_classes, [4, 8, 4], [24, 200, 400, 800], g=2)
+def shufflenet_g2(pretrained: bool = False):
+    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 200, 400, 800], g=2)
 
 
-def shufflenet_g3(in_channels: int = 3, num_classes: int = 1000):
-    return ShuffleNet(in_channels, num_classes, [4, 8, 4], [24, 240, 480, 960], g=3)
+def shufflenet_g3(pretrained: bool = False):
+    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 240, 480, 960], g=3)
 
 
-def shufflenet_g4(in_channels: int = 3, num_classes: int = 1000):
-    return ShuffleNet(in_channels, num_classes, [4, 8, 4], [24, 272, 544, 1088], g=4)
+def shufflenet_g4(pretrained: bool = False):
+    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 272, 544, 1088], g=4)
 
 
-def shufflenet_g8(in_channels: int = 3, num_classes: int = 1000):
-    return ShuffleNet(in_channels, num_classes, [4, 8, 4], [24, 384, 768, 1536], g=8)
+def shufflenet_g8(pretrained: bool = False):
+    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 384, 768, 1536], g=8)
 
 
 class ShuffleNet(nn.Module):
     def __init__(
         self,
-        in_channels,
+        in_channels: int = 3,
         num_classes: int = 1000,
         repeats: list = [4, 84, 4],
         channels: list = [],

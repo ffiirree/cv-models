@@ -2,7 +2,11 @@ import torch
 import torch.nn as nn
 from .core import blocks
 
-__all__ = ['MobileNetv2']
+__all__ = ['MobileNetv2', 'mobilenet_v2']
+
+
+def mobilenet_v2(pretrained: bool = False):
+    return MobileNetv2()
 
 
 class MobileNetv2(nn.Module):
@@ -29,8 +33,8 @@ class MobileNetv2(nn.Module):
 
         self.features = nn.Sequential(*features)
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Sequential(
-            nn.Dropout(0.2),
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.2, inplace=True),
             nn.Linear(c[-1], num_classes)
         )
 
@@ -53,6 +57,6 @@ class MobileNetv2(nn.Module):
         x = self.features(x)
         x = self.avg(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
 
         return x

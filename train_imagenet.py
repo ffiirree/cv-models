@@ -1,66 +1,81 @@
 import argparse
 import os
+import datetime
 import math
+import numpy as np
 import torch
 import torchvision
 import torch.distributed as dist
 import time
 from utils import *
 import models
+from torch.nn.parallel import DistributedDataParallel
 
 from nvidia.dali.plugin.pytorch import DALIClassificationIterator, LastBatchPolicy
 from nvidia.dali.pipeline import pipeline_def
 import nvidia.dali.types as types
 import nvidia.dali.fn as fn
-from thop import profile
+
 
 def parse_args():
-    # model_names = sorted(name for name in torchvision.models.__dict__
-    #                  if name.islower() and not name.startswith("__")
-    #                  and callable(torchvision.models.__dict__[name]))
-
     model_names = sorted(name for name in models.__dict__
-                     if not name.startswith("__")
-                     and callable(models.__dict__[name]))
+                         if name.islower() and not name.startswith("__")
+                         and callable(models.__dict__[name]))
 
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-    parser.add_argument('data', metavar='DIR', help='path to dataset')
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='XNet',
-                        choices=model_names,
-                        help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: XNet)')
-    # parser.add_argument('--pretrained', dest='pretrained', action='store_true',
-    #                     help='use pre-trained model')
-    parser.add_argument('--deterministic', action='store_true')
-    parser.add_argument('--local_rank', metavar='RANK', type=int, default=0)
-    parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                        help='number of data loading workers (default: 4)')
-    parser.add_argument('--epochs', default=90, type=int, metavar='N',
-                        help='number of total epochs to run')
-    parser.add_argument('-b', '--batch-size', default=256, type=int,
-                        metavar='N',
-                        help='mini-batch size (default: 256), this is the total '
-                        'batch size of all GPUs on the current node when '
-                        'using Data Parallel or Distributed Data Parallel')
-    parser.add_argument('--filters', metavar='FILTERS', type=int, default=32)
-    parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
-                        metavar='LR', help='Initial learning rate.  Will be scaled by <global batch size>/256: args.lr = args.lr*float(args.batch_size*args.world_size)/256.  A warmup schedule will also be applied over the first 5 epochs.')
-    parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
-                        help='momentum')
-    parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
-                        metavar='W', help='weight decay (default: 1e-4)')
-    parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                        help='evaluate model on validation set')
-    parser.add_argument('--print-freq', '-p', default=25, type=int,
-                        metavar='N', help='print frequency (default: 10)')
+    parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
+                        help='path to the ImageNet dataset.')
+    parser.add_argument('--model', type=str, default='muxnet_v2', choices=model_names,
+                        help='type of model to use. (default: muxnet_v2)')
+    parser.add_argument('--input-size', type=int, default=224,  metavar='SIZE',
+                        help='size of the input image size. (default: 224)')
+    parser.add_argument('--pretrained', action='store_true',
+                        help='use pre-trained model. (default: false)')
+    parser.add_argument('--deterministic', action='store_true',
+                        help='reproducibility. (default: false)')
+    parser.add_argument('--local_rank', type=int, default=0, metavar='RANK')
+    parser.add_argument('--workers', '-j', type=int, default=4, metavar='N',
+                        help='number of data loading workers pre GPU. (default: 4)')
+    parser.add_argument('--batch-size', type=int, default=256, metavar='N',
+                        help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
+    parser.add_argument('--epochs', type=int, default=100,  metavar='N',
+                        help='number of total epochs to run. (default: 100)')
+    parser.add_argument('--lr', type=float, default=0.1,
+                        help='initial learning rate. (default: 0.1)')
+    parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
+                        help='momentum of SGD. (default: 0.9)')
+    parser.add_argument('--wd', type=float, default=1e-4,
+                        help='weight decay. (default: 1e-4)')
+    parser.add_argument('--lr-mode', type=str, default='cosine', choices=['step', 'cosine'],
+                        help="learning rate scheduler mode, options are [cosine, step]. (default: cosine)")
+    parser.add_argument('--lr-decay', type=float, default=0.1, metavar='RATE',
+                        help='decay rate of learning rate. (default: 0.1)')
+    parser.add_argument('--lr-decay-epochs', type=int, default=0, metavar='N',
+                        help='interval for periodic learning rate decays. (default: 0)')
+    parser.add_argument('--warmup-epochs', type=int, default=0, metavar='N',
+                        help='number of warmup epochs. (default: 0)')
+    parser.add_argument('--mixup', action='store_true',
+                        help='whether train the model with mix-up. (default: false)')
+    parser.add_argument('--mixup-alpha', type=float, default=0.2, metavar='V',
+                        help='beta distribution parameter for mixup sampling. (default: 0.2)')
+    parser.add_argument('--mixup-off-epoch', type=int, default=0, metavar='N',
+                        help='how many last epochs to train without mixup. (default: 0)')
+    parser.add_argument('--label-smoothing', action='store_true',
+                        help='use label smoothing or not in training. (default: false)')
+    parser.add_argument('--evaluate', action='store_true',
+                        help='evaluate model on validation set. (default: false)')
+    parser.add_argument('--print-freq', default=50, type=int, metavar='N',
+                        help='print frequency. (default: 10)')
     parser.add_argument('--sync_bn', action='store_true',
-                        help='enabling apex sync BN.')
-    parser.add_argument('--amp',                action='store_true')
-    parser.add_argument('--dali_cpu', action='store_true',
-                        help='Runs CPU based version of DALI pipeline.')
-    parser.add_argument('--output_dir', type=str, default='logs')
+                        help='use SyncBatchNorm. (default: false)')
+    parser.add_argument('--amp', action='store_true',
+                        help='mixed precision. (default: false)')
+    parser.add_argument('--dali-cpu', action='store_true',
+                        help='runs CPU based version of DALI pipeline. (default: false)')
+    parser.add_argument('--output-dir', type=str,
+                        default=f'logs/{datetime.date.today()}', metavar='DIR')
     return parser.parse_args()
+
 
 @pipeline_def
 def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=False, is_training=True):
@@ -70,23 +85,32 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
                                      random_shuffle=is_training,
                                      pad_last_batch=True,
                                      name="Reader")
+
     dali_device = 'cpu' if dali_cpu else 'gpu'
     decoder_device = 'cpu' if dali_cpu else 'mixed'
     device_memory_padding = 211025920 if decoder_device == 'mixed' else 0
     host_memory_padding = 140544512 if decoder_device == 'mixed' else 0
+
     if is_training:
         images = fn.decoders.image_random_crop(images,
-                                               device=decoder_device, output_type=types.RGB,
+                                               device=decoder_device,
+                                               output_type=types.RGB,
                                                device_memory_padding=device_memory_padding,
                                                host_memory_padding=host_memory_padding,
-                                               random_aspect_ratio=[0.8, 1.25],
-                                               random_area=[0.1, 1.0],
+                                               random_aspect_ratio=[3/4, 4/3],
+                                               random_area=[0.08, 1.0],
                                                num_attempts=100)
         images = fn.resize(images,
                            device=dali_device,
                            resize_x=crop,
                            resize_y=crop,
                            interp_type=types.INTERP_TRIANGULAR)
+        images = fn.color_twist(images,
+                                device=dali_device,
+                                brightness=fn.random.uniform(range=[0.6, 1.4]),
+                                contrast=fn.random.uniform(range=[0.6, 1.4]),
+                                saturation=fn.random.uniform(range=[0.6, 1.4]),
+                                hue=fn.random.uniform(range=[0.6, 1.4]))
         mirror = fn.random.coin_flip(probability=0.5)
     else:
         images = fn.decoders.image(images,
@@ -103,37 +127,52 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
                                       dtype=types.FLOAT,
                                       output_layout="CHW",
                                       crop=(crop, crop),
-                                      mean=[0.485 * 255,0.456 * 255,0.406 * 255],
-                                      std=[0.229 * 255,0.224 * 255,0.225 * 255],
+                                      mean=[0.485 * 255, 0.456 *
+                                            255, 0.406 * 255],
+                                      std=[0.229 * 255, 0.224 *
+                                           255, 0.225 * 255],
                                       mirror=mirror)
+
     labels = labels.gpu()
     return images, labels
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
-    
+    mixup = MixUp(args.mixup_alpha, criterion)
+
+    use_mixup = args.mixup and args.mixup_off_epoch < (args.epochs - epoch)
+    logger.info(f'mixup: {use_mixup}, {mixup}')
+
     model.train()
-    
+
     end = time.time()
     for i, data in enumerate(train_loader):
         input = data[0]["data"]
         target = data[0]["label"].squeeze(-1).long()
 
-        adjust_learning_rate(optimizer, epoch, i, int(math.ceil(train_loader._size / args.batch_size)))
+        # MixUP
+        if use_mixup:
+            input, target = mixup.mix(input, target)
 
         optimizer.zero_grad(set_to_none=True)
 
         with torch.cuda.amp.autocast(enabled=args.amp):
             output = model(input)
-            loss = criterion(output, target)
+            if use_mixup:
+                loss = mixup.loss(output, target)
+                target = target[0]
+            else:
+                loss = criterion(output, target)
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
+
+        scheduler.step()
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), input.size(0))
@@ -149,6 +188,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
                         f'l={losses.val:>.5f}/{losses.avg:>.5f}, '
                         f't1={top1.val:>6.3f}/{top1.avg:>6.3f}, '
                         f't5={top5.val:>6.3f}/{top5.avg:>6.3f}')
+
 
 def validate(val_loader, model, criterion):
     batch_time = AverageMeter()
@@ -195,32 +235,13 @@ def validate(val_loader, model, criterion):
                     f'top5={top5.item() / dist.get_world_size():>6.3f}')
 
 
-def adjust_learning_rate(optimizer, epoch, step, len_epoch):
-    """LR schedule that should yield 76% converged accuracy with batch size 256"""
-    warmup_epochs = 5
-
-    factor = epoch // 10
-
-    if epoch >= 55:
-        factor = factor + 1
-
-    lr = args.lr*(0.2**factor)
-
-    """Warmup"""
-    if epoch < warmup_epochs:
-        lr = lr * float(1 + step + epoch * len_epoch) / (warmup_epochs * len_epoch)
-
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-
 if __name__ == '__main__':
     assert torch.cuda.is_available(), 'CUDA IS NOT AVAILABLE!!'
 
     args = parse_args()
     args.batch_size = int(args.batch_size / torch.cuda.device_count())
 
-    logger = make_logger(f'imagenet_{args.arch}', 'logs')
+    logger = make_logger(f'imagenet_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
     logger.info(args)
 
     torch.backends.cudnn.benchmark = True
@@ -230,47 +251,41 @@ if __name__ == '__main__':
     torch.cuda.set_device(args.local_rank)
     dist.init_process_group('nccl')
 
-    model = models.__dict__[args.arch](3, 1000, args.filters)
-    # model = torchvision.models.__dict__[args.arch]()
+    model = models.__dict__[args.model]()
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    
+
     model = model.cuda()
     if args.local_rank == 0:
         logger.info(f'Model: \n{model}')
 
-        # macs, params = profile(model, inputs=(torch.randn(1, 3, 224, 224).cuda(),))
-        # logger.info(f'MACs: {macs / 1000000000:>.3f}G, Params: {params / 1000000:.2f}M (Store: {params / (256 * 1024):>.2f}MB)')
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
+    model = DistributedDataParallel(model, device_ids=[args.local_rank])
     optimizer = torch.optim.SGD(model.parameters(),
                                 args.lr,
                                 momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+                                weight_decay=args.wd)
     criterion = torch.nn.CrossEntropyLoss().cuda()
 
-    
     pipe = create_dali_pipeline(batch_size=args.batch_size,
                                 num_threads=args.workers,
                                 device_id=args.local_rank,
                                 seed=12 + args.local_rank,
-                                data_dir=os.path.join(args.data, 'train'),
-                                crop=224,
+                                data_dir=os.path.join(args.data_dir, 'train'),
+                                crop=args.input_size,
                                 size=256,
                                 dali_cpu=args.dali_cpu,
                                 shard_id=args.local_rank,
                                 num_shards=dist.get_world_size(),
                                 is_training=True)
-
     pipe.build()
     train_loader = DALIClassificationIterator(pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
-
 
     pipe = create_dali_pipeline(batch_size=args.batch_size,
                                 num_threads=args.workers,
                                 device_id=args.local_rank,
                                 seed=12 + args.local_rank,
-                                data_dir=os.path.join(args.data, 'val'),
-                                crop=224,
+                                data_dir=os.path.join(args.data_dir, 'val'),
+                                crop=args.input_size,
                                 size=256,
                                 dali_cpu=args.dali_cpu,
                                 shard_id=args.local_rank,
@@ -278,24 +293,38 @@ if __name__ == '__main__':
                                 is_training=False)
     pipe.build()
     val_loader = DALIClassificationIterator(pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
-    
+
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
-    
+
     benchmark = Benchmark()
     if args.evaluate:
         validate(val_loader, model, criterion)
     else:
+        if args.lr_mode == 'step':
+            scheduler = lr.WarmUpStepLR(
+                optimizer,
+                warmup_steps=args.warmup_epochs * len(train_loader),
+                steps=args.lr_decay_epochs * len(train_loader),
+                gamma=args.lr_decay
+            )
+        else:
+            scheduler = lr.WarmUpCosineLR(
+                optimizer,
+                warmup_steps=args.warmup_epochs * len(train_loader),
+                steps=args.epochs * len(train_loader),
+                min_lr=1e-8
+            )
+
+        logger.info(scheduler)
+
         for epoch in range(0, args.epochs):
-            train(train_loader, model, criterion, optimizer, epoch, args)
+            train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
             validate(val_loader, model, criterion)
             train_loader.reset()
             val_loader.reset()
 
             if args.local_rank == 0:
-                model_name = f'{args.output_dir}/{args.arch}_{time.time()}_{epoch}.pt'
+                model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pt'
                 torch.save(model.module.state_dict(), model_name)
                 logger.info(f'Saved: {model_name}!')
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')
-
-
-

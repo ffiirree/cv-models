@@ -11,6 +11,9 @@ _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
+blocks.BN_EPSILON = _BN_EPSILON
+blocks.BN_MOMENTUM = _BN_MOMENTUM
+
 
 def efficientnet_params(model_name):
     """Get efficientnet params based on model name."""
@@ -30,52 +33,52 @@ def efficientnet_params(model_name):
     return params_dict[model_name]
 
 
-def efficientnet_b0():
+def efficientnet_b0(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b0')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_b1():
+def efficientnet_b1(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b1')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_b2():
+def efficientnet_b2(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b2')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_b3():
+def efficientnet_b3(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b3')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_b4():
+def efficientnet_b4(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b4')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_b5():
+def efficientnet_b5(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b5')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_b6():
+def efficientnet_b6(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b6')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_b7():
+def efficientnet_b7(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b7')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_b8():
+def efficientnet_b8(pretrained: bool = False):
     args = efficientnet_params('efficientnet-b8')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
 
-def efficientnet_l2():
+def efficientnet_l2(pretrained: bool = False):
     args = efficientnet_params('efficientnet-l2')
     return EfficientNet(width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
 
@@ -118,8 +121,6 @@ class EfficientNet(nn.Module):
                 self.c[0],
                 kernel_size=3,
                 stride=2,
-                bn_epsilon=_BN_EPSILON,
-                bn_momentum=_BN_MOMENTUM,
                 activation_layer=self.activation_layer
             )
         ]
@@ -143,8 +144,6 @@ class EfficientNet(nn.Module):
             blocks.Conv2d1x1Block(
                 self.c[-2],
                 self.c[-1],
-                bn_epsilon=_BN_EPSILON,
-                bn_momentum=_BN_MOMENTUM,
                 activation_layer=self.activation_layer
             )
         )
@@ -179,7 +178,6 @@ class EfficientNet(nn.Module):
                     inp, oup, t,
                     kernel_size=kernel_size, stride=stride,
                     survival_prob=survival_prob, se_ratio=se_ratio,
-                    bn_epsilon=_BN_EPSILON, bn_momentum=_BN_MOMENTUM,
                     activation_layer=self.activation_layer
                 )
             )

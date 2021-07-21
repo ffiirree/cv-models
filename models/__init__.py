@@ -9,6 +9,7 @@ from .efficientnetv2 import *
 from .mlp_mixer import *
 # from torchvision.models import *
 
+from .dwnet import *
 from .thinnet import *
 from .onenet import *
 from .xnet import *
@@ -18,4 +19,4 @@ from .micronet import *
 from .vgglite import *
 from .muxnet import *
 from .resnet import *
-
+from .pwgroupnet import *

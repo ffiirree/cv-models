@@ -15,11 +15,11 @@ class ShuffleBlockv2(nn.Module):
         self.oup = oup // 2
         self.stride = stride
         self.split = None
-        
+
         if self.stride == 1:
             self.inp = inp // 2
             self.split = blocks.ChannelSplit(2)
-            
+
         self.branch1 = nn.Identity()
         if self.stride != 1:
             self.branch1 = nn.Sequential(OrderedDict([
@@ -49,19 +49,19 @@ class ShuffleBlockv2(nn.Module):
         return out
 
 
-def shufflenet_v2_x0_5():
+def shufflenet_v2_x0_5(pretrained: bool = False):
     return ShuffleNetv2(3, 1000, [4, 8, 4], [24, 48, 96, 192, 1024])
 
 
-def shufflenet_v2_x1_0():
+def shufflenet_v2_x1_0(pretrained: bool = False):
     return ShuffleNetv2(3, 1000, [4, 8, 4], [24, 116, 232, 464, 1024])
 
 
-def shufflenet_v2_x1_5():
+def shufflenet_v2_x1_5(pretrained: bool = False):
     return ShuffleNetv2(3, 1000, [4, 8, 4], [24, 176, 352, 704, 1024])
 
 
-def shufflenet_v2_x2_0():
+def shufflenet_v2_x2_0(pretrained: bool = False):
     return ShuffleNetv2(3, 1000, [4, 8, 4], [24, 244, 488, 976, 2048])
 
 
@@ -85,7 +85,7 @@ class ShuffleNetv2(nn.Module):
         self.stage4 = self.make_layers(repeats[2], channels[2], channels[3])
 
         self.conv5 = blocks.Conv2d1x1Block(channels[3], channels[4])
-        
+
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(channels[4], num_classes)
 

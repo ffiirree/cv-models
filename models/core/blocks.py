@@ -3,6 +3,10 @@ import torch
 import torch.nn as nn
 from .functional import *
 
+BN_MOMENTUM: float = 0.1
+BN_EPSILON: float = 1e-5
+BN_POSIITON: str = 'before'
+
 
 class Conv2d3x3(nn.Conv2d):
     def __init__(
@@ -45,10 +49,13 @@ class Conv2d3x3BN(nn.Sequential):
         padding: int = 1,
         bias: bool = False,
         groups: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d
     ):
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+
         super().__init__(
             Conv2d3x3(in_channels, out_channels, stride=stride,
                       padding=padding, bias=bias, groups=groups),
@@ -65,10 +72,13 @@ class Conv2d1x1BN(nn.Sequential):
         padding: int = 0,
         bias: bool = False,
         groups: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d
     ):
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+        
         super().__init__(
             Conv2d1x1(in_channels, out_channels, stride=stride,
                       padding=padding, bias=bias, groups=groups),
@@ -85,17 +95,32 @@ class Conv2d1x1Block(nn.Sequential):
         padding: int = 0,
         bias: bool = False,
         groups: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d,
-        activation_layer: nn.Module = nn.ReLU
+        activation_layer: nn.Module = nn.ReLU,
+        norm_position: str = None
     ):
-        super().__init__(
+        norm_position = norm_position if norm_position else BN_POSIITON
+        assert norm_position in ['before', 'after', 'none'], ''
+
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+        
+        layers = [
             Conv2d1x1(in_channels, out_channels, stride=stride,
                       padding=padding, bias=bias, groups=groups),
-            norm_layer(out_channels, eps=bn_epsilon, momentum=bn_momentum),
-            activation_layer(inplace=True)
-        )
+            activation_layer(inplace=True),
+        ]
+
+        norm = norm_layer(out_channels, eps=bn_epsilon, momentum=bn_momentum)
+
+        if norm_position == 'before':
+            layers.insert(1, norm)
+        elif norm_position == 'after':
+            layers.append(norm)
+
+        super().__init__(*layers)
 
 
 class Conv2dBlock(nn.Sequential):
@@ -107,17 +132,32 @@ class Conv2dBlock(nn.Sequential):
         stride: int = 1,
         padding: int = 1,
         groups: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d,
-        activation_layer: nn.Module = nn.ReLU
+        activation_layer: nn.Module = nn.ReLU,
+        norm_position: str = None,
     ):
-        super().__init__(
+        norm_position = norm_position if norm_position else BN_POSIITON
+        assert norm_position in ['before', 'after', 'none'], ''
+
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+        
+        layers = [
             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
                       bias=False, stride=stride, padding=padding, groups=groups),
-            norm_layer(out_channels, eps=bn_epsilon, momentum=bn_momentum),
             activation_layer(inplace=True),
-        )
+        ]
+
+        norm = norm_layer(out_channels, eps=bn_epsilon, momentum=bn_momentum)
+
+        if norm_position == 'before':
+            layers.insert(1, norm)
+        elif norm_position == 'after':
+            layers.append(norm)
+
+        super().__init__(*layers)
 
 
 class ResBasicBlock(nn.Module):
@@ -126,12 +166,15 @@ class ResBasicBlock(nn.Module):
         inp,
         oup,
         stride: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d,
         activation_layer: nn.Module = nn.ReLU
     ):
         super().__init__()
+
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
 
         self.branch1 = nn.Sequential(
             Conv2d3x3BN(inp, oup, stride=stride,
@@ -164,13 +207,16 @@ class Bottleneck(nn.Module):
         inp: int,
         oup: int,
         stride: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d,
         activation_layer: nn.Module = nn.ReLU
     ):
         super().__init__()
 
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+        
         self.branch1 = nn.Sequential(
             Conv2d1x1BN(inp, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
                         norm_layer=norm_layer),
@@ -230,9 +276,10 @@ class PointwiseConv2d(nn.Conv2d):
         self,
         inp,
         oup,
-        stride: int = 1
+        stride: int = 1,
+        groups: int = 1
     ):
-        super().__init__(inp, oup, 1, stride=stride, padding=0, bias=False)
+        super().__init__(inp, oup, 1, stride=stride, padding=0, bias=False, groups=groups)
 
 
 class DepthwiseConv2dBN(nn.Sequential):
@@ -243,10 +290,13 @@ class DepthwiseConv2dBN(nn.Sequential):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d
     ):
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+        
         super().__init__(
             DepthwiseConv2d(inp, oup, kernel_size,
                             stride=stride, padding=padding),
@@ -260,9 +310,13 @@ class PointwiseConv2dBN(nn.Sequential):
         inp,
         oup,
         stride: int = 1,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d
     ):
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+        
         super().__init__(
             PointwiseConv2d(inp, oup, stride=stride),
             norm_layer(oup, eps=bn_epsilon, momentum=bn_momentum)
@@ -277,17 +331,33 @@ class DepthwiseBlock(nn.Sequential):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d,
-        activation_layer: nn.Module = nn.ReLU
+        activation_layer: nn.Module = nn.ReLU,
+        norm_position: str = None
     ):
-        super().__init__(
+        norm_position = norm_position if norm_position else BN_POSIITON
+        assert norm_position in ['before', 'after', 'none'], ''
+
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+
+        layers = [
             DepthwiseConv2d(inp, oup, kernel_size,
                             stride=stride, padding=padding),
-            norm_layer(oup, eps=bn_epsilon, momentum=bn_momentum),
             activation_layer(inplace=True),
-        )
+        ]
+
+        norm = norm_layer(oup, eps=bn_epsilon if bn_epsilon else BN_EPSILON,
+                          momentum=bn_momentum if bn_momentum else BN_MOMENTUM)
+
+        if norm_position == 'before':
+            layers.insert(1, norm)
+        elif norm_position == 'after':
+            layers.append(norm)
+
+        super().__init__(*layers)
 
 
 class PointwiseBlock(nn.Sequential):
@@ -296,16 +366,33 @@ class PointwiseBlock(nn.Sequential):
         inp,
         oup,
         stride: int = 1,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        groups: int = 1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d,
-        activation_layer: nn.Module = nn.ReLU
+        activation_layer: nn.Module = nn.ReLU,
+        norm_position: str = None,
     ):
-        super().__init__(
-            PointwiseConv2d(inp, oup, stride=stride),
-            norm_layer(oup, eps=bn_epsilon, momentum=bn_momentum),
+        norm_position = norm_position if norm_position else BN_POSIITON
+        assert norm_position in ['before', 'after', 'none'], ''
+
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
+        
+        layers = [
+            PointwiseConv2d(inp, oup, stride=stride, groups=groups),
             activation_layer(inplace=True),
-        )
+        ]
+
+        norm = norm_layer(oup, eps=bn_epsilon if bn_epsilon else BN_EPSILON,
+                          momentum=bn_momentum if bn_momentum else BN_MOMENTUM)
+
+        if norm_position == 'before':
+            layers.insert(1, norm)
+        elif norm_position == 'after':
+            layers.append(norm)
+
+        super().__init__(*layers)
 
 
 class SEBlock(nn.Module):
@@ -392,8 +479,8 @@ class InvertedResidualBlock(nn.Module):
         se_ratio: float = None,
         se_ind: bool = False,
         survival_prob: float = None,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d,
         activation_layer: nn.Module = nn.ReLU
     ):
@@ -405,18 +492,22 @@ class InvertedResidualBlock(nn.Module):
         self.stride = stride
         self.padding = padding if padding is not None else (kernel_size // 2)
         self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (self.se_ratio > 0) and (self.se_ratio <= 1)
+        self.se_ratio = se_ratio if se_ind or se_ratio is None else (
+            se_ratio / t)
+        self.has_se = (self.se_ratio is not None) and (
+            self.se_ratio > 0) and (self.se_ratio <= 1)
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
 
         layers = []
         if t != 1:
             layers.append(Conv2d1x1Block(
-                inp, self.planes, 
+                inp, self.planes,
                 bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, norm_layer=norm_layer,
                 activation_layer=activation_layer))
 
         layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                    bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, norm_layer=norm_layer, activation_layer=activation_layer))
+                                     bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, norm_layer=norm_layer, activation_layer=activation_layer))
 
         if self.has_se:
             layers.append(SEBlock(self.planes, self.se_ratio))
@@ -450,8 +541,8 @@ class FusedInvertedResidualBlock(nn.Module):
         se_ratio: float = None,
         se_ind: bool = False,
         survival_prob: float = None,
-        bn_epsilon: float = 1e-5,
-        bn_momentum: float = 0.1,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
         norm_layer: nn.Module = nn.BatchNorm2d,
         activation_layer: nn.Module = nn.ReLU
     ):
@@ -467,6 +558,8 @@ class FusedInvertedResidualBlock(nn.Module):
             se_ratio / t)
         self.has_se = (self.se_ratio is not None) and (
             self.se_ratio > 0) and (self.se_ratio <= 1)
+        bn_epsilon = bn_epsilon if bn_epsilon else BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else BN_MOMENTUM
 
         layers = [
             Conv2dBlock(inp, self.planes, kernel_size, stride=self.stride, padding=self.padding,

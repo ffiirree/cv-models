@@ -7,6 +7,12 @@ __all__ = ['MnasNet', 'mnasnet_a1']
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
+blocks.BN_MOMENTUM = _BN_MOMENTUM
+
+
+def mnasnet_a1(pretrained: bool = False):
+    return MnasNet()
+
 
 class MnasNet(nn.Module):
     def __init__(
@@ -24,8 +30,7 @@ class MnasNet(nn.Module):
         se = [0, 0, 0.25, 0, 0.25, 0.25, 0]
 
         features = [
-            blocks.Conv2dBlock(
-                in_channels, c[0], kernel_size=3, stride=2, bn_momentum=_BN_MOMENTUM)
+            blocks.Conv2dBlock(in_channels, c[0], kernel_size=3, stride=2)
         ]
 
         for i in range(len(t)):
@@ -33,8 +38,7 @@ class MnasNet(nn.Module):
                 self.make_layers(c[i], t[i], c[i+1], n[i], s[i], k[i], se[i])
             )
 
-        features.append(blocks.Conv2d1x1Block(
-            c[-2], c[-1], bn_momentum=_BN_MOMENTUM))
+        features.append(blocks.Conv2d1x1Block(c[-2], c[-1]))
 
         self.features = nn.Sequential(*features)
 
@@ -56,13 +60,13 @@ class MnasNet(nn.Module):
     ):
         layers = [
             blocks.InvertedResidualBlock(
-                inp, oup, t, kernel_size, stride, se_ratio=se_ratio, bn_momentum=_BN_MOMENTUM)
+                inp, oup, t, kernel_size, stride, se_ratio=se_ratio)
         ]
 
         for _ in range(n - 1):
             layers.append(
                 blocks.InvertedResidualBlock(
-                    oup, oup, t, kernel_size, se_ratio=se_ratio, bn_momentum=_BN_MOMENTUM)
+                    oup, oup, t, kernel_size, se_ratio=se_ratio)
             )
         return nn.Sequential(*layers)
 
@@ -72,7 +76,3 @@ class MnasNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
-
-
-def mnasnet_a1():
-    return MnasNet()
