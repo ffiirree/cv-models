@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 from .core import blocks
 
-__all__ = ['DWNet', 'ResDWNet', 'EffDWNet', 'GroupedDWNet', 'mobilenet_lineardw']
+__all__ = ['DWNet', 'ResDWNet', 'EffDWNet',
+           'GroupedDWNet', 'mobilenet_lineardw']
 
 
 class DwPwBlock(nn.Sequential):
@@ -54,6 +55,7 @@ def mobilenet_lineardw(pretrained: bool = False):
 
 
 class DWNet(nn.Module):
+    @blocks.batchnorm(position='after')
     def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
         super().__init__()
 

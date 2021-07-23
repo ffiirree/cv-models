@@ -10,6 +10,7 @@ def mobilenet_v2(pretrained: bool = False):
 
 
 class MobileNetv2(nn.Module):
+    @blocks.nonlinear(nn.ReLU6)
     def __init__(
         self,
         in_channels: int = 3,
@@ -22,14 +23,13 @@ class MobileNetv2(nn.Module):
         n = [1, 2, 3, 4, 3, 3, 1]
         s = [1, 2, 2, 2, 1, 2, 1]
 
-        features = [blocks.Conv2dBlock(
-            in_channels, c[0], kernel_size=3, stride=2, activation_layer=nn.ReLU6)]
+        features = [blocks.Conv2dBlock(in_channels, c[0], 3, stride=2)]
 
         for i in range(len(t)):
             features.append(self.make_layers(c[i], t[i], c[i+1], n[i], s[i]))
 
         features.append(blocks.Conv2dBlock(
-            c[-2], c[-1], kernel_size=1, padding=0, stride=1, activation_layer=nn.ReLU6))
+            c[-2], c[-1], kernel_size=1, padding=0, stride=1))
 
         self.features = nn.Sequential(*features)
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
@@ -41,15 +41,12 @@ class MobileNetv2(nn.Module):
     @staticmethod
     def make_layers(inp: int, t: int, oup: int, n: int, stride: int):
         layers = [
-            blocks.InvertedResidualBlock(
-                inp, oup, t, stride=stride, activation_layer=nn.ReLU6)
+            blocks.InvertedResidualBlock(inp, oup, t, stride=stride)
         ]
 
         for _ in range(n - 1):
-            layers.append(
-                blocks.InvertedResidualBlock(
-                    oup, oup, t, activation_layer=nn.ReLU6)
-            )
+            layers.append(blocks.InvertedResidualBlock(oup, oup, t))
+
         return nn.Sequential(*layers)
 
     def forward(self, x):

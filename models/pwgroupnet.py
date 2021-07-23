@@ -34,16 +34,17 @@ class PWGroupBlock(nn.Module):
 
         self.dw = blocks.DepthwiseConv2d(
             inp, inp, kernel_size=kernel_size, stride=stride, padding=padding)
-        self.pw2 = blocks.PointwiseConv2d(inp, oup // 2, groups=4)
+        self.pw3 = blocks.PointwiseConv2d(inp, oup // 4, groups=3)
+        self.pw2 = blocks.PointwiseConv2d(inp, oup // 4, groups=2)
         self.pw1 = blocks.PointwiseConv2d(inp, oup // 2)
         self.nolinear = nn.Sequential(
+            nn.ReLU(inplace=True),
             nn.BatchNorm2d(oup),
-            nn.ReLU(inplace=True)
         )
 
     def forward(self, x):
         x = self.dw(x)
-        x = torch.cat([self.pw1(x), self.pw2(x)], dim=1)
+        x = torch.cat([self.pw1(x), self.pw2(x), self.pw3(x)], dim=1)
         x = self.nolinear(x)
         return x
 

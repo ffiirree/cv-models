@@ -6,7 +6,7 @@ import platform
 import numpy as np
 import random
 
-__all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers', 'accuracy', 'AverageMeter']
+__all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers', 'accuracy', 'AverageMeter', 'module_parameters']
 
 
 class Benchmark:
@@ -80,6 +80,16 @@ def named_layers(module, memo = None, prefix: str = ''):
             submodule_prefix = prefix + ('.' if prefix else '') + name
             for m in named_layers(module, memo, submodule_prefix):
                 yield m
+
+def module_parameters(model):
+    memo = set()
+    
+    for _, module in model.named_modules():
+        for k, v in module._parameters.items():
+            if v is None or v in memo:
+                continue
+            memo.add(v)
+            yield module, k, v
                 
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""

@@ -2,6 +2,7 @@ import time
 import os
 import logging
 from os.path import dirname, abspath, exists, join
+import torch.distributed as dist
 
 __all__ = ['make_logger']
 
@@ -16,6 +17,8 @@ def make_logger(run_name, log_dir='logs', rank: int = 0):
     log_dir = dirname(abspath(log_filepath))
     if not exists(log_dir) and rank == 0:
         os.makedirs(log_dir)
+
+    dist.barrier()
 
     if not logger.handlers:  # execute only if logger doesn't already exist
         file_handler = logging.FileHandler(
@@ -32,5 +35,5 @@ def make_logger(run_name, log_dir='logs', rank: int = 0):
 
         logger.addHandler(file_handler)
         logger.addHandler(stream_handler)
-        logger.setLevel(logging.INFO if rank == 0 else logging.WARN)
+        logger.setLevel(logging.INFO)
     return logger

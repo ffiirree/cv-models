@@ -7,14 +7,14 @@ __all__ = ['MnasNet', 'mnasnet_a1']
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
-blocks.BN_MOMENTUM = _BN_MOMENTUM
-
 
 def mnasnet_a1(pretrained: bool = False):
     return MnasNet()
 
 
 class MnasNet(nn.Module):
+
+    @blocks.batchnorm(momentum=_BN_MOMENTUM)
     def __init__(
         self,
         in_channels: int = 3,

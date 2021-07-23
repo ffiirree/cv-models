@@ -9,9 +9,6 @@ _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
-blocks.BN_EPSILON = _BN_EPSILON
-blocks.BN_MOMENTUM = _BN_MOMENTUM
-
 
 def efficientnet_params(model_name):
     """Get efficientnet params based on model name."""
@@ -93,8 +90,8 @@ def efficientnet_v2_xl(pretrained: bool = False):
 
 class EfficientNetv2(nn.Module):
 
-    activation_layer = nn.SiLU
-
+    @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
+    @blocks.nonlinear(nn.SiLU)
     def __init__(
         self,
         in_channels: int = 3,
@@ -114,10 +111,7 @@ class EfficientNetv2(nn.Module):
         self.blocks = sum(layers)
         self.block_idx = 0
 
-        features = [
-            blocks.Conv2dBlock(
-                in_channels, filters[0], stride=2, activation_layer=self.activation_layer)
-        ]
+        features = [blocks.Conv2dBlock(in_channels, filters[0], stride=2)]
 
         for i in range(len(expand_ratio)):
             features.append(
@@ -159,8 +153,7 @@ class EfficientNetv2(nn.Module):
                 block(
                     inp, oup, t,
                     stride=stride,
-                    survival_prob=survival_prob, se_ratio=se_ratio,
-                    activation_layer=self.activation_layer
+                    survival_prob=survival_prob, se_ratio=se_ratio
                 )
             )
 

@@ -11,9 +11,6 @@ _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
-blocks.BN_EPSILON = _BN_EPSILON
-blocks.BN_MOMENTUM = _BN_MOMENTUM
-
 
 def efficientnet_params(model_name):
     """Get efficientnet params based on model name."""
@@ -93,6 +90,8 @@ class EfficientNet(nn.Module):
     s = [1, 2, 2, 2, 1, 2, 1]  # stride
     k = [3, 3, 5, 3, 5, 5, 3]  # kernel_size
 
+    @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
+    @blocks.nonlinear(nn.SiLU)
     def __init__(
         self,
         in_channels: int = 3,
@@ -115,15 +114,7 @@ class EfficientNet(nn.Module):
         self.block_idx = 0
 
         # first conv3x3
-        features = [
-            blocks.Conv2dBlock(
-                in_channels,
-                self.c[0],
-                kernel_size=3,
-                stride=2,
-                activation_layer=self.activation_layer
-            )
-        ]
+        features = [blocks.Conv2dBlock(in_channels, self.c[0], 3, stride=2)]
 
         # blocks
         for i in range(len(self.t)):
@@ -140,13 +131,7 @@ class EfficientNet(nn.Module):
             )
 
         # last conv1x1
-        features.append(
-            blocks.Conv2d1x1Block(
-                self.c[-2],
-                self.c[-1],
-                activation_layer=self.activation_layer
-            )
-        )
+        features.append(blocks.Conv2d1x1Block(self.c[-2], self.c[-1]))
 
         self.features = nn.Sequential(*features)
 
@@ -177,8 +162,7 @@ class EfficientNet(nn.Module):
                 blocks.InvertedResidualBlock(
                     inp, oup, t,
                     kernel_size=kernel_size, stride=stride,
-                    survival_prob=survival_prob, se_ratio=se_ratio,
-                    activation_layer=self.activation_layer
+                    survival_prob=survival_prob, se_ratio=se_ratio
                 )
             )
 

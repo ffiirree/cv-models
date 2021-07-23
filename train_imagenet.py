@@ -1,9 +1,9 @@
 import argparse
+from models.core import blocks
 import os
 import datetime
-import math
-import numpy as np
 import torch
+import torch.nn as nn
 import torchvision
 import torch.distributed as dist
 import time
@@ -62,6 +62,12 @@ def parse_args():
                         help='how many last epochs to train without mixup. (default: 0)')
     parser.add_argument('--label-smoothing', action='store_true',
                         help='use label smoothing or not in training. (default: false)')
+    parser.add_argument('--no-wd', action='store_true',
+                        help='whether to remove weight decay on bias, and beta/gamma for batchnorm layers.')
+    parser.add_argument('--bn-momentum', type=float, default=0.1, metavar='M')
+    parser.add_argument('--bn-epsilon', type=float, default=1e-5, metavar='E')
+    parser.add_argument('--bn-position', type=str, default='before', choices=['before', 'after', 'none'],
+                        help='norm layer / activation layer. (default: before)')
     parser.add_argument('--evaluate', action='store_true',
                         help='evaluate model on validation set. (default: false)')
     parser.add_argument('--print-freq', default=50, type=int, metavar='N',
@@ -241,9 +247,6 @@ if __name__ == '__main__':
     args = parse_args()
     args.batch_size = int(args.batch_size / torch.cuda.device_count())
 
-    logger = make_logger(f'imagenet_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
-    logger.info(args)
-
     torch.backends.cudnn.benchmark = True
     if args.deterministic:
         manual_seed(args.local_rank)
@@ -251,7 +254,12 @@ if __name__ == '__main__':
     torch.cuda.set_device(args.local_rank)
     dist.init_process_group('nccl')
 
-    model = models.__dict__[args.model]()
+    logger = make_logger(
+        f'imagenet_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
+    logger.info(args)
+
+    with blocks.config(args.bn_momentum, args.bn_epsilon, args.bn_position):
+        model = models.__dict__[args.model]()
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -260,10 +268,28 @@ if __name__ == '__main__':
         logger.info(f'Model: \n{model}')
 
     model = DistributedDataParallel(model, device_ids=[args.local_rank])
-    optimizer = torch.optim.SGD(model.parameters(),
-                                args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.wd)
+
+    if args.no_wd:
+        wd = []
+        no_wd = []
+        for m, n, p in module_parameters(model):
+            if isinstance(m, nn.modules.batchnorm._BatchNorm) or n == 'bias':
+                print(m, n, p)
+                no_wd.append(p)
+            else:
+                wd.append(p)
+
+        assert len(list(model.parameters())) == (len(no_wd) + len(wd)) , ''
+        optimizer = torch.optim.SGD([
+            {'params': wd, 'weight_decay': args.wd},
+            {'params': no_wd, 'weight_decay': 0.}],
+            args.lr,
+            momentum=args.momentum)
+    else:
+        optimizer = torch.optim.SGD(model.parameters(),
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    weight_decay=args.wd)
     criterion = torch.nn.CrossEntropyLoss().cuda()
 
     pipe = create_dali_pipeline(batch_size=args.batch_size,
@@ -278,7 +304,8 @@ if __name__ == '__main__':
                                 num_shards=dist.get_world_size(),
                                 is_training=True)
     pipe.build()
-    train_loader = DALIClassificationIterator(pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
+    train_loader = DALIClassificationIterator(
+        pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
 
     pipe = create_dali_pipeline(batch_size=args.batch_size,
                                 num_threads=args.workers,
@@ -292,7 +319,8 @@ if __name__ == '__main__':
                                 num_shards=dist.get_world_size(),
                                 is_training=False)
     pipe.build()
-    val_loader = DALIClassificationIterator(pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
+    val_loader = DALIClassificationIterator(
+        pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
 
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
 
@@ -312,13 +340,14 @@ if __name__ == '__main__':
                 optimizer,
                 warmup_steps=args.warmup_epochs * len(train_loader),
                 steps=args.epochs * len(train_loader),
-                min_lr=1e-8
+                min_lr=0
             )
 
         logger.info(scheduler)
 
         for epoch in range(0, args.epochs):
-            train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
+            train(train_loader, model, criterion,
+                  optimizer, scheduler, epoch, args)
             validate(val_loader, model, criterion)
             train_loader.reset()
             val_loader.reset()
