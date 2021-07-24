@@ -148,7 +148,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
     losses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
-    mixup = MixUp(args.mixup_alpha, criterion)
+    mixup = MixUp(args.mixup_alpha)
 
     use_mixup = args.mixup and args.mixup_off_epoch < (args.epochs - epoch)
     logger.info(f'mixup: {use_mixup}, {mixup}')
@@ -159,8 +159,12 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
     for i, data in enumerate(train_loader):
         input = data[0]["data"]
         target = data[0]["label"].squeeze(-1).long()
+        original_target = target
 
         # MixUP
+        if args.mixup or args.label_smoothing:
+            target = one_hot(target, 1000)
+
         if use_mixup:
             input, target = mixup.mix(input, target)
 
@@ -168,11 +172,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
 
         with torch.cuda.amp.autocast(enabled=args.amp):
             output = model(input)
-            if use_mixup:
-                loss = mixup.loss(output, target)
-                target = target[0]
-            else:
-                loss = criterion(output, target)
+            loss = criterion(output, target)
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
@@ -180,7 +180,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
 
         scheduler.step()
 
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = accuracy(output, original_target, topk=(1, 5))
         losses.update(loss.item(), input.size(0))
         top1.update(acc1[0], input.size(0))
         top5.update(acc5[0], input.size(0))
@@ -258,7 +258,7 @@ if __name__ == '__main__':
         f'imagenet_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
     logger.info(args)
 
-    with blocks.config(args.bn_momentum, args.bn_epsilon, args.bn_position):
+    with blocks.batchnorm(args.bn_momentum, args.bn_epsilon, args.bn_position):
         model = models.__dict__[args.model]()
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -274,7 +274,6 @@ if __name__ == '__main__':
         no_wd = []
         for m, n, p in module_parameters(model):
             if isinstance(m, nn.modules.batchnorm._BatchNorm) or n == 'bias':
-                print(m, n, p)
                 no_wd.append(p)
             else:
                 wd.append(p)
@@ -290,7 +289,12 @@ if __name__ == '__main__':
                                     args.lr,
                                     momentum=args.momentum,
                                     weight_decay=args.wd)
-    criterion = torch.nn.CrossEntropyLoss().cuda()
+    if args.label_smoothing or args.mixup:
+        criterion = LabelSmoothingCrossEntropyLoss(0.1).cuda()
+    else:
+        criterion = torch.nn.CrossEntropyLoss().cuda()
+
+    val_criterion = torch.nn.CrossEntropyLoss().cuda()
 
     pipe = create_dali_pipeline(batch_size=args.batch_size,
                                 num_threads=args.workers,
@@ -348,7 +352,7 @@ if __name__ == '__main__':
         for epoch in range(0, args.epochs):
             train(train_loader, model, criterion,
                   optimizer, scheduler, epoch, args)
-            validate(val_loader, model, criterion)
+            validate(val_loader, model, val_criterion)
             train_loader.reset()
             val_loader.reset()
 

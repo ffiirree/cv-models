@@ -58,7 +58,7 @@ class PWGroupNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        filters: int = 32
+        filters: int = 30
     ):
         super().__init__()
 

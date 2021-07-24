@@ -6,7 +6,8 @@ import platform
 import numpy as np
 import random
 
-__all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers', 'accuracy', 'AverageMeter', 'module_parameters']
+__all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers',
+           'accuracy', 'AverageMeter', 'module_parameters', 'one_hot']
 
 
 class Benchmark:
@@ -67,7 +68,8 @@ def manual_seed(seed: int = 0):
 
     torch.set_printoptions(precision=10)
 
-def named_layers(module, memo = None, prefix: str = ''):
+
+def named_layers(module, memo=None, prefix: str = ''):
     if memo is None:
         memo = set()
     if module not in memo:
@@ -81,16 +83,18 @@ def named_layers(module, memo = None, prefix: str = ''):
             for m in named_layers(module, memo, submodule_prefix):
                 yield m
 
+
 def module_parameters(model):
     memo = set()
-    
+
     for _, module in model.named_modules():
         for k, v in module._parameters.items():
             if v is None or v in memo:
                 continue
             memo.add(v)
             yield module, k, v
-                
+
+
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
@@ -106,8 +110,10 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
@@ -122,3 +128,8 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+def one_hot(x, n):
+    y = torch.zeros(x.shape[0], n, device=x.device)
+    y.scatter_(1, x.unsqueeze(1), 1)
+    return y
