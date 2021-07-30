@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 from .core import blocks
@@ -5,8 +6,11 @@ from .core import blocks
 __all__ = ['MobileNetv2', 'mobilenet_v2']
 
 
-def mobilenet_v2(pretrained: bool = False):
-    return MobileNetv2()
+def mobilenet_v2(pretrained: bool = False, pth: str = None):
+    model = MobileNetv2()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
 class MobileNetv2(nn.Module):
@@ -28,8 +32,7 @@ class MobileNetv2(nn.Module):
         for i in range(len(t)):
             features.append(self.make_layers(c[i], t[i], c[i+1], n[i], s[i]))
 
-        features.append(blocks.Conv2dBlock(
-            c[-2], c[-1], kernel_size=1, padding=0, stride=1))
+        features.append(blocks.Conv2d1x1Block(c[-2], c[-1]))
 
         self.features = nn.Sequential(*features)
         self.avg = nn.AdaptiveAvgPool2d((1, 1))

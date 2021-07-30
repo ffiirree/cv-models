@@ -40,8 +40,12 @@ def parse_args():
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
     parser.add_argument('--epochs', type=int, default=100,  metavar='N',
                         help='number of total epochs to run. (default: 100)')
+    parser.add_argument('--optim', type=str, default='sgd', choices=['sgd', 'rmsprop'],
+                        help='optimizer. (default: sgd)')
     parser.add_argument('--lr', type=float, default=0.1,
                         help='initial learning rate. (default: 0.1)')
+    parser.add_argument('--rmsprop-decay', type=float, default=0.9, metavar='D',
+                        help='decay of RMSprop. (default: 0.9)')
     parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                         help='momentum of SGD. (default: 0.9)')
     parser.add_argument('--wd', type=float, default=1e-4,
@@ -70,7 +74,7 @@ def parse_args():
                         help='norm layer / activation layer. (default: before)')
     parser.add_argument('--evaluate', action='store_true',
                         help='evaluate model on validation set. (default: false)')
-    parser.add_argument('--print-freq', default=50, type=int, metavar='N',
+    parser.add_argument('--print-freq', default=100, type=int, metavar='N',
                         help='print frequency. (default: 10)')
     parser.add_argument('--sync_bn', action='store_true',
                         help='use SyncBatchNorm. (default: false)')
@@ -111,12 +115,12 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
                            resize_x=crop,
                            resize_y=crop,
                            interp_type=types.INTERP_TRIANGULAR)
-        images = fn.color_twist(images,
-                                device=dali_device,
-                                brightness=fn.random.uniform(range=[0.6, 1.4]),
-                                contrast=fn.random.uniform(range=[0.6, 1.4]),
-                                saturation=fn.random.uniform(range=[0.6, 1.4]),
-                                hue=fn.random.uniform(range=[0.6, 1.4]))
+        # images = fn.color_twist(images,
+        #                         device=dali_device,
+        #                         brightness=fn.random.uniform(range=[0.6, 1.4]),
+        #                         contrast=fn.random.uniform(range=[0.6, 1.4]),
+        #                         saturation=fn.random.uniform(range=[0.6, 1.4]),
+        #                         hue=fn.random.uniform(range=[0.6, 1.4]))
         mirror = fn.random.coin_flip(probability=0.5)
     else:
         images = fn.decoders.image(images,
@@ -187,7 +191,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
+        if i % args.print_freq == 0 and i != 0:
             logger.info(f'#{epoch:>3} [{args.local_rank}:{i:>4}/{len(train_loader)}], '
                         f'lr={optimizer.param_groups[0]["lr"]:>.10f}, '
                         f't={batch_time.val:>.3f}/{batch_time.avg:>.3f}, '
@@ -223,7 +227,7 @@ def validate(val_loader, model, criterion):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
+        if i % (args.print_freq // 2) == 0 and i != 0:
             logger.info(f'Validation [{i:>3}/{len(val_loader)}], '
                         f'time={batch_time.val:>.3f}({batch_time.avg:>.3f}), '
                         f'loss={loss.item():>.5f}, '
@@ -278,17 +282,38 @@ if __name__ == '__main__':
             else:
                 wd.append(p)
 
-        assert len(list(model.parameters())) == (len(no_wd) + len(wd)) , ''
-        optimizer = torch.optim.SGD([
-            {'params': wd, 'weight_decay': args.wd},
-            {'params': no_wd, 'weight_decay': 0.}],
-            args.lr,
-            momentum=args.momentum)
+        assert len(list(model.parameters())) == (len(no_wd) + len(wd)), ''
+
+        if args.optim == 'sgd':
+            optimizer = torch.optim.SGD([
+                {'params': wd, 'weight_decay': args.wd},
+                {'params': no_wd, 'weight_decay': 0.}],
+                args.lr,
+                momentum=args.momentum)
+        elif args.optim == 'rmsprop':
+            optimizer = torch.optim.RMSprop([
+                {'params': wd, 'weight_decay': args.wd},
+                {'params': no_wd, 'weight_decay': 0.}],
+                lr=args.lr,
+                alpha=args.rmsprop_decay,
+                momentum=args.momentum)
+        else:
+            raise ValueError(f'Invalid optimizer name: {args.optim}.')
     else:
-        optimizer = torch.optim.SGD(model.parameters(),
-                                    args.lr,
-                                    momentum=args.momentum,
-                                    weight_decay=args.wd)
+        if args.optim == 'sgd':
+            optimizer = torch.optim.SGD(model.parameters(),
+                                        args.lr,
+                                        momentum=args.momentum,
+                                        weight_decay=args.wd)
+        elif args.optim == 'rmsprop':
+            optimizer = torch.optim.RMSprop(model.parameters(),
+                                            lr=args.lr,
+                                            alpha=args.rmsprop_decay,
+                                            momentum=args.momentum,
+                                            weight_decay=args.wd)
+        else:
+            raise ValueError(f'Invalid optimizer name: {args.optim}.')
+
     if args.label_smoothing or args.mixup:
         criterion = LabelSmoothingCrossEntropyLoss(0.1).cuda()
     else:

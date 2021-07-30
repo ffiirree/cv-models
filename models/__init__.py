@@ -7,16 +7,11 @@ from .mnasnet import *
 from .efficientnet import *
 from .efficientnetv2 import *
 from .mlp_mixer import *
-# from torchvision.models import *
 
-from .dwnet import *
-from .thinnet import *
 from .onenet import *
-from .xnet import *
-from .splitnet import *
-from .multiinputnet import  *
-from .micronet import *
 from .vgglite import *
 from .muxnet import *
 from .resnet import *
 from .pwgroupnet import *
+
+from torchvision.models import *

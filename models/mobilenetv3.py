@@ -1,4 +1,4 @@
-import math
+import os
 import torch
 import torch.nn as nn
 from .core import blocks
@@ -11,12 +11,18 @@ _BN_EPSILON = 1e-3
 _BN_MOMENTUM = 0.01
 
 
-def mobilenet_v3_small():
-    return MobileNetv3Small()
+def mobilenet_v3_small(pretrained: bool = False, pth: str = None):
+    model = MobileNetv3Small()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
-def mobilenet_v3_large():
-    return MobileNetv3Large()
+def mobilenet_v3_large(pretrained: bool = False, pth: str = None):
+    model = MobileNetv3Large()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
 class MobileNetv3Small(nn.Module):

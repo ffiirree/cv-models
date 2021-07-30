@@ -1,4 +1,5 @@
 from typing import OrderedDict
+import os
 import torch
 import torch.nn as nn
 from .core import blocks
@@ -18,7 +19,7 @@ class ShuffleBlockv2(nn.Module):
 
         if self.stride == 1:
             self.inp = inp // 2
-            self.split = blocks.ChannelSplit(2)
+            self.split = blocks.ChannelChunk(2)
 
         self.branch1 = nn.Identity()
         if self.stride != 1:
@@ -44,25 +45,37 @@ class ShuffleBlockv2(nn.Module):
             x1 = self.branch1(x)
             x2 = self.branch2(x)
 
-        out = self.combine(x1, x2)
+        out = self.combine([x1, x2])
         out = self.shuffle(out)
         return out
 
 
-def shufflenet_v2_x0_5(pretrained: bool = False):
-    return ShuffleNetv2(3, 1000, [4, 8, 4], [24, 48, 96, 192, 1024])
+def shufflenet_v2_x0_5(pretrained: bool = False, pth: str = None):
+    model = ShuffleNetv2(3, 1000, [4, 8, 4], [24, 48, 96, 192, 1024])
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
-def shufflenet_v2_x1_0(pretrained: bool = False):
-    return ShuffleNetv2(3, 1000, [4, 8, 4], [24, 116, 232, 464, 1024])
+def shufflenet_v2_x1_0(pretrained: bool = False, pth: str = None):
+    model = ShuffleNetv2(3, 1000, [4, 8, 4], [24, 116, 232, 464, 1024])
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
-def shufflenet_v2_x1_5(pretrained: bool = False):
-    return ShuffleNetv2(3, 1000, [4, 8, 4], [24, 176, 352, 704, 1024])
+def shufflenet_v2_x1_5(pretrained: bool = False, pth: str = None):
+    model = ShuffleNetv2(3, 1000, [4, 8, 4], [24, 176, 352, 704, 1024])
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
-def shufflenet_v2_x2_0(pretrained: bool = False):
-    return ShuffleNetv2(3, 1000, [4, 8, 4], [24, 244, 488, 976, 2048])
+def shufflenet_v2_x2_0(pretrained: bool = False, pth: str = None):
+    model = ShuffleNetv2(3, 1000, [4, 8, 4], [24, 244, 488, 976, 2048])
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
 class ShuffleNetv2(nn.Module):
@@ -76,7 +89,7 @@ class ShuffleNetv2(nn.Module):
         super().__init__()
 
         self.conv1 = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, channels[0], kernel_size=3, stride=2),
+            blocks.Conv2dBlock(in_channels, channels[0], 3, stride=2),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
 

@@ -233,7 +233,7 @@ class ResBasicBlock(nn.Module):
         self.relu = activation_layer(inplace=True)
 
     def forward(self, x):
-        x = self.combine(self.branch1(x), self.branch2(x))
+        x = self.combine([self.branch1(x), self.branch2(x)])
         x = self.relu(x)
         return x
 
@@ -279,7 +279,7 @@ class Bottleneck(nn.Module):
 
     def forward(self, x):
 
-        x = self.combine(self.branch1(x), self.branch2(x))
+        x = self.combine([self.branch1(x), self.branch2(x)])
         x = self.relu(x)
         return x
 
@@ -425,7 +425,7 @@ class SEBlock(nn.Module):
         return x * self.se(x)
 
 
-class ChannelSplit(nn.Module):
+class ChannelChunk(nn.Module):
     def __init__(self, groups: int):
         super().__init__()
 
@@ -438,6 +438,19 @@ class ChannelSplit(nn.Module):
         return f'groups={self.groups}'
 
 
+class ChannelSplit(nn.Module):
+    def __init__(self, sections):
+        super().__init__()
+
+        self.sections = sections
+
+    def forward(self, x):
+        return torch.split(x, self.sections, dim=1)
+
+    def extra_repr(self):
+        return f'sections={self.sections}'
+
+
 class Combine(nn.Module):
     def __init__(self, method: str = 'ADD', *args, **kwargs):
         super().__init__()
@@ -447,15 +460,18 @@ class Combine(nn.Module):
         self._combine = self._add if self.method == 'ADD' else self._cat
 
     @staticmethod
-    def _add(x1, x2):
-        return x1 + x2
+    def _add(x):
+        y = 0
+        for xi in x:
+            y += xi
+        return y
 
     @staticmethod
-    def _cat(x1, x2):
-        return torch.cat([x1, x2], dim=1)
+    def _cat(x):
+        return torch.cat(x, dim=1)
 
-    def forward(self, x1, x2):
-        return self._combine(x1, x2)
+    def forward(self, x):
+        return self._combine(x)
 
     def extra_repr(self):
         return f'method=\'{self.method}\''
@@ -537,7 +553,7 @@ class InvertedResidualBlock(nn.Module):
 
     def forward(self, x):
         if self.apply_residual:
-            return self.combine(self.branch2(x), self.branch1(x))
+            return self.combine([self.branch2(x), self.branch1(x)])
         else:
             return self.branch1(x)
 
@@ -595,6 +611,76 @@ class FusedInvertedResidualBlock(nn.Module):
 
     def forward(self, x):
         if self.apply_residual:
-            return self.combine(self.branch2(x), self.branch1(x))
+            return self.combine([self.branch2(x), self.branch1(x)])
         else:
             return self.branch1(x)
+
+
+class SplitIdentityDepthWiseConv2dLayer(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+
+        self.channels = channels // 2
+
+        self.split = ChannelChunk(2)
+        self.branch1 = nn.Identity()
+        self.branch2 = DepthwiseConv2d(self.channels, self.channels)
+        self.combine = Combine('CONCAT')
+
+    def forward(self, x):
+        x1, x2 = self.split(x)
+        out = self.combine([self.branch1(x1), self.branch2(x2)])
+        return out
+
+
+class MuxDepthwiseConv2d(nn.Module):
+    def __init__(
+        self,
+        channels,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: int = 1,
+        mux_layer: nn.Module = None
+    ):
+        super().__init__()
+
+        self.channels = channels
+        self.mux_layer = mux_layer
+
+        if self.mux_layer is not None:
+            self.channels = channels // 2
+
+        self.layer = DepthwiseConv2d(
+            self.channels, self.channels, kernel_size, stride, padding)
+
+    def forward(self, x):
+        if self.mux_layer is not None:
+            x1, x2 = torch.chunk(x, 2, dim=1)
+            x1 = self.layer(x1)
+            x2 = self.mux_layer(x2)
+            return torch.cat([x1, x2], dim=1)
+        else:
+            return self.layer(x)
+
+
+class SharedDepthwiseConv2d(nn.Module):
+    def __init__(
+        self,
+        channels,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: int = 1,
+        t: int = 2
+    ):
+        super().__init__()
+
+        self.channels = channels // t
+        self.t = t
+
+        self.dw = DepthwiseConv2d(
+            self.channels, self.channels, kernel_size, stride, padding)
+
+    def forward(self, x):
+        x = torch.chunk(x, self.t, dim=1)
+        x = [self.dw(xi) for xi in x]
+        return torch.cat(x, dim=1)

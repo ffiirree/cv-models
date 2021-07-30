@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 from .core import blocks
@@ -8,8 +9,11 @@ __all__ = ['MnasNet', 'mnasnet_a1']
 _BN_MOMENTUM = 0.01
 
 
-def mnasnet_a1(pretrained: bool = False):
-    return MnasNet()
+def mnasnet_a1(pretrained: bool = False, pth: str = None):
+    model = MnasNet()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
 class MnasNet(nn.Module):

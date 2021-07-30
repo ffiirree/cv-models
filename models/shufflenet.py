@@ -1,6 +1,6 @@
 from typing import OrderedDict
+import os
 import torch
-from torch.autograd import grad
 import torch.nn as nn
 from .core import blocks
 
@@ -25,7 +25,7 @@ class ShuffleAddBlock(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        x = self.combine(self.branch1(x), self.branch2(x))
+        x = self.combine([self.branch1(x), self.branch2(x)])
         x = self.relu(x)
         return x
 
@@ -33,8 +33,8 @@ class ShuffleAddBlock(nn.Module):
 class ShuffleCatBlock(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
+        inp,
+        oup,
         g: int = 2,
         stride: int = 2,
         apply_first: bool = True
@@ -44,10 +44,10 @@ class ShuffleCatBlock(nn.Module):
         g_1st = g if apply_first else 1
 
         self.branch1 = nn.Sequential(OrderedDict([
-            ('gconv1', blocks.Conv2d1x1Block(in_channels, out_channels, groups=g_1st)),
+            ('gconv1', blocks.Conv2d1x1Block(inp, oup, groups=g_1st)),
             ('shuffle', blocks.ChannelShuffle(groups=g)),
-            ('dwconv', blocks.DepthwiseConv2dBN(out_channels, out_channels, stride=stride)),
-            ('gconv2', blocks.Conv2d1x1BN(out_channels, out_channels, groups=g))
+            ('dwconv', blocks.DepthwiseConv2dBN(oup, oup, stride=stride)),
+            ('gconv2', blocks.Conv2d1x1BN(oup, oup, groups=g))
         ]))
 
         self.branch2 = nn.AvgPool2d(kernel_size=3, stride=stride, padding=1)
@@ -55,29 +55,44 @@ class ShuffleCatBlock(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        x = self.combine(self.branch1(x), self.branch2(x))
+        x = self.combine([self.branch1(x), self.branch2(x)])
         x = self.relu(x)
         return x
 
 
-def shufflenet_g1(pretrained: bool = False):
-    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 144, 288, 576], g=1)
+def shufflenet_g1(pretrained: bool = False, pth: str = None):
+    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 144, 288, 576], g=1)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
-def shufflenet_g2(pretrained: bool = False):
-    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 200, 400, 800], g=2)
+def shufflenet_g2(pretrained: bool = False, pth: str = None):
+    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 200, 400, 800], g=2)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
-def shufflenet_g3(pretrained: bool = False):
-    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 240, 480, 960], g=3)
+def shufflenet_g3(pretrained: bool = False, pth: str = None):
+    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 240, 480, 960], g=3)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
-def shufflenet_g4(pretrained: bool = False):
-    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 272, 544, 1088], g=4)
+def shufflenet_g4(pretrained: bool = False, pth: str = None):
+    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 272, 544, 1088], g=4)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
-def shufflenet_g8(pretrained: bool = False):
-    return ShuffleNet(repeats=[4, 8, 4], channels=[24, 384, 768, 1536], g=8)
+def shufflenet_g8(pretrained: bool = False, pth: str = None):
+    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 384, 768, 1536], g=8)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
 class ShuffleNet(nn.Module):
@@ -92,7 +107,7 @@ class ShuffleNet(nn.Module):
         super().__init__()
 
         self.conv1 = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, channels[0], kernel_size=3, stride=2),
+            blocks.Conv2dBlock(in_channels, channels[0], 3, stride=2),
             nn.MaxPool2d(kernel_size=3, stride=2)
         )
 
