@@ -21,10 +21,15 @@ def parse_args():
     model_names = sorted(name for name in models.__dict__
                          if name.islower() and not name.startswith("__")
                          and callable(models.__dict__[name]))
+    model_names += sorted(name for name in torchvision.models.__dict__
+                          if name.islower() and not name.startswith("__")
+                          and callable(torchvision.models.__dict__[name]))
 
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
     parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
                         help='path to the ImageNet dataset.')
+    parser.add_argument('--torch', action='store_true',
+                        help='use torchvision models. (default: false)')
     parser.add_argument('--model', type=str, default='muxnet_v2', choices=model_names,
                         help='type of model to use. (default: muxnet_v2)')
     parser.add_argument('--input-size', type=int, default=224,  metavar='SIZE',
@@ -46,8 +51,11 @@ def parse_args():
                         help='initial learning rate. (default: 0.1)')
     parser.add_argument('--rmsprop-decay', type=float, default=0.9, metavar='D',
                         help='decay of RMSprop. (default: 0.9)')
+    parser.add_argument('--rmsprop-epsilon', type=float, default=1e-8, metavar='E')
     parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                         help='momentum of SGD. (default: 0.9)')
+    parser.add_argument('--nesterov', action='store_true',
+                        help='nesterov of SGD. (default: false)')
     parser.add_argument('--wd', type=float, default=1e-4,
                         help='weight decay. (default: 1e-4)')
     parser.add_argument('--lr-mode', type=str, default='cosine', choices=['step', 'cosine'],
@@ -72,6 +80,8 @@ def parse_args():
     parser.add_argument('--bn-epsilon', type=float, default=1e-5, metavar='E')
     parser.add_argument('--bn-position', type=str, default='before', choices=['before', 'after', 'none'],
                         help='norm layer / activation layer. (default: before)')
+    parser.add_argument('--moving-average-decay',
+                        type=float, default=0.9999, metavar='M')
     parser.add_argument('--evaluate', action='store_true',
                         help='evaluate model on validation set. (default: false)')
     parser.add_argument('--print-freq', default=100, type=int, metavar='N',
@@ -115,12 +125,12 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
                            resize_x=crop,
                            resize_y=crop,
                            interp_type=types.INTERP_TRIANGULAR)
-        # images = fn.color_twist(images,
-        #                         device=dali_device,
-        #                         brightness=fn.random.uniform(range=[0.6, 1.4]),
-        #                         contrast=fn.random.uniform(range=[0.6, 1.4]),
-        #                         saturation=fn.random.uniform(range=[0.6, 1.4]),
-        #                         hue=fn.random.uniform(range=[0.6, 1.4]))
+        images = fn.color_twist(images,
+                                device=dali_device,
+                                brightness=fn.random.uniform(range=[0.6, 1.4]),
+                                contrast=fn.random.uniform(range=[0.6, 1.4]),
+                                saturation=fn.random.uniform(range=[0.6, 1.4]),
+                                hue=fn.random.uniform(range=[0.6, 1.4]))
         mirror = fn.random.coin_flip(probability=0.5)
     else:
         images = fn.decoders.image(images,
@@ -147,7 +157,7 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
     return images, labels
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
+def train(train_loader, model, criterion, optimizer, scheduler, moving_average, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -182,6 +192,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
         scaler.step(optimizer)
         scaler.update()
 
+        # moving_average.update()
+
         scheduler.step()
 
         acc1, acc5 = accuracy(output, original_target, topk=(1, 5))
@@ -200,7 +212,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
                         f't5={top5.val:>6.3f}/{top5.avg:>6.3f}')
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, moving_average):
     batch_time = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
@@ -214,7 +226,7 @@ def validate(val_loader, model, criterion):
         target = data[0]["label"].squeeze(-1).long()
 
         # compute output
-        with torch.no_grad():
+        with torch.no_grad():#, moving_average.average_parameters():
             output = model(input)
             loss = criterion(output, target)
             losses += loss
@@ -227,7 +239,7 @@ def validate(val_loader, model, criterion):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % (args.print_freq // 2) == 0 and i != 0:
+        if i % (args.print_freq // 10) == 0 and i != 0:
             logger.info(f'Validation [{i:>3}/{len(val_loader)}], '
                         f'time={batch_time.val:>.3f}({batch_time.avg:>.3f}), '
                         f'loss={loss.item():>.5f}, '
@@ -263,7 +275,10 @@ if __name__ == '__main__':
     logger.info(args)
 
     with blocks.batchnorm(args.bn_momentum, args.bn_epsilon, args.bn_position):
-        model = models.__dict__[args.model]()
+        if args.torch:
+            model = torchvision.models.__dict__[args.model]()
+        else:
+            model = models.__dict__[args.model]()
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -289,14 +304,16 @@ if __name__ == '__main__':
                 {'params': wd, 'weight_decay': args.wd},
                 {'params': no_wd, 'weight_decay': 0.}],
                 args.lr,
-                momentum=args.momentum)
+                momentum=args.momentum,
+                nesterov=args.nesterov)
         elif args.optim == 'rmsprop':
             optimizer = torch.optim.RMSprop([
                 {'params': wd, 'weight_decay': args.wd},
                 {'params': no_wd, 'weight_decay': 0.}],
                 lr=args.lr,
                 alpha=args.rmsprop_decay,
-                momentum=args.momentum)
+                momentum=args.momentum,
+                eps=args.rmsprop_epsilon)
         else:
             raise ValueError(f'Invalid optimizer name: {args.optim}.')
     else:
@@ -304,13 +321,15 @@ if __name__ == '__main__':
             optimizer = torch.optim.SGD(model.parameters(),
                                         args.lr,
                                         momentum=args.momentum,
-                                        weight_decay=args.wd)
+                                        weight_decay=args.wd,
+                                        nesterov=args.nesterov)
         elif args.optim == 'rmsprop':
             optimizer = torch.optim.RMSprop(model.parameters(),
                                             lr=args.lr,
                                             alpha=args.rmsprop_decay,
                                             momentum=args.momentum,
-                                            weight_decay=args.wd)
+                                            weight_decay=args.wd,
+                                            eps=args.rmsprop_epsilon)
         else:
             raise ValueError(f'Invalid optimizer name: {args.optim}.')
 
@@ -321,6 +340,8 @@ if __name__ == '__main__':
 
     val_criterion = torch.nn.CrossEntropyLoss().cuda()
 
+    moving_average = ExponentialMovingAverage(
+        model.parameters(), decay=args.moving_average_decay)
     pipe = create_dali_pipeline(batch_size=args.batch_size,
                                 num_threads=args.workers,
                                 device_id=args.local_rank,
@@ -355,13 +376,13 @@ if __name__ == '__main__':
 
     benchmark = Benchmark()
     if args.evaluate:
-        validate(val_loader, model, criterion)
+        validate(val_loader, model, val_criterion, moving_average)
     else:
         if args.lr_mode == 'step':
             scheduler = lr.WarmUpStepLR(
                 optimizer,
                 warmup_steps=args.warmup_epochs * len(train_loader),
-                steps=args.lr_decay_epochs * len(train_loader),
+                step_size=args.lr_decay_epochs * len(train_loader),
                 gamma=args.lr_decay
             )
         else:
@@ -376,13 +397,14 @@ if __name__ == '__main__':
 
         for epoch in range(0, args.epochs):
             train(train_loader, model, criterion,
-                  optimizer, scheduler, epoch, args)
-            validate(val_loader, model, val_criterion)
+                  optimizer, scheduler, moving_average, epoch, args)
+            validate(val_loader, model, val_criterion, moving_average)
             train_loader.reset()
             val_loader.reset()
 
             if args.local_rank == 0:
                 model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pt'
+                # with moving_average.average_parameters():
                 torch.save(model.module.state_dict(), model_name)
                 logger.info(f'Saved: {model_name}!')
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

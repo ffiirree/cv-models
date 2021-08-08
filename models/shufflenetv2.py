@@ -4,11 +4,11 @@ import torch
 import torch.nn as nn
 from .core import blocks
 
-__all__ = ['ShuffleNetv2', 'shufflenet_v2_x0_5',
+__all__ = ['ShuffleNetV2', 'shufflenet_v2_x0_5',
            'shufflenet_v2_x1_0', 'shufflenet_v2_x1_5', 'shufflenet_v2_x2_0']
 
 
-class ShuffleBlockv2(nn.Module):
+class ShuffleBlockV2(nn.Module):
     def __init__(self, inp, oup, stride: int = 1):
         super().__init__()
 
@@ -51,34 +51,34 @@ class ShuffleBlockv2(nn.Module):
 
 
 def shufflenet_v2_x0_5(pretrained: bool = False, pth: str = None):
-    model = ShuffleNetv2(3, 1000, [4, 8, 4], [24, 48, 96, 192, 1024])
+    model = ShuffleNetV2(3, 1000, [4, 8, 4], [24, 48, 96, 192, 1024])
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
 def shufflenet_v2_x1_0(pretrained: bool = False, pth: str = None):
-    model = ShuffleNetv2(3, 1000, [4, 8, 4], [24, 116, 232, 464, 1024])
+    model = ShuffleNetV2(3, 1000, [4, 8, 4], [24, 116, 232, 464, 1024])
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
 def shufflenet_v2_x1_5(pretrained: bool = False, pth: str = None):
-    model = ShuffleNetv2(3, 1000, [4, 8, 4], [24, 176, 352, 704, 1024])
+    model = ShuffleNetV2(3, 1000, [4, 8, 4], [24, 176, 352, 704, 1024])
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
 def shufflenet_v2_x2_0(pretrained: bool = False, pth: str = None):
-    model = ShuffleNetv2(3, 1000, [4, 8, 4], [24, 244, 488, 976, 2048])
+    model = ShuffleNetV2(3, 1000, [4, 8, 4], [24, 244, 488, 976, 2048])
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-class ShuffleNetv2(nn.Module):
+class ShuffleNetV2(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
@@ -104,9 +104,9 @@ class ShuffleNetv2(nn.Module):
 
     @staticmethod
     def make_layers(repeat, inp, oup):
-        layers = [ShuffleBlockv2(inp, oup, stride=2)]
+        layers = [ShuffleBlockV2(inp, oup, stride=2)]
         for _ in range(repeat - 1):
-            layers.append(ShuffleBlockv2(oup, oup))
+            layers.append(ShuffleBlockV2(oup, oup))
 
         return nn.Sequential(*layers)
 

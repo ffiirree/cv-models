@@ -14,4 +14,4 @@ from .muxnet import *
 from .resnet import *
 from .pwgroupnet import *
 
-from torchvision.models import *
+# from torchvision.models import *

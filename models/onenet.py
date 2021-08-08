@@ -1,7 +1,16 @@
+import os
 import torch
 import torch.nn as nn
+from .core import blocks
 
-__all__ = ['OneNet', 'OneNetv2', 'OneNetv3']
+__all__ = ['OneNet', 'onenet', 'OneNetv2', 'onenet_v2']
+
+
+def onenet(pretrained: bool = False, pth: str = None):
+    model = OneNet()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
 class PickLayer(nn.Module):
@@ -17,48 +26,33 @@ class PickLayer(nn.Module):
             x[:, :, 1::2, 1::2]], dim=1)
 
 
-class Conv2d1x1(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int):
-        super().__init__()
-
-        self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1,
-                      bias=False, stride=1, padding=0),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(out_channels)
-        )
-
-    def forward(self, x):
-        return self.layer(x)
-
-
 class OneNet(nn.Module):
-    def __init__(self, in_channels: int = 3, num_classes: int = 10, base_filters: int = 32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 10, filters: int = 32):
         super().__init__()
 
         self.features = nn.Sequential(
             PickLayer(),
-            Conv2d1x1(in_channels * 4, base_filters),
-            Conv2d1x1(base_filters, base_filters),
-            Conv2d1x1(base_filters, base_filters),
+            blocks.Conv2d1x1Block(in_channels * 4, filters),
+            blocks.Conv2d1x1Block(filters, filters),
+            blocks.Conv2d1x1Block(filters, filters),
             PickLayer(),
-            Conv2d1x1(base_filters * 4, base_filters * 4),
-            Conv2d1x1(base_filters * 4, base_filters * 4),
+            blocks.Conv2d1x1Block(filters * 4, filters * 4),
+            blocks.Conv2d1x1Block(filters * 4, filters * 4),
             PickLayer(),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 2),
-            Conv2d1x1(base_filters * 4 * 2, base_filters * 4 * 2),
-            Conv2d1x1(base_filters * 4 * 2, base_filters * 4),
+            blocks.Conv2d1x1Block(filters * 4 * 4, filters * 4 * 2),
+            blocks.Conv2d1x1Block(filters * 4 * 2, filters * 4 * 2),
+            blocks.Conv2d1x1Block(filters * 4 * 2, filters * 4),
             PickLayer(),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
+            blocks.Conv2d1x1Block(filters * 4 * 4, filters * 4 * 4),
+            blocks.Conv2d1x1Block(filters * 4 * 4, filters * 4 * 4),
             PickLayer(),
-            Conv2d1x1(base_filters * 4 * 4 * 4, base_filters * 4 * 4 * 2),
-            Conv2d1x1(base_filters * 4 * 4 * 2, base_filters * 4 * 4 * 2),
-            Conv2d1x1(base_filters * 4 * 4 * 2, base_filters * 4 * 4 * 2),
+            blocks.Conv2d1x1Block(filters * 4 * 4 * 4, filters * 4 * 4 * 2),
+            blocks.Conv2d1x1Block(filters * 4 * 4 * 2, filters * 4 * 4 * 2),
+            blocks.Conv2d1x1Block(filters * 4 * 4 * 2, filters * 4 * 4 * 2),
         )
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(base_filters * 4 * 4 * 2, num_classes)
+        self.fc = nn.Linear(filters * 4 * 4 * 2, num_classes)
 
     def forward(self, x: torch.Tensor):
         x = self.features(x)
@@ -68,82 +62,45 @@ class OneNet(nn.Module):
         return x
 
 
-class DWBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size: int = 3, stride: int = 1, padding: int = 1):
-        super().__init__()
-
-        self.layer = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size,
-                      bias=False, stride=stride, padding=padding, groups=in_channels),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(in_channels),
-            nn.Conv2d(in_channels, out_channels, kernel_size=1,
-                      stride=1, bias=False, padding=0),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(out_channels),
-        )
-
-    def forward(self, x):
-        return self.layer(x)
+def onenet_v2(pretrained: bool = False, pth: str = None):
+    model = OneNetv2()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
 class OneNetv2(nn.Module):
-    def __init__(self, in_channels: int = 3, num_classes: int = 10, base_filters: int = 32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 10, filters: int = 32):
         super().__init__()
 
         self.features = nn.Sequential(
             PickLayer(),
-            Conv2d1x1(in_channels * 4, base_filters),
-            Conv2d1x1(base_filters, base_filters),
+            blocks.Conv2d1x1Block(in_channels * 4, filters),
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.Conv2d1x1Block(filters, filters),
+            blocks.Conv2d1x1Block(filters, filters),
             PickLayer(),
-            Conv2d1x1(base_filters * 4, base_filters * 4),
-            Conv2d1x1(base_filters * 4, base_filters * 4),
+            blocks.Conv2d1x1Block(filters * 4, filters * 4),
+            blocks.DepthwiseConv2d(filters * 4, filters * 4),
+            blocks.Conv2d1x1Block(filters * 4, filters * 4),
             PickLayer(),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4),
+            blocks.Conv2d1x1Block(filters * 16, filters * 8),
+            blocks.DepthwiseConv2d(filters * 8, filters * 8),
+            blocks.Conv2d1x1Block(filters * 8, filters * 4),
+            blocks.Conv2d1x1Block(filters * 4, filters * 4),
             PickLayer(),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
+            blocks.Conv2d1x1Block(filters * 16, filters * 16),
+            blocks.DepthwiseConv2d(filters * 16, filters * 16),
+            blocks.Conv2d1x1Block(filters * 16, filters * 16),
             PickLayer(),
-            Conv2d1x1(base_filters * 4 * 4 * 4, base_filters * 4 * 4 * 4),
-            DWBlock(base_filters * 4 * 4 * 4, base_filters * 4 * 4 * 4),
+            blocks.Conv2d1x1Block(filters * 64, filters * 32),
+            blocks.DepthwiseConv2d(filters * 32, filters * 32),
+            blocks.Conv2d1x1Block(filters * 32, filters * 32),
+            blocks.Conv2d1x1Block(filters * 32, filters * 32),
         )
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(base_filters * 4 * 4 * 4, num_classes)
-
-    def forward(self, x: torch.Tensor):
-        x = self.features(x)
-        x = self.avg(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        return x
-
-
-class OneNetv3(nn.Module):
-    def __init__(self, in_channels: int = 3, num_classes: int = 10, base_filters: int = 32):
-        super().__init__()
-
-        self.features = nn.Sequential(
-            PickLayer(),
-            PickLayer(),
-            Conv2d1x1(in_channels * 4 * 4, base_filters),
-            PickLayer(),
-            PickLayer(),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4),
-            PickLayer(),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-            Conv2d1x1(base_filters * 4 * 4, base_filters * 4 * 4),
-        )
-
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(base_filters * 4 * 4, num_classes)
+        self.fc = nn.Linear(filters * 32, num_classes)
 
     def forward(self, x: torch.Tensor):
         x = self.features(x)

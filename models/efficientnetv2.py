@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from .core import blocks
 
-__all__ = ['EfficientNetv2', 'efficientnet_v2_s',
+__all__ = ['EfficientNetV2', 'efficientnet_v2_s',
            'efficientnet_v2_m', 'efficientnet_v2_l', 'efficientnet_v2_xl']
 _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
@@ -41,7 +41,7 @@ efficientnetv2_params = {
 
 
 def efficientnet_v2_s(pretrained: bool = False):
-    return EfficientNetv2(
+    return EfficientNetV2(
         dropout_rate=0.2,
         block_type=[0, 0, 0, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6],
@@ -53,7 +53,7 @@ def efficientnet_v2_s(pretrained: bool = False):
 
 
 def efficientnet_v2_m(pretrained: bool = False):
-    return EfficientNetv2(
+    return EfficientNetV2(
         dropout_rate=0.3,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
@@ -65,7 +65,7 @@ def efficientnet_v2_m(pretrained: bool = False):
 
 
 def efficientnet_v2_l(pretrained: bool = False):
-    return EfficientNetv2(
+    return EfficientNetV2(
         dropout_rate=0.3,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
@@ -77,7 +77,7 @@ def efficientnet_v2_l(pretrained: bool = False):
 
 
 def efficientnet_v2_xl(pretrained: bool = False):
-    return EfficientNetv2(
+    return EfficientNetV2(
         dropout_rate=0.4,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
@@ -88,7 +88,7 @@ def efficientnet_v2_xl(pretrained: bool = False):
     )
 
 
-class EfficientNetv2(nn.Module):
+class EfficientNetV2(nn.Module):
 
     @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
     @blocks.nonlinear(nn.SiLU)

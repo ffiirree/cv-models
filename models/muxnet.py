@@ -16,6 +16,7 @@ def mobilenet_mux(pretrained: bool = False, pth: str = None):
 
 
 class MobileNetMux(nn.Module):
+    @blocks.batchnorm(position='after')
     def __init__(
         self,
         in_channels: int = 3,

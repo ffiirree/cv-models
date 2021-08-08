@@ -20,7 +20,7 @@ class MobileBlock(nn.Sequential):
     ):
         super().__init__(
             blocks.DepthwiseBlock(
-                inp, inp, kernel_size=kernel_size, stride=stride, padding=padding),
+                inp, inp, kernel_size, stride=stride, padding=padding),
             blocks.PointwiseBlock(inp, oup, groups=groups)
         )
 
@@ -115,13 +115,16 @@ class MobileNetLinearDW(nn.Module):
         )
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(filters * 32, num_classes)
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(filters * 32, num_classes)
+        )
 
     def forward(self, x):
         x = self.features(x)
         x = self.avg(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x
 
 
@@ -182,13 +185,16 @@ class MobileNetLinearDWv2(nn.Module):
         )
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(filters * 32, num_classes)
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(filters * 32, num_classes)
+        )
 
     def forward(self, x):
         x = self.features(x)
         x = self.avg(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x
 
 
@@ -234,7 +240,10 @@ class MobileNetLinearDWGroup(nn.Module):
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.conv2 = blocks.DepthwiseConv2d(
             num_classes, num_classes, 7, padding=0)
-        self.fc = nn.Linear(filters * 16, num_classes)
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(filters * 16, num_classes)
+        )
 
     def forward(self, x):
         x = self.features(x)
@@ -248,6 +257,6 @@ class MobileNetLinearDWGroup(nn.Module):
         x1 = torch.flatten(x1, 1)
         x2 = torch.flatten(x2, 1)
 
-        x1 = self.fc(x1)
+        x1 = self.classifier(x1)
 
         return x1 + x2

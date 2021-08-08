@@ -3,17 +3,17 @@ import torch
 import torch.nn as nn
 from .core import blocks
 
-__all__ = ['MobileNetv2', 'mobilenet_v2']
+__all__ = ['MobileNetV2', 'mobilenet_v2']
 
 
 def mobilenet_v2(pretrained: bool = False, pth: str = None):
-    model = MobileNetv2()
+    model = MobileNetV2()
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-class MobileNetv2(nn.Module):
+class MobileNetV2(nn.Module):
     @blocks.nonlinear(nn.ReLU6)
     def __init__(
         self,
