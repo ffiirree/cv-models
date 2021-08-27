@@ -7,6 +7,7 @@ from .mnasnet import *
 from .efficientnet import *
 from .efficientnetv2 import *
 from .mlp_mixer import *
+from .aaai22 import *
 
 from .onenet import *
 from .vgglite import *

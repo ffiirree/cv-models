@@ -51,7 +51,8 @@ def parse_args():
                         help='initial learning rate. (default: 0.1)')
     parser.add_argument('--rmsprop-decay', type=float, default=0.9, metavar='D',
                         help='decay of RMSprop. (default: 0.9)')
-    parser.add_argument('--rmsprop-epsilon', type=float, default=1e-8, metavar='E')
+    parser.add_argument('--rmsprop-epsilon', type=float,
+                        default=1e-8, metavar='E')
     parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                         help='momentum of SGD. (default: 0.9)')
     parser.add_argument('--nesterov', action='store_true',
@@ -68,6 +69,8 @@ def parse_args():
                         help='number of warmup epochs. (default: 0)')
     parser.add_argument('--mixup', action='store_true',
                         help='whether train the model with mix-up. (default: false)')
+    parser.add_argument('--augment', action='store_true',
+                        help='data augmentation. (default: false)')
     parser.add_argument('--mixup-alpha', type=float, default=0.2, metavar='V',
                         help='beta distribution parameter for mixup sampling. (default: 0.2)')
     parser.add_argument('--mixup-off-epoch', type=int, default=0, metavar='N',
@@ -98,7 +101,7 @@ def parse_args():
 
 
 @pipeline_def
-def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=False, is_training=True):
+def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=False, is_training=True, augment=False):
     images, labels = fn.readers.file(file_root=data_dir,
                                      shard_id=shard_id,
                                      num_shards=num_shards,
@@ -108,8 +111,12 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
 
     dali_device = 'cpu' if dali_cpu else 'gpu'
     decoder_device = 'cpu' if dali_cpu else 'mixed'
+    # ask nvJPEG to preallocate memory for the biggest sample in ImageNet for CPU and GPU to avoid reallocations in runtime
     device_memory_padding = 211025920 if decoder_device == 'mixed' else 0
     host_memory_padding = 140544512 if decoder_device == 'mixed' else 0
+    # ask HW NVJPEG to allocate memory ahead for the biggest image in the data set to avoid reallocations in runtime
+    preallocate_width_hint = 5980 if decoder_device == 'mixed' else 0
+    preallocate_height_hint = 6430 if decoder_device == 'mixed' else 0
 
     if is_training:
         images = fn.decoders.image_random_crop(images,
@@ -117,6 +124,8 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
                                                output_type=types.RGB,
                                                device_memory_padding=device_memory_padding,
                                                host_memory_padding=host_memory_padding,
+                                               preallocate_width_hint=preallocate_width_hint,
+                                               preallocate_height_hint=preallocate_height_hint,
                                                random_aspect_ratio=[3/4, 4/3],
                                                random_area=[0.08, 1.0],
                                                num_attempts=100)
@@ -125,12 +134,13 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
                            resize_x=crop,
                            resize_y=crop,
                            interp_type=types.INTERP_TRIANGULAR)
-        images = fn.color_twist(images,
-                                device=dali_device,
-                                brightness=fn.random.uniform(range=[0.6, 1.4]),
-                                contrast=fn.random.uniform(range=[0.6, 1.4]),
-                                saturation=fn.random.uniform(range=[0.6, 1.4]),
-                                hue=fn.random.uniform(range=[0.6, 1.4]))
+        if augment:
+            images = fn.color_twist(images,
+                                    device=dali_device,
+                                    brightness=fn.random.uniform(range=[0.6, 1.4]),
+                                    contrast=fn.random.uniform(range=[0.6, 1.4]),
+                                    saturation=fn.random.uniform(range=[0.6, 1.4]),
+                                    hue=fn.random.uniform(range=[0.6, 1.4]))
         mirror = fn.random.coin_flip(probability=0.5)
     else:
         images = fn.decoders.image(images,
@@ -165,7 +175,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
     mixup = MixUp(args.mixup_alpha)
 
     use_mixup = args.mixup and args.mixup_off_epoch < (args.epochs - epoch)
-    logger.info(f'mixup: {use_mixup}, {mixup}')
+    if args.local_rank == 0:
+        logger.info(f'mixup: {use_mixup}, {mixup}')
 
     model.train()
 
@@ -205,11 +216,11 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
 
         if i % args.print_freq == 0 and i != 0:
             logger.info(f'#{epoch:>3} [{args.local_rank}:{i:>4}/{len(train_loader)}], '
-                        f'lr={optimizer.param_groups[0]["lr"]:>.10f}, '
                         f't={batch_time.val:>.3f}/{batch_time.avg:>.3f}, '
-                        f'l={losses.val:>.5f}/{losses.avg:>.5f}, '
                         f't1={top1.val:>6.3f}/{top1.avg:>6.3f}, '
-                        f't5={top5.val:>6.3f}/{top5.avg:>6.3f}')
+                        f't5={top5.val:>6.3f}/{top5.avg:>6.3f}, '
+                        f'lr={optimizer.param_groups[0]["lr"]:>.8f}, '
+                        f'l={losses.val:>.3f}/{losses.avg:>.3f}')
 
 
 def validate(val_loader, model, criterion, moving_average):
@@ -226,7 +237,7 @@ def validate(val_loader, model, criterion, moving_average):
         target = data[0]["label"].squeeze(-1).long()
 
         # compute output
-        with torch.no_grad():#, moving_average.average_parameters():
+        with torch.no_grad():  # , moving_average.average_parameters():
             output = model(input)
             loss = criterion(output, target)
             losses += loss
@@ -352,7 +363,8 @@ if __name__ == '__main__':
                                 dali_cpu=args.dali_cpu,
                                 shard_id=args.local_rank,
                                 num_shards=dist.get_world_size(),
-                                is_training=True)
+                                is_training=True,
+                                augment=args.augment)
     pipe.build()
     train_loader = DALIClassificationIterator(
         pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
@@ -393,7 +405,8 @@ if __name__ == '__main__':
                 min_lr=0
             )
 
-        logger.info(scheduler)
+        if args.local_rank == 0:
+            logger.info(scheduler)
 
         for epoch in range(0, args.epochs):
             train(train_loader, model, criterion,
@@ -403,7 +416,7 @@ if __name__ == '__main__':
             val_loader.reset()
 
             if args.local_rank == 0:
-                model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pt'
+                model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
                 # with moving_average.average_parameters():
                 torch.save(model.module.state_dict(), model_name)
                 logger.info(f'Saved: {model_name}!')
