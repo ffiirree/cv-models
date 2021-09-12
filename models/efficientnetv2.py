@@ -90,7 +90,7 @@ def efficientnet_v2_xl(pretrained: bool = False):
 
 class EfficientNetV2(nn.Module):
 
-    @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
+    # @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
     @blocks.nonlinear(nn.SiLU)
     def __init__(
         self,

@@ -194,6 +194,7 @@ class Conv2dBlock(nn.Sequential):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
+        bias: bool = False,
         groups: int = 1,
         bn_epsilon: float = None,
         bn_momentum: float = None,
@@ -203,7 +204,7 @@ class Conv2dBlock(nn.Sequential):
     ):
         super().__init__(
             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
-                      bias=False, stride=stride, padding=padding, groups=groups),
+                      bias=bias, stride=stride, padding=padding, groups=groups),
             *norm_activation(out_channels, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
                              normalizer_fn=normalizer_fn, activation_fn=activation_fn,
                              norm_position=norm_position)
@@ -211,6 +212,8 @@ class Conv2dBlock(nn.Sequential):
 
 
 class ResBasicBlock(nn.Module):
+    expansion: int = 1
+
     def __init__(
         self,
         inp,
@@ -231,7 +234,7 @@ class ResBasicBlock(nn.Module):
             Conv2d3x3BN(inp, oup, stride=stride,
                         bn_momentum=bn_momentum, normalizer_fn=normalizer_fn),
             activation_fn(inplace=True),
-            Conv2d3x3BN(oup, oup, eps=bn_epsilon, bn_momentum=bn_momentum,
+            Conv2d3x3BN(oup, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
                         normalizer_fn=normalizer_fn)
         )
 
@@ -831,279 +834,6 @@ class IdentityDepthwiseBlock(nn.Module):
     def forward(self, x):
         out = self.concat([self.branch1(x), self.branch2(x)])
         return out
-
-
-class HalfInvertedResidualBlock(nn.Module):
-    def __init__(
-        self,
-        inp,
-        oup,
-        t,
-        kernel_size: int = 3,
-        stride: int = 1,
-        padding: int = None,
-        se_ratio: float = None,
-        se_ind: bool = False,
-        survival_prob: float = None,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
-        activation_fn: nn.Module = None
-    ):
-        super().__init__()
-
-        self.inp = inp
-        self.planes = int(self.inp * t)
-        self.oup = oup
-        self.stride = stride
-        self.padding = padding if padding is not None else (kernel_size // 2)
-        self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (
-            se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (
-            self.se_ratio > 0) and (self.se_ratio <= 1)
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
-
-        layers = []
-        if t != 1:
-            layers.append(Conv2d1x1Block(
-                inp, self.planes // 2 if stride == 1 else self.planes,
-                bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn,
-                activation_fn=activation_fn))
-
-        if stride == 1 and t != 1:
-            layers.append(IdentityDepthwiseBlock(self.planes // 2, self.planes // 2, kernel_size, stride=self.stride, padding=self.padding,
-                                                 bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
-
-        else:
-            layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                         bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
-        if self.has_se:
-            layers.append(SEBlock(self.planes, self.se_ratio))
-
-        layers.append(Conv2d1x1BN(
-            self.planes, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
-
-        if self.apply_residual and survival_prob:
-            layers.append(DropBlock(survival_prob))
-
-        self.branch1 = nn.Sequential(*layers)
-        self.branch2 = nn.Identity() if self.apply_residual else None
-        self.combine = Combine('ADD') if self.apply_residual else None
-
-    def forward(self, x):
-        if self.apply_residual:
-            return self.combine([self.branch2(x), self.branch1(x)])
-        else:
-            return self.branch1(x)
-
-
-class OBInvertedResidualBlock(nn.Module):
-    def __init__(
-        self,
-        inp,
-        oup,
-        # kernel_size: int = 3,
-        stride: int = 1,
-        # padding: int = None,
-        se_ratio: float = None,
-        se_ind: bool = False,
-        survival_prob: float = None,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
-        activation_fn: nn.Module = None
-    ):
-        super().__init__()
-
-        self.inp = inp
-        self.t = 9
-        self.planes = int(self.inp * self.t)
-        self.oup = oup
-        self.stride = stride
-        # self.padding = padding if padding is not None else (kernel_size // 2)
-        self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (
-            se_ratio / self.t)
-        self.has_se = (self.se_ratio is not None) and (
-            self.se_ratio > 0) and (self.se_ratio <= 1)
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
-
-        layers = []
-        layers.append(OrthogonalBasisConv2d(self.inp, stride=self.stride))
-        layers.append(Conv2d1x1Block(
-            self.planes, self.planes, groups=self.planes // 18, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
-
-        if self.has_se:
-            layers.append(SEBlock(self.planes, self.se_ratio))
-
-        layers.append(Conv2d1x1BN(
-            self.planes, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
-
-        if self.apply_residual and survival_prob:
-            layers.append(DropBlock(survival_prob))
-
-        self.branch1 = nn.Sequential(*layers)
-        self.branch2 = nn.Identity() if self.apply_residual else None
-        self.combine = Combine('ADD') if self.apply_residual else None
-
-    def forward(self, x):
-        if self.apply_residual:
-            return self.combine([self.branch2(x), self.branch1(x)])
-        else:
-            return self.branch1(x)
-
-
-class SharedInvertedResidualBlock(nn.Module):
-    def __init__(
-        self,
-        inp,
-        oup,
-        t: int = 1,
-        kernel_size: int = 3,
-        stride: int = 1,
-        padding: int = None,
-        se_ratio: float = None,
-        se_ind: bool = False,
-        survival_prob: float = None,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
-        activation_fn: nn.Module = None
-    ):
-        super().__init__()
-
-        self.inp = inp
-        self.t = t
-        self.planes = self.inp * int(t)
-        self.oup = oup
-        self.stride = stride
-        self.padding = padding if padding is not None else (kernel_size // 2)
-        self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (
-            se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (
-            self.se_ratio > 0) and (self.se_ratio <= 1)
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
-
-        self.expand = nn.Identity()
-        if t != 1:
-            self.expand = Conv2d1x1Block(inp, self.planes,
-                                         bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn,
-                                         activation_fn=activation_fn)
-
-        self.shared_dw = DepthwiseConv2d(
-            self.inp, self.inp, kernel_size, stride=self.stride, padding=self.padding)
-
-        layers = []
-        # layers.append(normalizer_fn(self.planes, eps=bn_epsilon, momentum=bn_momentum))
-        layers.extend(norm_activation(self.planes, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                                      normalizer_fn=normalizer_fn, activation_fn=activation_fn))
-
-        if self.has_se:
-            layers.append(SEBlock(self.planes, self.se_ratio))
-
-        layers.append(Conv2d1x1BN(
-            self.planes, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
-
-        if self.apply_residual and survival_prob:
-            layers.append(DropBlock(survival_prob))
-
-        self.branch1 = nn.Sequential(*layers)
-        self.branch2 = nn.Identity() if self.apply_residual else None
-        self.combine = Combine('ADD') if self.apply_residual else None
-
-    def forward(self, x):
-        identity = x
-        x = self.expand(x)
-        x = torch.chunk(x, self.t, dim=1)
-        x = [self.shared_dw(xi) for xi in x]
-        x = torch.cat(x, dim=1)
-
-        if self.apply_residual:
-            return self.combine([self.branch2(identity), self.branch1(x)])
-        else:
-            return self.branch1(x)
-
-
-class SharedGroupedInvertedResidualBlock(nn.Module):
-    def __init__(
-        self,
-        inp,
-        oup,
-        t: int = 1,
-        kernel_size: int = 3,
-        stride: int = 1,
-        padding: int = None,
-        se_ratio: float = None,
-        se_ind: bool = False,
-        survival_prob: float = None,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
-        activation_fn: nn.Module = None
-    ):
-        super().__init__()
-
-        self.inp = inp
-        self.t = t
-        self.planes = self.inp * int(t)
-        self.oup = oup
-        self.stride = stride
-        self.padding = padding if padding is not None else (kernel_size // 2)
-        self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (
-            se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (
-            self.se_ratio > 0) and (self.se_ratio <= 1)
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
-
-        self.expand = nn.Identity()
-        if t != 1:
-            self.expand = Conv2d1x1Block(inp, self.planes,
-                                         bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn,
-                                         activation_fn=activation_fn, groups=2)
-
-        self.shared_dw = DepthwiseConv2d(
-            self.inp, self.inp, kernel_size, stride=self.stride, padding=self.padding)
-
-        layers = []
-        # layers.append(normalizer_fn(self.planes, eps=bn_epsilon, momentum=bn_momentum))
-        layers.extend(norm_activation(self.planes, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                                      normalizer_fn=normalizer_fn, activation_fn=activation_fn))
-
-        if self.has_se:
-            layers.append(SEBlock(self.planes, self.se_ratio))
-
-        layers.append(Conv2d1x1BN(
-            self.planes, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
-
-        if self.apply_residual and survival_prob:
-            layers.append(DropBlock(survival_prob))
-
-        self.branch1 = nn.Sequential(*layers)
-        self.branch2 = nn.Identity() if self.apply_residual else None
-        self.combine = Combine('ADD') if self.apply_residual else None
-
-    def forward(self, x):
-        identity = x
-        x = self.expand(x)
-        x = torch.chunk(x, self.t, dim=1)
-        x = [self.shared_dw(xi) for xi in x]
-        x = torch.cat(x, dim=1)
-
-        if self.apply_residual:
-            return self.combine([self.branch2(identity), self.branch1(x)])
-        else:
-            return self.branch1(x)
 
 
 class FusedInvertedResidualBlock(nn.Module):

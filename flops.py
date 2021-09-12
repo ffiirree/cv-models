@@ -12,12 +12,11 @@ input = torch.randn(1, 3, 224, 224)
 
 def print_model(model, table: bool = False):
     flops = FlopCountAnalysis(model, input)
-    
+
     print(flop_count_str(flops) if not table else flop_count_table(flops))
 
 
 if __name__ == '__main__':
-    # print(torchvision.models.__dict__)
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
     parser.add_argument('--model', '-m', type=str)
     parser.add_argument('--torch', action='store_true')

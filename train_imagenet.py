@@ -175,7 +175,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
     mixup = MixUp(args.mixup_alpha)
 
     use_mixup = args.mixup and args.mixup_off_epoch < (args.epochs - epoch)
-    if args.local_rank == 0:
+    if args.local_rank == 0 and use_mixup:
         logger.info(f'mixup: {use_mixup}, {mixup}')
 
     model.train()
@@ -215,12 +215,12 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
         end = time.time()
 
         if i % args.print_freq == 0 and i != 0:
-            logger.info(f'#{epoch:>3} [{args.local_rank}:{i:>4}/{len(train_loader)}], '
+            logger.info(f'#{epoch:>3} [{args.local_rank}:{i:>4}], '
                         f't={batch_time.val:>.3f}/{batch_time.avg:>.3f}, '
                         f't1={top1.val:>6.3f}/{top1.avg:>6.3f}, '
                         f't5={top5.val:>6.3f}/{top5.avg:>6.3f}, '
-                        f'lr={optimizer.param_groups[0]["lr"]:>.8f}, '
-                        f'l={losses.val:>.3f}/{losses.avg:>.3f}')
+                        f'lr={optimizer.param_groups[0]["lr"]:>.6f}, '
+                        f'l={losses.avg:>.3f}')
 
 
 def validate(val_loader, model, criterion, moving_average):
@@ -250,12 +250,12 @@ def validate(val_loader, model, criterion, moving_average):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % (args.print_freq // 10) == 0 and i != 0:
-            logger.info(f'Validation [{i:>3}/{len(val_loader)}], '
-                        f'time={batch_time.val:>.3f}({batch_time.avg:>.3f}), '
-                        f'loss={loss.item():>.5f}, '
-                        f'top1={top1.val:>6.3f}({top1.avg:>6.3f}), '
-                        f'top5={top5.val:>6.3f}({top5.avg:>6.3f})')
+        # if i % (args.print_freq // 10) == 0 and i != 0:
+        #     logger.info(f'Validation [{i:>3}/{len(val_loader)}], '
+        #                 f't={batch_time.val:>.3f}({batch_time.avg:>.3f}), '
+        #                 f'l={loss.item():>.5f}, '
+        #                 f't1={top1.val:>6.3f}({top1.avg:>6.3f}), '
+        #                 f't5={top5.val:>6.3f}({top5.avg:>6.3f})')
 
     dist.all_reduce(losses)
     top1 = torch.tensor([top1.avg]).cuda()
@@ -407,6 +407,7 @@ if __name__ == '__main__':
 
         if args.local_rank == 0:
             logger.info(scheduler)
+            logger.info(f'step:{len(train_loader)}')
 
         for epoch in range(0, args.epochs):
             train(train_loader, model, criterion,

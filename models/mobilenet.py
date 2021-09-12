@@ -3,8 +3,9 @@ import torch
 import torch.nn as nn
 from .core import blocks
 
-__all__ = ['MobileNet', 'mobilenet', 'MobileNetLinearDW',
-           'mobilenet_lineardw', ]
+__all__ = ['MobileNet', 'MobileNetLinearDW',
+           'mobilenet_lineardw', 'mobilenet_v1_x1_0', 'mobilenet_v1_x0_75',
+           'mobilenet_v1_x0_5', 'mobilenet_v1_x0_35']
 
 
 class MobileBlock(nn.Sequential):
@@ -41,8 +42,29 @@ class MobileBlockLinearDW(nn.Sequential):
         )
 
 
-def mobilenet(pretrained: bool = False, pth: str = None):
-    model = MobileNet()
+def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None):
+    model = MobileNet(depth_multiplier=1.0)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None):
+    model = MobileNet(depth_multiplier=0.75)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+def mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None):
+    model = MobileNet(depth_multiplier=0.5)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None):
+    model = MobileNet(depth_multiplier=0.35)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -53,27 +75,31 @@ class MobileNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        filters: int = 32
+        filters: int = 32,
+        depth_multiplier: float = 1.0
     ):
         super().__init__()
 
+        def depth(d): return max(int(d * depth_multiplier), 8)
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters * 1, stride=2),
-            MobileBlock(filters * 1, filters * 2),
-            MobileBlock(filters * 2, filters * 4, stride=2),
-            MobileBlock(filters * 4, filters * 4),
-            MobileBlock(filters * 4, filters * 8, stride=2),
-            MobileBlock(filters * 8, filters * 8),
-            MobileBlock(filters * 8, filters * 16, stride=2),
-            *[MobileBlock(filters * 16, filters * 16) for _ in range(5)],
-            MobileBlock(filters * 16, filters * 32, stride=2),
-            MobileBlock(filters * 32, filters * 32)
+            blocks.Conv2dBlock(in_channels, depth(filters), stride=2),
+            MobileBlock(depth(filters * 1), depth(filters * 2)),
+            MobileBlock(depth(filters * 2), depth(filters * 4), stride=2),
+            MobileBlock(depth(filters * 4), depth(filters * 4)),
+            MobileBlock(depth(filters * 4), depth(filters * 8), stride=2),
+            MobileBlock(depth(filters * 8), depth(filters * 8)),
+            MobileBlock(depth(filters * 8), depth(filters * 16), stride=2),
+            *[MobileBlock(depth(filters * 16), depth(filters * 16))
+              for _ in range(5)],
+            MobileBlock(depth(filters * 16), depth(filters * 32), stride=2),
+            MobileBlock(depth(filters * 32), depth(filters * 32))
         )
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(0.2, inplace=True),
-            nn.Linear(filters * 32, num_classes)
+            nn.Linear(depth(filters * 32), num_classes)
         )
 
     def forward(self, x):

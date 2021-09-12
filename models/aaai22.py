@@ -2,14 +2,335 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.modules.batchnorm import BatchNorm2d
 from torch.nn.modules.linear import Identity
 from .core import blocks
 
 __all__ = ['mobilenet_g1', 'mobilenet_g2', 'mobilenet_g3',
            'mobilenet_g4', 'mobilenet_g4_all', 'mobilenet_g5',
+           'mobilenet_g6',
            'mobilenet_g1235', 'mobilenet_g12356',
            'micronet_a1_0', 'micronet_b1_0', 'micronet_c1_0',
-           'micronet_a1_5', 'micronet_b1_5', 'micronet_c1_5', 'mobilenet_g7']
+           'micronet_a1_5', 'micronet_b1_5', 'micronet_c1_5', 'mobilenet_g7',
+           'micronet_b2_0', 'micronet_c2_0', 'micronet_b2_5', 'micronet_c2_5', 'micronet_b5_0', 'micronet_d2_0',
+           'threepathnet_x2_0', 'threepathnet_x1_5', 'threepathnet_v2_x1_5']
+
+
+# class ThreePathBlock(nn.Module):
+#     def __init__(
+#         self,
+#         inp: int,
+#         combined: bool = True,
+#         combine: bool = True
+#     ):
+#         super().__init__()
+
+#         self.split = blocks.ChannelChunk(3) if combined else nn.Identity()
+#         self.branch1 = nn.Identity()
+#         self.branch2 = blocks.DepthwiseConv2d(inp // 3, inp // 3)
+#         self.combine1 = blocks.Combine('CONCAT')
+
+#         self.pointwise = blocks.PointwiseBlock(inp, inp // 3)
+#         self.combine2 = blocks.Combine('CONCAT') if combine else nn.Identity()
+
+#     def forward(self, x):
+#         x1, x2, x3 = self.split(x)
+#         out = self.combine1(
+#             [self.branch1(x1), self.branch1(x2), self.branch2(x3)])
+#         out = self.combine2(
+#             [self.branch1(x1), self.branch1(x3), self.pointwise(out)])
+#         return out
+
+class ThreePathBlock(nn.Module):
+    def __init__(
+        self,
+        inp: int,
+        combined: bool = True,
+        combine: bool = True
+    ):
+        super().__init__()
+
+        self.split = blocks.ChannelChunk(3)
+        self.branch1 = nn.Identity()
+        self.branch2 = blocks.DepthwiseConv2d(inp // 3, inp // 3)
+        self.combine1 = blocks.Combine('CONCAT')
+
+        self.pointwise = nn.Sequential(
+            blocks.PointwiseConv2d(inp, inp // 3),
+            nn.ReLU(inplace=True)
+        )
+        self.combine2 = blocks.Combine('CONCAT')
+        self.bn = BatchNorm2d(inp)
+
+    def forward(self, x):
+        x1, x2, x3 = self.split(x)
+        out = self.combine1(
+            [self.branch1(x1), self.branch1(x2), self.branch2(x3)])
+        out = self.combine2(
+            [self.branch1(x1), self.branch1(x3), self.pointwise(out)])
+        out = self.bn(out)
+        return out
+
+
+class ThreePathBlockV2(nn.Module):
+    def __init__(
+        self,
+        inp: int,
+        combined: bool = True,
+        combine: bool = True
+    ):
+        super().__init__()
+
+        self.split = blocks.ChannelChunk(3) if combined else nn.Identity()
+        # self.branch1 = nn.Identity()
+        self.depthwise = blocks.DepthwiseConv2d((inp // 3) * 2, (inp // 3) * 2)
+        self.cat = blocks.Combine('CONCAT')
+
+        self.pointwise = blocks.PointwiseBlock(inp, inp // 3)
+        self.combine = blocks.Combine('CONCAT') if combine else nn.Identity()
+
+    def forward(self, x):
+        x1, x2, x3 = self.split(x)
+        out = self.cat([x1, self.depthwise(self.cat([x2, x3]))])
+        out = self.combine([x3, x1, self.pointwise(out)])
+        return out
+
+
+class TwoPathX2(nn.Module):
+    def __init__(
+        self,
+        inp: int,
+        combine: bool = True
+    ):
+        super().__init__()
+
+        self.branch1 = nn.Identity()
+
+        self.branch2 = nn.Sequential(
+            blocks.PointwiseConv2d(inp, inp),
+            nn.ReLU(inplace=True)
+        )
+        self.combine = blocks.Combine('CONCAT')
+        self.bn = BatchNorm2d(inp * 2)
+
+    def forward(self, x):
+        out = self.combine([self.branch1(x), self.branch2(x)])
+        out = self.bn(out)
+        return out
+
+
+def threepathnet_x1_5(pretrained: bool = False, pth: str = None):
+    model = ThreePathNet()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class ThreePathNet(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 18
+    ):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            TwoPathX2(filters),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            TwoPathX2(filters * 2),
+
+            ThreePathBlock(filters * 4),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            TwoPathX2(filters * 4),
+
+            ThreePathBlock(filters * 8, True, False),
+            ThreePathBlock(filters * 8, False, False),
+            ThreePathBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            TwoPathX2(filters * 8),
+
+            ThreePathBlock(filters * 16, True, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            TwoPathX2(filters * 16),
+
+            ThreePathBlock(filters * 32, True, False),
+            ThreePathBlock(filters * 32, False, False),
+            ThreePathBlock(filters * 32, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 32),
+            blocks.PointwiseBlock(filters * 32, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def threepathnet_v2_x1_5(pretrained: bool = False, pth: str = None):
+    model = ThreePathNetV2()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class ThreePathNetV2(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 18
+    ):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            SplitIdentityPointwiseX2(filters),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            SplitIdentityPointwiseX2(filters * 2),
+
+            ThreePathBlockV2(filters * 4),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4),
+
+            ThreePathBlockV2(filters * 8, True, False),
+            ThreePathBlockV2(filters * 8, False, False),
+            ThreePathBlockV2(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8),
+
+            ThreePathBlockV2(filters * 16, True, False),
+            ThreePathBlockV2(filters * 16, False, False),
+            ThreePathBlockV2(filters * 16, False, False),
+            ThreePathBlockV2(filters * 16, False, False),
+            ThreePathBlockV2(filters * 16, False, False),
+            ThreePathBlockV2(filters * 16, False, False),
+            ThreePathBlockV2(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwiseX2(filters * 16),
+
+            ThreePathBlockV2(filters * 32, True, False),
+            ThreePathBlockV2(filters * 32, False, False),
+            ThreePathBlockV2(filters * 32, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 32),
+            blocks.PointwiseBlock(filters * 32, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def threepathnet_x2_0(pretrained: bool = False, pth: str = None):
+    model = ThreePathNetX2_0()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class ThreePathNetX2_0(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 18
+    ):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            TwoPathX2(filters),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            TwoPathX2(filters * 2),
+
+            ThreePathBlock(filters * 4),
+            ThreePathBlock(filters * 4),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            TwoPathX2(filters * 4),
+
+            ThreePathBlock(filters * 8, True, False),
+            ThreePathBlock(filters * 8, False, False),
+            ThreePathBlock(filters * 8, False, False),
+            ThreePathBlock(filters * 8, False, False),
+            ThreePathBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            TwoPathX2(filters * 8),
+
+            ThreePathBlock(filters * 16, True, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            # ThreePathBlock(filters * 16, False, False),
+            # ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False, False),
+            ThreePathBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            TwoPathX2(filters * 16),
+
+            ThreePathBlock(filters * 32, True, False),
+            ThreePathBlock(filters * 32, False, False),
+            ThreePathBlock(filters * 32, False, False),
+            ThreePathBlock(filters * 32, False, False),
+            ThreePathBlock(filters * 32, False, False),
+            ThreePathBlock(filters * 32, False, False),
+            ThreePathBlock(filters * 32, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 32),
+            blocks.PointwiseBlock(filters * 32, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
 
 
 def mobilenet_g1(pretrained: bool = False, pth: str = None):
@@ -691,6 +1012,75 @@ class MobileNetG12356(nn.Module):
         return x
 
 
+def mobilenet_g6(pretrained: bool = False, pth: str = None):
+    model = MobileNetG6()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MobileNetG6(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters * 1, stride=2),
+
+            Filters32(filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.PointwiseBlock(filters * 2, filters * 4),
+
+            Filters32(filters * 4),
+            blocks.PointwiseBlock(filters * 4, filters * 4),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            blocks.PointwiseBlock(filters * 4, filters * 8),
+
+            Filters32(filters * 8),
+            blocks.PointwiseBlock(filters * 8, filters * 8),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            blocks.PointwiseBlock(filters * 8, filters * 16),
+
+            Filters32(filters * 16),
+            blocks.PointwiseBlock(filters * 16, filters * 16),
+
+            Filters32(filters * 16),
+            blocks.PointwiseBlock(filters * 16, filters * 16),
+
+            Filters32(filters * 16),
+            blocks.PointwiseBlock(filters * 16, filters * 16),
+
+            Filters32(filters * 16),
+            blocks.PointwiseBlock(filters * 16, filters * 16),
+
+            Filters32(filters * 16),
+            blocks.PointwiseBlock(filters * 16, filters * 16),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            blocks.PointwiseBlock(filters * 16, filters * 32),
+
+            blocks.DepthwiseConv2d(filters * 32, filters * 32),
+            blocks.PointwiseBlock(filters * 32, filters * 32),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(filters * 32, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
 class SplitIdentityBlock(nn.Module):
     def __init__(
         self,
@@ -1098,6 +1488,425 @@ class MicroNetC10(nn.Module):
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(496, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def micronet_b2_0(pretrained: bool = False, pth: str = None):
+    model = MicroNetB20()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MicroNetB20(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlock(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwise(filters * 16),
+
+            SplitIdentityBlock(filters * 16, True, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 16, t=8),
+            blocks.PointwiseBlock(filters * 16, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            # nn.Dropout(0.15),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def micronet_c2_0(pretrained: bool = False, pth: str = None):
+    model = MicroNetC20()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MicroNetC20(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlockFilters32(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlockFilters32(filters * 8, False, False),
+            SplitIdentityBlockFilters32(filters * 8, False, False),
+            SplitIdentityBlockFilters32(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwise(filters * 16),
+
+            SplitIdentityBlockFilters32(filters * 16, True, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 16, t=8),
+            blocks.PointwiseBlock(filters * 16, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            # nn.Dropout(0.15),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def micronet_b2_5(pretrained: bool = False, pth: str = None):
+    model = MicroNetB25()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MicroNetB25(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlock(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwise(filters * 16),
+
+            SplitIdentityBlock(filters * 16, True, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 16, t=8),
+            blocks.PointwiseBlock(filters * 16, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            # nn.Dropout(0.15),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def micronet_d2_0(pretrained: bool = False, pth: str = None):
+    model = MicroNetD20()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MicroNetD20(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 16):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlock(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            # SplitIdentityBlock(filters * 16, False, False),
+            # SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwiseX2(filters * 16),
+
+            SplitIdentityBlock(filters * 32, True, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 32, t=8),
+            blocks.PointwiseBlock(filters * 32, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            # nn.Dropout(0.15),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def micronet_b5_0(pretrained: bool = False, pth: str = None):
+    model = MicroNetB50()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MicroNetB50(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 24):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlock(filters * 4, False, False),
+            SplitIdentityBlock(filters * 4, False, False),
+            SplitIdentityBlock(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwiseX2(filters * 16),
+
+            SplitIdentityBlock(filters * 32, True, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False, False),
+            SplitIdentityBlock(filters * 32, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 32, t=8),
+            blocks.PointwiseBlock(filters * 32, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            # nn.Dropout(0.15),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def micronet_c2_5(pretrained: bool = False, pth: str = None):
+    model = MicroNetC25()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MicroNetC25(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=2),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlockFilters32(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlockFilters32(filters * 8, False, False),
+            SplitIdentityBlockFilters32(filters * 8, False, False),
+            SplitIdentityBlockFilters32(filters * 8, False, False),
+            SplitIdentityBlockFilters32(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwise(filters * 16),
+
+            SplitIdentityBlockFilters32(filters * 16, True, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False, False),
+            SplitIdentityBlockFilters32(filters * 16, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 16, t=8),
+            blocks.PointwiseBlock(filters * 16, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            # nn.Dropout(0.15),
+            nn.Linear(512, num_classes)
+        )
 
     def forward(self, x):
         x = self.features(x)

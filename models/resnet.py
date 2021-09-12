@@ -1,124 +1,82 @@
+import os
 import torch
 import torch.nn as nn
 from .core import *
 
-__all__ = ['ResNetS', 'ResNetM', 'ResNetL']
+__all__ = ['ResNet', 'resnet18', 'resnet34',
+           'resnet50', 'resnet101', 'resnet152']
 
-# 20
-class ResNetS(nn.Module):
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+
+def resnet18(pretrained: bool = False, pth: str = None):
+    model = ResNet(layers=[2, 2, 2, 2], block=blocks.ResBasicBlock)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+def resnet34(pretrained: bool = False, pth: str = None):
+    model = ResNet(layers=[3, 4, 6, 3], block=blocks.ResBasicBlock)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+def resnet50(pretrained: bool = False, pth: str = None):
+    model = ResNet(layers=[3, 4, 6, 3], block=blocks.Bottleneck)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+def resnet101(pretrained: bool = False, pth: str = None):
+    model = ResNet(layers=[3, 4, 23, 3], block=blocks.Bottleneck)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+def resnet152(pretrained: bool = False, pth: str = None):
+    model = ResNet(layers=[3, 8, 36, 3], block=blocks.Bottleneck)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class ResNet(nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        layers: list = [2, 2, 2, 2],
+        block: nn.Module = blocks.ResBasicBlock
+    ):
         super().__init__()
 
-        self.in_channels = in_channels
-        self.num_classes = num_classes
-        self.filters = filters
+        features = [
+            blocks.Conv2dBlock(in_channels, 64, 7, stride=2, padding=3),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+        ]
 
-        self.features = nn.Sequential(
-            Conv2dBlock(in_channels, filters, 7, stride=2, padding=3),
+        features.extend(self.make_layers(
+            64 // block.expansion, 64, 1, layers[0], block))
+        features.extend(self.make_layers(64, 128, 2, layers[1], block))
+        features.extend(self.make_layers(128, 256, 2, layers[2], block))
+        features.extend(self.make_layers(256, 512, 2, layers[3], block))
 
-            ResBasicBlock(filters, filters),
-            ResBasicBlock(filters, filters * 2),
-
-            ResBasicBlock(filters * 2, filters * 2),
-            ResBasicBlock(filters * 2, filters * 4, stride=2),
-
-            ResBasicBlock(filters * 4, filters * 4),
-            ResBasicBlock(filters * 4, filters * 4),
-            ResBasicBlock(filters * 4, filters * 8, stride=2),
-
-            ResBasicBlock(filters * 8, filters * 8),
-            ResBasicBlock(filters * 8, filters * 8),
-        )
-
+        self.features = nn.Sequential(*features)
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(filters * 8, num_classes)
+        self.classifier = nn.Linear(512 * block.expansion, num_classes)
 
     def forward(self, x):
         x = self.features(x)
         x = self.avg(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x
 
-# 34
-class ResNetM(nn.Module):
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.num_classes = num_classes
-        self.filters = filters
-
-        self.features = nn.Sequential(
-            Conv2dBlock(in_channels, filters, 7, stride=2, padding=3),
-
-            ResBasicBlock(filters, filters),
-            ResBasicBlock(filters, filters),
-            ResBasicBlock(filters, filters * 2),
-
-            ResBasicBlock(filters * 2, filters * 2),
-            ResBasicBlock(filters * 2, filters * 2),
-            ResBasicBlock(filters * 2, filters * 2),
-            ResBasicBlock(filters * 2, filters * 4, stride=2),
-
-            ResBasicBlock(filters * 4, filters * 4),
-            ResBasicBlock(filters * 4, filters * 4),
-            ResBasicBlock(filters * 4, filters * 4),
-            ResBasicBlock(filters * 4, filters * 4),
-            ResBasicBlock(filters * 4, filters * 4),
-            ResBasicBlock(filters * 4, filters * 8, stride=2),
-
-            ResBasicBlock(filters * 8, filters * 8),
-            ResBasicBlock(filters * 8, filters * 8),
-            ResBasicBlock(filters * 8, filters * 8),
-        )
-
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(filters * 8, num_classes)
-
-    def forward(self, x):
-        x = self.features(x)
-        x = self.avg(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        return x
-
-
-# 50
-class ResNetL(nn.Module):
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.num_classes = num_classes
-        self.filters = filters
-        self.layers = [3, 4, 6, 3]
-
-        self.inp = filters
-        
-        self.features = nn.Sequential(
-            Conv2dBlock(in_channels, filters, 7, stride=2, padding=3),
-            
-            *self.make_layers(filters, self.layers[0]),
-            *self.make_layers(filters * 2, self.layers[1]),
-            *self.make_layers(filters * 4, self.layers[2]),
-            *self.make_layers(filters * 8, self.layers[3]),
-        )
-
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(filters * 8 * Bottleneck.expansion, num_classes)
-        
-    def make_layers(self, channels, n):
-        layers = []
-        
-        for _ in range(n):
-            layers.append(Bottleneck(self.inp, channels))
-            self.inp = channels * Bottleneck.expansion
+    @staticmethod
+    def make_layers(inp, oup, stride, n, block):
+        layers = [block(inp * block.expansion, oup, stride=stride)]
+        for _ in range(n - 1):
+            layers.append(block(oup * block.expansion,  oup))
         return layers
-
-    def forward(self, x):
-        x = self.features(x)
-        x = self.avg(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        return x

@@ -11,6 +11,7 @@
 |VGG-16(BN)         | 2014 | torchvision | 73.360 | 91.516 | 138.366 | 15510.957 |
 |VGG-19             | 2014 | torchvision | 72.376 | 90.876 | 143.667 | 19646.965 |
 |VGG-19(BN)         | 2014 | torchvision | 74.218 | 91.842 | 143.678 | 19676.669 |
+|GoogleNet          | 2014 | torchvision | 69.778 | 89.530 |   6.624 |  1504.880 |
 |ResNet-18          | 2015 | torchvision | 69.758 | 89.078 |  11.689 |  1819.066 |
 |ResNet-34          | 2015 | torchvision | 73.314 | 91.420 |  21.797 |  3671.263 |
 |ResNet-50          | 2015 | torchvision | 76.130 | 92.862 |  25.557 |  4111.515 |
@@ -26,14 +27,13 @@
 |Densenet-169       | 2017 | torchvision | 75.600 | 92.806 |  14.149 |  3398.071 |
 |Densenet-201       | 2017 | torchvision | 76.896 | 93.370 |  20.013 |  4340.971 |
 |Densenet-161       | 2017 | torchvision | 77.138 | 93.560 |  28.681 |  7787.013 |
-|GoogleNet          | 2014 | torchvision | 69.778 | 89.530 |   6.624 |  1504.880 |
 |Inception v3       | 2017 | torchvision | 77.294 | 93.450 |  23.834 |  2847.271 |
 |MobileNet          | 2017 | Paper       | 70.600 |        |   4.200 |   569.000 |
-|MobileNet V2       | 2018 | torchvision | 71.878 | 90.286 |   3.504 |   314.130 |
-|ShuffleNet 0.5x g=3| 2017 | Paper       | 56.800 |        |          |           |
-|ShuffleNet 0.5x g=8| 2017 | Paper       | 57.700 |        |          |           |
+|ShuffleNet 0.5x g=3| 2017 | Paper       | 56.800 |        |         |           |
+|ShuffleNet 0.5x g=8| 2017 | Paper       | 57.700 |        |         |           |
 |ShuffleNet 1.0x g=3| 2017 | Paper       | 67.400 |        |   4.323 |  1924.415 |
 |ShuffleNet 1.0x g=8| 2017 | Paper       | 67.600 |        |   4.841 |  1912.766 |
+|MobileNet V2       | 2018 | torchvision | 71.878 | 90.286 |   3.504 |   314.130 |
 |ShuffleNet V2 x0.5 | 2018 | torchvision | 60.552 | 81.746 |   1.366 |    42.524 |
 |ShuffleNet V2 x1.0 | 2018 | torchvision | 69.362 | 88.316 |   2.278 |   148.808 |
 |ShuffleNet V2 x1.5 | 2018 | Paper       | 72.600 |        |   3.503 |   301.294 |
