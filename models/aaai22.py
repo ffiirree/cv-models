@@ -13,7 +13,7 @@ __all__ = ['mobilenet_g1', 'mobilenet_g2', 'mobilenet_g3',
            'micronet_a1_0', 'micronet_b1_0', 'micronet_c1_0',
            'micronet_a1_5', 'micronet_b1_5', 'micronet_c1_5', 'mobilenet_g7',
            'micronet_b2_0', 'micronet_c2_0', 'micronet_b2_5', 'micronet_c2_5', 'micronet_b5_0', 'micronet_d2_0',
-           'threepathnet_x2_0', 'threepathnet_x1_5', 'threepathnet_v2_x1_5']
+           'threepathnet_x2_0', 'threepathnet_x1_5', 'threepathnet_v2_x1_5', 'micronet_x1_5']
 
 
 # class ThreePathBlock(nn.Module):
@@ -1228,6 +1228,79 @@ class MicroNetB15(nn.Module):
             blocks.PointwiseBlock(filters, filters * 2),
 
             blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlock(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwise(filters * 16),
+
+            SplitIdentityBlock(filters * 16, True, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 16, t=8),
+            blocks.PointwiseBlock(filters * 16, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+
+
+def micronet_x1_5(pretrained: bool = False, pth: str = None):
+    model = MicroNetX15()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+class PickLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        assert x.dim() == 4, f'{x.dim()} != 4'
+        return torch.cat([
+            x[:, :, 0::2, 0::2],
+            x[:, :, 1::2, 0::2],
+            x[:, :, 0::2, 1::2],
+            x[:, :, 1::2, 1::2]], dim=1)
+
+class MicroNetX15(nn.Module):
+    """相较于v7，"""
+    @blocks.batchnorm(position='after')
+    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 24):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            PickLayer(),
+            PickLayer(),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlock(filters * 4, False),

@@ -1,5 +1,7 @@
 from .alexnet import *
 from .vggnet import *
+from .resnet import *
+from .xception import *
 from .densenet import *
 from .mobilenet import *
 from .mobilenetv2 import *
@@ -13,7 +15,6 @@ from .mlp_mixer import *
 from .aaai22 import *
 
 from .onenet import *
-from .resnet import *
 from .pwgroupnet import *
 
 # from torchvision.models import *

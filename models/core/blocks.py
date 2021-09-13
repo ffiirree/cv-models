@@ -219,6 +219,8 @@ class ResBasicBlock(nn.Module):
         inp,
         oup,
         stride: int = 1,
+        groups: int = 1,
+        width_per_group: int = 64,
         bn_epsilon: float = None,
         bn_momentum: float = None,
         normalizer_fn: nn.Module = nn.BatchNorm2d,
@@ -230,13 +232,16 @@ class ResBasicBlock(nn.Module):
         bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
         activation_fn = activation_fn if activation_fn else _NONLINEAR
 
-        self.branch1 = nn.Sequential(
-            Conv2d3x3BN(inp, oup, stride=stride,
-                        bn_momentum=bn_momentum, normalizer_fn=normalizer_fn),
-            activation_fn(inplace=True),
-            Conv2d3x3BN(oup, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                        normalizer_fn=normalizer_fn)
-        )
+        if width_per_group != 64:
+            raise ValueError('width_per_group are not supported!')
+
+        self.branch1 = nn.Sequential(OrderedDict([
+            ('conv1', Conv2d3x3(inp, oup, stride=stride, groups=groups)),
+            ('norm1', normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum)),
+            ('relu1', activation_fn(inplace=True)),
+            ('conv2', Conv2d3x3(oup, oup)),
+            ('norm2', normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum))
+        ]))
 
         self.branch2 = nn.Identity()
 
@@ -261,6 +266,8 @@ class Bottleneck(nn.Module):
         inp: int,
         oup: int,
         stride: int = 1,
+        groups: int = 1,
+        width_per_group: int = 64,
         bn_epsilon: float = None,
         bn_momentum: float = None,
         normalizer_fn: nn.Module = nn.BatchNorm2d,
@@ -272,16 +279,18 @@ class Bottleneck(nn.Module):
         bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
         activation_fn = activation_fn if activation_fn else _NONLINEAR
 
-        self.branch1 = nn.Sequential(
-            Conv2d1x1BN(inp, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                        normalizer_fn=normalizer_fn),
-            activation_fn(inplace=True),
-            Conv2d3x3BN(oup, oup, stride=stride,
-                        bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn),
-            activation_fn(inplace=True),
-            Conv2d1x1BN(oup, oup * self.expansion,
-                        bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn),
-        )
+        width = int(oup * (width_per_group / 64)) * groups
+
+        self.branch1 = nn.Sequential(OrderedDict([
+            ('conv1', Conv2d1x1(inp, width)),
+            ('norm1', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
+            ('relu1', activation_fn(inplace=True)),
+            ('conv2', Conv2d3x3(width, width, stride=stride, groups=groups)),
+            ('norm2', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
+            ('relu2', activation_fn(inplace=True)),
+            ('conv3', Conv2d1x1(width, oup * self.expansion)),
+            ('norm3', normalizer_fn(oup * self.expansion, eps=bn_epsilon, momentum=bn_momentum)),
+        ]))
 
         self.branch2 = nn.Identity()
 

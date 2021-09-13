@@ -2,7 +2,6 @@ import torchvision
 import os
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from .core import *
 
 __all__ = ['DenseNet', 'densenet121', 'densenet169',

@@ -104,7 +104,7 @@ class VGGNet(nn.Module):
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
-            nn.Linear(4096, 1000)
+            nn.Linear(4096, num_classes)
         )
 
     def forward(self, x):

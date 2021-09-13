@@ -6,11 +6,11 @@
 - [ ] `Inception-V3` - [Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567), 2015
 - [ ] `Inception-ResNet-V2 and Inception-V4` - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261), 2016
 - [x] `ResNet` - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385), 2015
-- [ ] `ResNeXt` - [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431), 2016
+- [x] `ResNeXt` - [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431), 2016
 - [ ] `Res2Net` - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169), 2019
 - [ ] `ResNeSt` - [ResNeSt: Split-Attention Networks](https://arxiv.org/abs/2004.08955), 2020
 - [ ] `ReXNet` - [Rethinking Channel Dimensions for Efficient Model Design](https://arxiv.org/abs/2007.00992), 2020
-- [ ] `Xception` - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357), 2016
+- [x] `Xception` - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357), 2016
 - [x] `DenseNet` - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993), 2016
 - [ ] `DLA` - [Deep Layer Aggregation](https://arxiv.org/abs/1707.06484), CVPR, 2017
 - [ ] `DPN` - [Dual Path Networks](https://arxiv.org/abs/1707.01629), 2017

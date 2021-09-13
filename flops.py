@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import argparse
 import torch
 import torchvision
@@ -21,10 +22,21 @@ if __name__ == '__main__':
     parser.add_argument('--model', '-m', type=str)
     parser.add_argument('--torch', action='store_true')
     parser.add_argument('--table', action='store_true')
+    parser.add_argument('--models', action='store_true')
 
     args = parser.parse_args()
 
     if args.torch:
-        print_model(torchvision.models.__dict__[args.model](), args.table)
+        if args.models:
+            print(sorted(name for name in torchvision.models.__dict__
+                         if name.islower() and not name.startswith("__")
+                         and callable(torchvision.models.__dict__[name])))
+        else:
+            print_model(torchvision.models.__dict__[args.model](), args.table)
     else:
-        print_model(models.__dict__[args.model](), args.table)
+        if args.models:
+            print(sorted(name for name in models.__dict__
+                         if name.islower() and not name.startswith("__")
+                         and callable(models.__dict__[name])))
+        else:
+            print_model(models.__dict__[args.model](), args.table)
