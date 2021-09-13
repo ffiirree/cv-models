@@ -13,8 +13,7 @@ from .efficientnet import *
 from .efficientnetv2 import *
 from .mlp_mixer import *
 from .aaai22 import *
+from .rexnet import *
 
 from .onenet import *
 from .pwgroupnet import *
-
-# from torchvision.models import *

@@ -10,6 +10,8 @@ _BN_EPSILON: float = 1e-5
 _BN_POSIITON: str = 'before'
 _NONLINEAR: nn.Module = nn.ReLU
 _SE_GATING_FN: nn.Module = nn.Sigmoid
+_SE_DIVISOR: int = 8
+_SE_USE_NORM: bool = False
 
 
 @contextmanager
@@ -46,13 +48,25 @@ def nonlinear(layer: nn.Module):
 
 
 @contextmanager
-def se_gating_fn(fn: nn.Module):
+def se(
+    gating_fn: nn.Module = _SE_GATING_FN,
+    divisor: int = _SE_DIVISOR,
+    use_norm: bool = _SE_USE_NORM
+):
     global _SE_GATING_FN
+    global _SE_DIVISOR
+    global _SE_USE_NORM
 
     _pre_fn = _SE_GATING_FN
-    _SE_GATING_FN = fn
+    _pre_divisor = _SE_DIVISOR
+    _pre_use_norm = _SE_USE_NORM
+    _SE_GATING_FN = gating_fn
+    _SE_DIVISOR = divisor
+    _SE_USE_NORM = use_norm
     yield
     _SE_GATING_FN = _pre_fn
+    _SE_DIVISOR = _pre_divisor
+    _SE_USE_NORM = _pre_use_norm
 
 
 def norm_activation(
@@ -289,7 +303,8 @@ class Bottleneck(nn.Module):
             ('norm2', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
             ('relu2', activation_fn(inplace=True)),
             ('conv3', Conv2d1x1(width, oup * self.expansion)),
-            ('norm3', normalizer_fn(oup * self.expansion, eps=bn_epsilon, momentum=bn_momentum)),
+            ('norm3', normalizer_fn(oup * self.expansion,
+             eps=bn_epsilon, momentum=bn_momentum)),
         ]))
 
         self.branch2 = nn.Identity()
@@ -444,16 +459,20 @@ class SEBlock(nn.Module):
     ):
         super().__init__()
 
-        squeezed_channels = make_divisible(int(channels * ratio), 8)
+        squeezed_channels = make_divisible(int(channels * ratio), _SE_DIVISOR)
         gating_fn = gating_fn if gating_fn else _SE_GATING_FN
 
-        self.se = nn.Sequential(OrderedDict([
-            ('pooling', nn.AdaptiveAvgPool2d((1, 1))),
-            ('reduce', Conv2d1x1(channels, squeezed_channels, bias=True)),
-            ('relu', inner_activation_fn(inplace=True)),
-            ('expand', Conv2d1x1(squeezed_channels, channels, bias=True)),
-            ('sigmoid', gating_fn()),
-        ]))
+        layers = OrderedDict([])
+
+        layers['pooling'] = nn.AdaptiveAvgPool2d((1, 1))
+        layers['reduce'] = Conv2d1x1(channels, squeezed_channels, bias=True)
+        if _SE_USE_NORM:
+            layers['norm'] = nn.BatchNorm2d(squeezed_channels)
+        layers['relu'] = inner_activation_fn(inplace=True)
+        layers['expand'] = Conv2d1x1(squeezed_channels, channels, bias=True)
+        layers['sigmoid'] = gating_fn()
+
+        self.se = nn.Sequential(layers)
 
     def forward(self, x):
         return x * self.se(x)
@@ -666,7 +685,8 @@ class InvertedResidualBlock(nn.Module):
         bn_epsilon: float = None,
         bn_momentum: float = None,
         normalizer_fn: nn.Module = nn.BatchNorm2d,
-        activation_fn: nn.Module = None
+        activation_fn: nn.Module = None,
+        dw_se_act: nn.Module = None
     ):
         super().__init__()
 
@@ -691,11 +711,18 @@ class InvertedResidualBlock(nn.Module):
                 bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn,
                 activation_fn=activation_fn))
 
-        layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                     bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
+        if dw_se_act is None:
+            layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
+                                         bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
+        else:
+            layers.append(DepthwiseConv2dBN(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
+                                            bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
 
         if self.has_se:
             layers.append(SEBlock(self.planes, self.se_ratio))
+
+        if dw_se_act:
+            layers.append(dw_se_act())
 
         layers.append(Conv2d1x1BN(
             self.planes, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))

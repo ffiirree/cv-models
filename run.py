@@ -30,11 +30,12 @@ if __name__ == '__main__':
             --batch-size 512 \
             --epochs 100 --warmup-epochs 5 \
             --print-freq 250 \
-            --momentum 0.9 --wd 0.00001 --no-wd \
+            --momentum 0.9 --wd 0.0001 --no-wd \
             --label-smoothing'
 
-    run_script(cmd, '--augment --model threepathnet_v2_x1_5')
-    # run_script(cmd, '--augment --model threepathnet_x2_0')
+    # run_script(cmd, '--augment --model threepathnet_v2_x1_5')
+    # run_script(cmd, '--augment --model threepathnet_x2_0') 
+    run_script(cmd, '--augment --model micronet_x1_5')
     run_script(cmd, '--augment --model micronet_d2_0')
     run_script(cmd, '--augment --model micronet_b5_0')
 

@@ -21,7 +21,7 @@ def mobilenet_v3_small(pretrained: bool = False, pth: str = None):
 class MobileNetV3Small(nn.Module):
 
     # @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
-    @blocks.se_gating_fn(nn.Hardsigmoid)
+    @blocks.se(gating_fn=nn.Hardsigmoid)
     def __init__(
         self,
         in_channels: int = 3,
