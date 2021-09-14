@@ -4,7 +4,8 @@ import torch.nn as nn
 from .core import blocks
 
 __all__ = ['ReXNet', 'rexnet_x0_9', 'rexnet_x1_0',
-           'rexnet_x1_3', 'rexnet_x1_5', 'rexnet_x2_0']
+           'rexnet_x1_3', 'rexnet_x1_5', 'rexnet_x2_0',
+           'rexnet_plain']
 
 
 def rexnet_x0_9(pretrained: bool = False, pth: str = None):
@@ -119,6 +120,66 @@ class ReXNet(nn.Module):
         self.fc = nn.Sequential(
             nn.Dropout(0.2),
             nn.Linear(multiplier(1280), num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+
+
+def rexnet_plain(pretrained: bool = False, pth: str = None):
+    model = ReXNetPlain()
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class PlainBlock(nn.Sequential):
+    def __init__(self, inplanes, planes, stride: int = 1):
+        super().__init__(
+            blocks.DepthwiseConv2d(inplanes, inplanes, stride=stride),
+            nn.BatchNorm2d(inplanes),
+            nn.ReLU(inplace=True),
+            blocks.PointwiseBlock(inplanes, planes),
+            nn.BatchNorm2d(planes),
+            nn.SiLU(inplace=True)
+        )
+
+
+class ReXNetPlain(nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000
+    ):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, 32, stride=2,
+                               activation_fn=nn.SiLU),
+            PlainBlock(32, 96, stride=2),
+            PlainBlock(96, 144),
+            PlainBlock(144, 192, stride=2),
+            PlainBlock(192, 240),
+            PlainBlock(240, 288, stride=2),
+            PlainBlock(288, 336),
+            PlainBlock(336, 384),
+            PlainBlock(384, 432),
+            PlainBlock(432, 480),
+            PlainBlock(480, 528),
+            PlainBlock(528, 576, stride=2),
+            PlainBlock(576, 624),
+            PlainBlock(624, 1024),
+            blocks.Conv2d1x1Block(1024, 1280)
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(1280, num_classes)
         )
 
     def forward(self, x):

@@ -12,6 +12,7 @@ input = torch.randn(1, 3, 224, 224)
 
 
 def print_model(model, table: bool = False):
+    model.eval()
     flops = FlopCountAnalysis(model, input)
 
     print(flop_count_str(flops) if not table else flop_count_table(flops))
