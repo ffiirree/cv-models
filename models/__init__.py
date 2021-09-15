@@ -17,3 +17,4 @@ from .rexnet import *
 
 from .onenet import *
 from .pwgroupnet import *
+from .micronet import *

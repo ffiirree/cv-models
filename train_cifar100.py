@@ -9,15 +9,15 @@ import torchvision.transforms as T
 import torch.distributed as dist
 import models
 from utils import *
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
 from torchvision.transforms.transforms import RandomAdjustSharpness, RandomGrayscale, RandomHorizontalFlip, RandomResizedCrop, RandomRotation
 
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 
-mean = [0.4913997551666284, 0.48215855929893703, 0.4465309133731618]
-std = [0.24703225141799082, 0.24348516474564, 0.26158783926049628]
+mean = [0.5071, 0.4865, 0.4409]
+std = [0.2673, 0.2564, 0.2762]
 
 
 def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
@@ -36,7 +36,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
         origin_labels = labels
         
         if args.mixup or args.label_smoothing:
-            labels = one_hot(labels, 10)
+            labels = one_hot(labels, 100)
 
         optimizer.zero_grad(set_to_none=True)
         with torch.cuda.amp.autocast(enabled=args.amp):
@@ -206,15 +206,15 @@ if __name__ == '__main__':
     dist.init_process_group('nccl')
 
     logger = make_logger(
-        f'cifar10_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
+        f'cifar100_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
     logger.info(args)
 
     if args.local_rank == 0 and args.download:
-        CIFAR10(args.data_dir, True, download=True)
-        CIFAR10(args.data_dir, False, download=True)
+        CIFAR100(args.data_dir, True, download=True)
+        CIFAR100(args.data_dir, False, download=True)
     dist.barrier()
 
-    train_dataset = CIFAR10(
+    train_dataset = CIFAR100(
         args.data_dir,
         True,
         transform=T.Compose([
@@ -236,7 +236,7 @@ if __name__ == '__main__':
         sampler=train_sampler
     )
 
-    test_dataset = CIFAR10(
+    test_dataset = CIFAR100(
         args.data_dir,
         False,
         transform=T.Compose([

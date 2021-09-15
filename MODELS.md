@@ -9,7 +9,7 @@
 - [x] `ResNeXt` - [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431), 2016
 - [ ] `Res2Net` - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169), 2019
 - [ ] `ResNeSt` - [ResNeSt: Split-Attention Networks](https://arxiv.org/abs/2004.08955), 2020
-- [ ] `ReXNet` - [Rethinking Channel Dimensions for Efficient Model Design](https://arxiv.org/abs/2007.00992), 2020
+- [x] `ReXNet` - [Rethinking Channel Dimensions for Efficient Model Design](https://arxiv.org/abs/2007.00992), 2020
 - [x] `Xception` - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357), 2016
 - [x] `DenseNet` - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993), 2016
 - [ ] `DLA` - [Deep Layer Aggregation](https://arxiv.org/abs/1707.06484), CVPR, 2017
@@ -31,7 +31,7 @@
 - [ ] `RegNet` - [Designing Network Design Spaces](https://arxiv.org/abs/2003.13678), 2020
 - [ ] `GPU-EfficientNets` - [Neural Architecture Design for GPU-Efficient Networks](https://arxiv.org/abs/2006.14090), 2020
 - [ ] `HaloNets` - [Scaling Local Self-Attention for Parameter Efficient Visual Backbones](https://arxiv.org/abs/2103.12731), 2021
-- [ ] `LambdaNetworks` - [LambdaNetworks: Modeling Long-Range Interactions Without Attention](https://arxiv.org/abs/2102.08602)
+- [ ] `LambdaNetworks` - [LambdaNetworks: Modeling Long-Range Interactions Without Attention](https://arxiv.org/abs/2102.08602), 2021
 - [ ] `RepVGG` - [RepVGG: Making VGG-style ConvNets Great Again](https://arxiv.org/abs/2101.03697), 2021
 - [ ] `HardCoRe-NAS` - [HardCoRe-NAS: Hard Constrained diffeRentiable Neural Architecture Search](https://arxiv.org/abs/2102.11646), 2021
 - [ ] `NFNet` - [High-Performance Large-Scale Image Recognition Without Normalization](https://arxiv.org/abs/2102.06171), 2021

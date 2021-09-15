@@ -36,7 +36,9 @@ if __name__ == '__main__':
     # run_script(cmd, '--augment --model threepathnet_v2_x1_5')
     # run_script(cmd, '--augment --model threepathnet_x2_0') 
     run_script(cmd, '--model micronet_x1_5')
-    run_script(cmd, '--augment --model micronet_d2_0')
+    run_script(cmd, '--augment --model micronet_se2_0')
+    run_script(cmd, '--augment --model micronet_silu2_0')
+    # run_script(cmd, '--augment --model micronet_d2_0')
     run_script(cmd, '--augment --model micronet_b5_0')
 
     # run_script(cmd, '--model micronet_b1_0')
