@@ -1,6 +1,8 @@
+import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['PWGroupNet', 'pwgroupnet']
 
@@ -49,8 +51,11 @@ class PWGroupBlock(nn.Module):
         return x
 
 
-def pwgroupnet(pretrained: bool = False):
-    return PWGroupNet()
+def pwgroupnet(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = PWGroupNet(**kwargs)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
 
 
 class PWGroupNet(nn.Module):

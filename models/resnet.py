@@ -1,61 +1,76 @@
 import os
 import torch
 import torch.nn as nn
-from .core import *
+from .core import blocks
+from typing import Any, List
 
 __all__ = ['ResNet', 'resnet18', 'resnet34',
            'resnet50', 'resnet101', 'resnet152',
            'resnext50_32x4d', 'resnext101_32x8d']
 
 
-def resnet18(pretrained: bool = False, pth: str = None):
-    model = ResNet(layers=[2, 2, 2, 2], block=blocks.ResBasicBlock)
+def resnet18(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ResNet(layers=[2, 2, 2, 2], block=blocks.ResBasicBlock, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def resnet34(pretrained: bool = False, pth: str = None):
-    model = ResNet(layers=[3, 4, 6, 3], block=blocks.ResBasicBlock)
+def resnet34(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ResNet(layers=[3, 4, 6, 3], block=blocks.ResBasicBlock, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def resnet50(pretrained: bool = False, pth: str = None):
-    model = ResNet(layers=[3, 4, 6, 3], block=blocks.Bottleneck)
+def resnet50(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ResNet(layers=[3, 4, 6, 3], block=blocks.Bottleneck, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def resnet101(pretrained: bool = False, pth: str = None):
-    model = ResNet(layers=[3, 4, 23, 3], block=blocks.Bottleneck)
+def resnet101(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ResNet(layers=[3, 4, 23, 3], block=blocks.Bottleneck, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def resnet152(pretrained: bool = False, pth: str = None):
-    model = ResNet(layers=[3, 8, 36, 3], block=blocks.Bottleneck)
+def resnet152(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ResNet(layers=[3, 8, 36, 3], block=blocks.Bottleneck, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def resnext50_32x4d(pretrained: bool = False, pth: str = None):
-    model = ResNet(layers=[3, 4, 6, 3],
-                   block=blocks.Bottleneck, groups=32, width_per_group=4)
+def resnext50_32x4d(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ResNet(
+        layers=[3, 4, 6, 3],
+        block=blocks.Bottleneck,
+        groups=32,
+        width_per_group=4,
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def resnext101_32x8d(pretrained: bool = False, pth: str = None):
-    model = ResNet(layers=[3, 4, 23, 3],
-                   block=blocks.Bottleneck, groups=32, width_per_group=8)
+def resnext101_32x8d(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ResNet(
+        layers=[3, 4, 23, 3],
+        block=blocks.Bottleneck,
+        groups=32,
+        width_per_group=8,
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
@@ -64,7 +79,7 @@ class ResNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        layers: list = [2, 2, 2, 2],
+        layers: List[int] = [2, 2, 2, 2],
         groups: int = 1,
         width_per_group: int = 64,
         block: nn.Module = blocks.ResBasicBlock

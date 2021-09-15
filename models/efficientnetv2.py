@@ -1,7 +1,8 @@
-import math
+import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any, List
 
 __all__ = ['EfficientNetV2', 'efficientnet_v2_s',
            'efficientnet_v2_m', 'efficientnet_v2_l', 'efficientnet_v2_xl']
@@ -40,52 +41,76 @@ efficientnetv2_params = {
 }
 
 
-def efficientnet_v2_s(pretrained: bool = False):
-    return EfficientNetV2(
+def efficientnet_v2_s(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = EfficientNetV2(
         dropout_rate=0.2,
         block_type=[0, 0, 0, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6],
         filters=[24, 24, 48, 64, 128, 160, 256, 1280],
         layers=[2, 4, 5, 6, 9, 15],
         strides=[1, 2, 2, 2, 1, 2],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25]
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25],
+        **kwargs
     )
 
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
 
-def efficientnet_v2_m(pretrained: bool = False):
-    return EfficientNetV2(
+    return model
+
+
+def efficientnet_v2_m(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = EfficientNetV2(
         dropout_rate=0.3,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
         filters=[24, 24, 48, 80, 160, 176, 304, 512, 1280],
         layers=[3, 5, 5, 7, 14, 18, 5],
         strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25]
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        **kwargs
     )
 
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
 
-def efficientnet_v2_l(pretrained: bool = False):
-    return EfficientNetV2(
+    return model
+
+
+def efficientnet_v2_l(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = EfficientNetV2(
         dropout_rate=0.3,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
         filters=[32, 32, 64, 96, 192, 224, 384, 640, 1280],
         layers=[4, 7, 7, 10, 19, 25, 7],
         strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25]
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        **kwargs
     )
 
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
 
-def efficientnet_v2_xl(pretrained: bool = False):
-    return EfficientNetV2(
+    return model
+
+
+def efficientnet_v2_xl(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = EfficientNetV2(
         dropout_rate=0.4,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
         filters=[32, 32, 64, 96, 192, 256, 512, 640, 1280],
         layers=[4, 8, 8, 16, 24, 32, 8],
         strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25]
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        **kwargs
     )
+
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
+    return model
 
 
 class EfficientNetV2(nn.Module):
@@ -97,12 +122,12 @@ class EfficientNetV2(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         dropout_rate: float = 0.2,
-        block_type: list = [0, 0, 0, 1, 1, 1],
-        expand_ratio: list = [1, 4, 4, 4, 6, 6],
-        filters: list = [24, 24, 48, 64, 128, 160, 256, 1280],
-        layers: list = [2, 4, 5, 6, 9, 15],
-        strides: list = [1, 2, 2, 2, 1, 2],
-        se_ratio: list = [0, 0, 0, 0.25, 0.25, 0.25],
+        block_type: List[int] = [0, 0, 0, 1, 1, 1],
+        expand_ratio: List[int] = [1, 4, 4, 4, 6, 6],
+        filters: List[int] = [24, 24, 48, 64, 128, 160, 256, 1280],
+        layers: List[int] = [2, 4, 5, 6, 9, 15],
+        strides: List[int] = [1, 2, 2, 2, 1, 2],
+        se_ratio: List[float] = [0, 0, 0, 0.25, 0.25, 0.25],
     ):
         super().__init__()
 

@@ -1,12 +1,10 @@
 import argparse
 import torch
+import time
 import torchvision
 
 import models
 from utils import *
-
-import time
-
 
 
 class InferenceBenchmarkRunner():
@@ -28,14 +26,13 @@ class InferenceBenchmarkRunner():
 
     def infer(self):
         start = self.timestamp()
-        with torch.cuda.amp.autocast(enabled=self.amp): 
+        with torch.cuda.amp.autocast(enabled=self.amp):
             output = self.model(self.input)
         end = self.timestamp(True)
         return end - start
 
 
 if __name__ == '__main__':
-    # print(torchvision.models.__dict__)
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
     parser.add_argument('--model', '-m', type=str)
     parser.add_argument('--torch', action='store_true')
@@ -63,7 +60,7 @@ if __name__ == '__main__':
         for i in range(50):
             delta_fwd = runner.infer()
             total_step += delta_fwd
-            
+
         run_end = runner.timestamp(True)
         run_elapsed = run_end - run_start
         print(f'Inference benchmark: {round(50 / run_elapsed, 2):.2f} batches/s, {round(1000 * total_step / 50, 2)} ms')

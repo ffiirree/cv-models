@@ -1,38 +1,62 @@
-import torchvision
 import os
 import torch
 import torch.nn as nn
-from .core import *
+from .core import blocks
+from typing import Any, OrderedDict, List
 
 __all__ = ['DenseNet', 'densenet121', 'densenet169',
            'densenet201', 'densenet264']
 
 
-def densenet121(pretrained: bool = False, pth: str = None):
-    model = DenseNet(layers=[6, 12, 24, 16], channels=[64, 128, 256, 512])
+def densenet121(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = DenseNet(
+        layers=[6, 12, 24, 16],
+        channels=[64, 128, 256, 512],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def densenet169(pretrained: bool = False, pth: str = None):
-    model = DenseNet(layers=[6, 12, 32, 32], channels=[64, 128, 256, 640])
+def densenet169(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = DenseNet(
+        layers=[6, 12, 32, 32],
+        channels=[64, 128, 256, 640],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def densenet201(pretrained: bool = False, pth: str = None):
-    model = DenseNet(layers=[6, 12, 48, 32], channels=[64, 128, 256, 896])
+def densenet201(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = DenseNet(
+        layers=[6, 12, 48, 32],
+        channels=[64, 128, 256, 896],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def densenet264(pretrained: bool = False, pth: str = None):
-    model = DenseNet(layers=[6, 12, 64, 48], channels=[64, 128, 256, 1408])
+def densenet264(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = DenseNet(
+        layers=[6, 12, 64, 48],
+        channels=[64, 128, 256, 1408],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
@@ -87,13 +111,13 @@ class DenseNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        layers: list = [2, 2, 2, 2],
-        channels: list = [64, 128, 256, 512]
+        layers: List[int] = [2, 2, 2, 2],
+        channels: List[int] = [64, 128, 256, 512]
     ):
         super().__init__()
 
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, channels[0], 7, stride=2, padding=3),
+            blocks.Conv2dBlock(in_channels, channels[0], 7, 2, padding=3),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             DenseBlock(channels[0], 128, layers[0]),
             TransitionLayer(channels[0] + 32 * layers[0], channels[1]),
@@ -116,6 +140,3 @@ class DenseNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
-
-
-torchvision.models.densenet121

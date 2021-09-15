@@ -1,8 +1,8 @@
-from typing import OrderedDict
 import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any, OrderedDict, List
 
 __all__ = ['ShuffleNetV2', 'shufflenet_v2_x0_5',
            'shufflenet_v2_x1_0', 'shufflenet_v2_x1_5', 'shufflenet_v2_x2_0']
@@ -50,31 +50,55 @@ class ShuffleBlockV2(nn.Module):
         return out
 
 
-def shufflenet_v2_x0_5(pretrained: bool = False, pth: str = None):
-    model = ShuffleNetV2(3, 1000, [4, 8, 4], [24, 48, 96, 192, 1024])
+def shufflenet_v2_x0_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNetV2(
+        repeats=[4, 8, 4],
+        channels=[24, 48, 96, 192, 1024],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def shufflenet_v2_x1_0(pretrained: bool = False, pth: str = None):
-    model = ShuffleNetV2(3, 1000, [4, 8, 4], [24, 116, 232, 464, 1024])
+def shufflenet_v2_x1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNetV2(
+        repeats=[4, 8, 4],
+        channels=[24, 116, 232, 464, 1024],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def shufflenet_v2_x1_5(pretrained: bool = False, pth: str = None):
-    model = ShuffleNetV2(3, 1000, [4, 8, 4], [24, 176, 352, 704, 1024])
+def shufflenet_v2_x1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNetV2(
+        repeats=[4, 8, 4],
+        channels=[24, 176, 352, 704, 1024],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def shufflenet_v2_x2_0(pretrained: bool = False, pth: str = None):
-    model = ShuffleNetV2(3, 1000, [4, 8, 4], [24, 244, 488, 976, 2048])
+def shufflenet_v2_x2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNetV2(
+        repeats=[4, 8, 4],
+        channels=[24, 244, 488, 976, 2048],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
@@ -83,8 +107,8 @@ class ShuffleNetV2(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        repeats: list = [4, 8, 4],
-        channels: list = [24, 48, 96, 192, 1024]
+        repeats: List[int] = [4, 8, 4],
+        channels: List[int] = [24, 48, 96, 192, 1024]
     ):
         super().__init__()
 

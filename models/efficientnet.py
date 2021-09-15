@@ -3,6 +3,7 @@ import math
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['EfficientNet', 'efficientnet_b0', 'efficientnet_b1', 'efficientnet_b2', 'efficientnet_b3',
            'efficientnet_b4', 'efficientnet_b5', 'efficientnet_b6', 'efficientnet_b7', 'efficientnet_b8',
@@ -31,93 +32,153 @@ def efficientnet_params(model_name):
     return params_dict[model_name]
 
 
-def efficientnet_b0(pretrained: bool = False, pth: str = None):
+def efficientnet_b0(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b0')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_b1(pretrained: bool = False, pth: str = None):
+def efficientnet_b1(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b1')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_b2(pretrained: bool = False, pth: str = None):
+def efficientnet_b2(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b2')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_b3(pretrained: bool = False, pth: str = None):
+def efficientnet_b3(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b3')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_b4(pretrained: bool = False, pth: str = None):
+def efficientnet_b4(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b4')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_b5(pretrained: bool = False, pth: str = None):
+def efficientnet_b5(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b5')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_b6(pretrained: bool = False, pth: str = None):
+def efficientnet_b6(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b6')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_b7(pretrained: bool = False, pth: str = None):
+def efficientnet_b7(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b7')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_b8(pretrained: bool = False, pth: str = None):
+def efficientnet_b8(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-b8')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def efficientnet_l2(pretrained: bool = False, pth: str = None):
+def efficientnet_l2(pretrained: bool = False, pth: str = None, **kwargs: Any):
     args = efficientnet_params('efficientnet-l2')
     model = EfficientNet(
-        width_coefficient=args[0], depth_coefficient=args[1], dropout_rate=args[3])
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 

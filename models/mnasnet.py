@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['MnasNet', 'mnasnet_a1']
 
@@ -9,15 +10,14 @@ __all__ = ['MnasNet', 'mnasnet_a1']
 _BN_MOMENTUM = 0.01
 
 
-def mnasnet_a1(pretrained: bool = False, pth: str = None):
-    model = MnasNet()
+def mnasnet_a1(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MnasNet(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
 class MnasNet(nn.Module):
-
     @blocks.batchnorm(momentum=_BN_MOMENTUM)
     def __init__(
         self,
@@ -28,7 +28,7 @@ class MnasNet(nn.Module):
 
         t = [1, 6, 3, 6, 6, 6, 6]
         c = [32, 16, 24, 40, 80, 112, 160, 320, 1280]
-        n = [1, 2, 3, 4, 2, 3, 1] # repeats
+        n = [1, 2, 3, 4, 2, 3, 1]  # repeats
         s = [1, 2, 2, 2, 1, 2, 1]
         k = [3, 3, 5, 3, 3, 5, 3]
         se = [0, 0, 0.25, 0, 0.25, 0.25, 0]

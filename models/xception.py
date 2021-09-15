@@ -1,15 +1,14 @@
 import os
-from typing import OrderedDict
 import torch
 import torch.nn as nn
-from torch.nn.modules.pooling import AdaptiveAvgPool2d
 from .core import blocks
+from typing import OrderedDict, Any
 
 __all__ = ['Xception', 'xception']
 
 
-def xception(pretrained: bool = False, pth: str = None):
-    model = Xception()
+def xception(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = Xception(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -91,7 +90,7 @@ class Xception(nn.Module):
             nn.ReLU(inplace=True)
         )
 
-        self.avg = AdaptiveAvgPool2d((1, 1))
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
 
         self.classifier = nn.Linear(2048, num_classes)
 

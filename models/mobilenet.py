@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['MobileNet', 'MobileNetLinearDW',
            'mobilenet_lineardw', 'mobilenet_v1_x1_0', 'mobilenet_v1_x0_75',
@@ -42,29 +43,29 @@ class MobileBlockLinearDW(nn.Sequential):
         )
 
 
-def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None):
-    model = MobileNet(depth_multiplier=1.0)
+def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MobileNet(depth_multiplier=1.0, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None):
-    model = MobileNet(depth_multiplier=0.75)
+def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MobileNet(depth_multiplier=0.75, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None):
-    model = MobileNet(depth_multiplier=0.5)
+def mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MobileNet(depth_multiplier=0.5, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None):
-    model = MobileNet(depth_multiplier=0.35)
+def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MobileNet(depth_multiplier=0.35, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model

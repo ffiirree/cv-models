@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['micronet_se2_0']
 
@@ -76,8 +77,8 @@ class SplitIdentityPointwiseX2(nn.Module):
         return out
 
 
-def micronet_se2_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetSE20()
+def micronet_se2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetSE20(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model

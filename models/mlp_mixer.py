@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['Mixer']
 

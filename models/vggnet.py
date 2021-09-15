@@ -1,7 +1,8 @@
 import os
 import torch
 import torch.nn as nn
-from .core import *
+from .core import blocks
+from typing import Any, List
 
 __all__ = ['VGGNet', 'vgg11', 'vgg13', 'vgg16', 'vgg19',
            'vgg11_bn', 'vgg13_bn', 'vgg16_bn', 'vgg19_bn']
@@ -16,57 +17,57 @@ class Conv2dReLU(nn.Sequential):
         )
 
 
-def vgg11(pretrained: bool = False, pth: str = None):
-    model = VGGNet(layers=[1, 1, 2, 2, 2])
+def vgg11(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = VGGNet(layers=[1, 1, 2, 2, 2], **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def vgg13(pretrained: bool = False, pth: str = None):
-    model = VGGNet(layers=[2, 2, 2, 2, 2])
+def vgg13(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = VGGNet(layers=[2, 2, 2, 2, 2], **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def vgg16(pretrained: bool = False, pth: str = None):
-    model = VGGNet(layers=[2, 2, 3, 3, 3])
+def vgg16(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = VGGNet(layers=[2, 2, 3, 3, 3], **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def vgg19(pretrained: bool = False, pth: str = None):
-    model = VGGNet(layers=[2, 2, 4, 4, 4])
+def vgg19(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = VGGNet(layers=[2, 2, 4, 4, 4], **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def vgg11_bn(pretrained: bool = False, pth: str = None):
-    model = VGGNet(layers=[1, 1, 2, 2, 2], block=blocks.Conv2dBlock)
+def vgg11_bn(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = VGGNet(layers=[1, 1, 2, 2, 2], block=blocks.Conv2dBlock, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def vgg13_bn(pretrained: bool = False, pth: str = None):
-    model = VGGNet(layers=[2, 2, 2, 2, 2], block=blocks.Conv2dBlock)
+def vgg13_bn(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = VGGNet(layers=[2, 2, 2, 2, 2], block=blocks.Conv2dBlock, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def vgg16_bn(pretrained: bool = False, pth: str = None):
-    model = VGGNet(layers=[2, 2, 3, 3, 3], block=blocks.Conv2dBlock)
+def vgg16_bn(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = VGGNet(layers=[2, 2, 3, 3, 3], block=blocks.Conv2dBlock, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def vgg19_bn(pretrained: bool = False, pth: str = None):
-    model = VGGNet(layers=[2, 2, 4, 4, 4], block=blocks.Conv2dBlock)
+def vgg19_bn(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = VGGNet(layers=[2, 2, 4, 4, 4], block=blocks.Conv2dBlock, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -77,7 +78,7 @@ class VGGNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        layers: list = [1, 1, 2, 2, 2],
+        layers: List[int] = [1, 1, 2, 2, 2],
         block: nn.Module = Conv2dReLU
     ):
         super().__init__()

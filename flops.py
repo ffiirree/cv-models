@@ -5,10 +5,7 @@ import torchvision
 
 import models
 from utils import *
-from models.core import blocks
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count_table
-
-input = torch.randn(1, 3, 224, 224)
 
 
 def print_model(model, table: bool = False):
@@ -24,8 +21,11 @@ if __name__ == '__main__':
     parser.add_argument('--torch', action='store_true')
     parser.add_argument('--table', action='store_true')
     parser.add_argument('--models', action='store_true')
+    parser.add_argument('--image-size', type=int, default=224)
 
     args = parser.parse_args()
+
+    input = torch.randn(1, 3, args.image_size, args.image_size)
 
     if args.torch:
         if args.models:

@@ -1,14 +1,17 @@
 import os
 import torch
 import torch.nn as nn
+from typing import Any
 
 __all__ = ['AlexNet', 'alexnet']
 
 
-def alexnet(pretrained: bool = False, pth: str = None):
-    model = AlexNet()
+def alexnet(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = AlexNet(**kwargs)
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 

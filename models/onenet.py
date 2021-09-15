@@ -2,12 +2,13 @@ import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['OneNet', 'onenet', 'OneNetv2', 'onenet_v2']
 
 
-def onenet(pretrained: bool = False, pth: str = None):
-    model = OneNet()
+def onenet(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = OneNet(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -62,8 +63,8 @@ class OneNet(nn.Module):
         return x
 
 
-def onenet_v2(pretrained: bool = False, pth: str = None):
-    model = OneNetv2()
+def onenet_v2(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = OneNetv2(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model

@@ -1,8 +1,8 @@
-from typing import OrderedDict
 import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any, OrderedDict, List
 
 
 __all__ = ['ShuffleNet', 'shufflenet_g1', 'shufflenet_g2',
@@ -60,38 +60,71 @@ class ShuffleCatBlock(nn.Module):
         return x
 
 
-def shufflenet_g1(pretrained: bool = False, pth: str = None):
-    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 144, 288, 576], g=1)
+def shufflenet_g1(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNet(
+        repeats=[4, 8, 4],
+        channels=[24, 144, 288, 576],
+        g=1,
+        **kwargs
+    )
+
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
+    return model
+
+
+def shufflenet_g2(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNet(
+        repeats=[4, 8, 4],
+        channels=[24, 200, 400, 800],
+        g=2,
+        **kwargs
+    )
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def shufflenet_g2(pretrained: bool = False, pth: str = None):
-    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 200, 400, 800], g=2)
+def shufflenet_g3(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNet(
+        repeats=[4, 8, 4],
+        channels=[24, 240, 480, 960],
+        g=3,
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def shufflenet_g3(pretrained: bool = False, pth: str = None):
-    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 240, 480, 960], g=3)
+def shufflenet_g4(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNet(
+        repeats=[4, 8, 4],
+        channels=[24, 272, 544, 1088],
+        g=4,
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
     return model
 
 
-def shufflenet_g4(pretrained: bool = False, pth: str = None):
-    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 272, 544, 1088], g=4)
+def shufflenet_g8(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ShuffleNet(
+        repeats=[4, 8, 4],
+        channels=[24, 384, 768, 1536],
+        g=8,
+        **kwargs
+    )
+
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
 
-
-def shufflenet_g8(pretrained: bool = False, pth: str = None):
-    model = ShuffleNet(repeats=[4, 8, 4], channels=[24, 384, 768, 1536], g=8)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
@@ -100,8 +133,8 @@ class ShuffleNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        repeats: list = [4, 84, 4],
-        channels: list = [],
+        repeats: List[int] = [4, 84, 4],
+        channels: List[int] = [],
         g: int = 3
     ):
         super().__init__()

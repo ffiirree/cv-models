@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['MobileNetV3Small', 'MobileNetV3Large',
            'mobilenet_v3_small', 'mobilenet_v3_large']
@@ -11,8 +12,8 @@ _BN_EPSILON = 1e-3
 _BN_MOMENTUM = 0.01
 
 
-def mobilenet_v3_small(pretrained: bool = False, pth: str = None):
-    model = MobileNetV3Small()
+def mobilenet_v3_small(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MobileNetV3Small(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -75,8 +76,8 @@ class MobileNetV3Small(nn.Module):
         return x
 
 
-def mobilenet_v3_large(pretrained: bool = False, pth: str = None):
-    model = MobileNetV3Large()
+def mobilenet_v3_large(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MobileNetV3Large(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model

@@ -2,15 +2,14 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.modules.batchnorm import BatchNorm2d
-from torch.nn.modules.linear import Identity
 from .core import blocks
+from typing import Any
 
 __all__ = [
     'micronet_a1_0', 'micronet_b1_0', 'micronet_c1_0',
-    'micronet_a1_5', 'micronet_b1_5', 'micronet_c1_5', 
+    'micronet_a1_5', 'micronet_b1_5', 'micronet_c1_5',
     'micronet_b2_0', 'micronet_c2_0', 'micronet_silu2_0',
-    'micronet_b2_5', 'micronet_c2_5', 
+    'micronet_b2_5', 'micronet_c2_5',
     'micronet_b5_0', 'micronet_d2_0',
     'threepathnet_x2_0', 'threepathnet_x1_5', 'threepathnet_v2_x1_5', 'micronet_x1_5']
 
@@ -59,7 +58,7 @@ class ThreePathBlock(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.combine2 = blocks.Combine('CONCAT')
-        self.bn = BatchNorm2d(inp)
+        self.bn = nn.BatchNorm2d(inp)
 
     def forward(self, x):
         x1, x2, x3 = self.split(x)
@@ -110,7 +109,7 @@ class TwoPathX2(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.combine = blocks.Combine('CONCAT')
-        self.bn = BatchNorm2d(inp * 2)
+        self.bn = nn.BatchNorm2d(inp * 2)
 
     def forward(self, x):
         out = self.combine([self.branch1(x), self.branch2(x)])
@@ -118,8 +117,8 @@ class TwoPathX2(nn.Module):
         return out
 
 
-def threepathnet_x1_5(pretrained: bool = False, pth: str = None):
-    model = ThreePathNet()
+def threepathnet_x1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ThreePathNet(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -186,8 +185,8 @@ class ThreePathNet(nn.Module):
         return x
 
 
-def threepathnet_v2_x1_5(pretrained: bool = False, pth: str = None):
-    model = ThreePathNetV2()
+def threepathnet_v2_x1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ThreePathNetV2(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -254,8 +253,8 @@ class ThreePathNetV2(nn.Module):
         return x
 
 
-def threepathnet_x2_0(pretrained: bool = False, pth: str = None):
-    model = ThreePathNetX2_0()
+def threepathnet_x2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ThreePathNetX2_0(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -397,8 +396,8 @@ class SplitIdentityPointwiseX2(nn.Module):
         return out
 
 
-def micronet_a1_5(pretrained: bool = False, pth: str = None):
-    model = MicroNetA15()
+def micronet_a1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetA15(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -459,8 +458,8 @@ class MicroNetA15(nn.Module):
         return x
 
 
-def micronet_b1_5(pretrained: bool = False, pth: str = None):
-    model = MicroNetB15()
+def micronet_b1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetB15(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -521,8 +520,8 @@ class MicroNetB15(nn.Module):
         return x
 
 
-def micronet_x1_5(pretrained: bool = False, pth: str = None):
-    model = MicroNetX15()
+def micronet_x1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetX15(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -597,8 +596,8 @@ class MicroNetX15(nn.Module):
         return x
 
 
-def micronet_c1_5(pretrained: bool = False, pth: str = None):
-    model = MicroNetC15()
+def micronet_c1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetC15(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -659,8 +658,8 @@ class MicroNetC15(nn.Module):
         return x
 
 
-def micronet_a1_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetA10(3, 1000, 32)
+def micronet_a1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetA10(3, 1000, 32, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -714,8 +713,8 @@ class MicroNetA10(nn.Module):
         return x
 
 
-def micronet_b1_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetB10(3, 1000, 32)
+def micronet_b1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetB10(3, 1000, 32, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -769,8 +768,8 @@ class MicroNetB10(nn.Module):
         return x
 
 
-def micronet_c1_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetC10(3, 1000, 32)
+def micronet_c1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetC10(3, 1000, 32, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -824,8 +823,8 @@ class MicroNetC10(nn.Module):
         return x
 
 
-def micronet_b2_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetB20()
+def micronet_b2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetB20(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -887,8 +886,8 @@ class MicroNetB20(nn.Module):
         return x
 
 
-def micronet_c2_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetC20()
+def micronet_c2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetC20(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -950,9 +949,8 @@ class MicroNetC20(nn.Module):
         return x
 
 
-
-def micronet_silu2_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetSiLU20()
+def micronet_silu2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetSiLU20(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -1015,8 +1013,8 @@ class MicroNetSiLU20(nn.Module):
         return x
 
 
-def micronet_b2_5(pretrained: bool = False, pth: str = None):
-    model = MicroNetB25()
+def micronet_b2_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetB25(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -1082,8 +1080,8 @@ class MicroNetB25(nn.Module):
         return x
 
 
-def micronet_d2_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetD20()
+def micronet_d2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetD20(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -1157,8 +1155,8 @@ class MicroNetD20(nn.Module):
         return x
 
 
-def micronet_b5_0(pretrained: bool = False, pth: str = None):
-    model = MicroNetB50()
+def micronet_b5_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetB50(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -1241,8 +1239,8 @@ class MicroNetB50(nn.Module):
         return x
 
 
-def micronet_c2_5(pretrained: bool = False, pth: str = None):
-    model = MicroNetC25()
+def micronet_c2_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetC25(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model

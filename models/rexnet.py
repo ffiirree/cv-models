@@ -2,42 +2,43 @@ import os
 import torch
 import torch.nn as nn
 from .core import blocks
+from typing import Any
 
 __all__ = ['ReXNet', 'rexnet_x0_9', 'rexnet_x1_0',
            'rexnet_x1_3', 'rexnet_x1_5', 'rexnet_x2_0',
            'rexnet_plain']
 
 
-def rexnet_x0_9(pretrained: bool = False, pth: str = None):
-    model = ReXNet(width_multiplier=0.9)
+def rexnet_x0_9(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ReXNet(width_multiplier=0.9, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def rexnet_x1_0(pretrained: bool = False, pth: str = None):
-    model = ReXNet(width_multiplier=1.0)
+def rexnet_x1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ReXNet(width_multiplier=1.0, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def rexnet_x1_3(pretrained: bool = False, pth: str = None):
-    model = ReXNet(width_multiplier=1.3)
+def rexnet_x1_3(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ReXNet(width_multiplier=1.3, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def rexnet_x1_5(pretrained: bool = False, pth: str = None):
-    model = ReXNet(width_multiplier=1.5)
+def rexnet_x1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ReXNet(width_multiplier=1.5, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
 
 
-def rexnet_x2_0(pretrained: bool = False, pth: str = None):
-    model = ReXNet(width_multiplier=2.0)
+def rexnet_x2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ReXNet(width_multiplier=2.0, **kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
