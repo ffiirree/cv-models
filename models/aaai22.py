@@ -697,7 +697,7 @@ class MicroNetC15(nn.Module):
 
 
 def micronet_a1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = MicroNetA10(3, 1000, 32, **kwargs)
+    model = MicroNetA10(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -760,7 +760,7 @@ class MicroNetA10(nn.Module):
 
 
 def micronet_b1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = MicroNetB10(3, 1000, 32, **kwargs)
+    model = MicroNetB10(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -823,7 +823,7 @@ class MicroNetB10(nn.Module):
 
 
 def micronet_c1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = MicroNetC10(3, 1000, 32, **kwargs)
+    model = MicroNetC10(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
