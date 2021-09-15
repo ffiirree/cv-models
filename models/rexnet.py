@@ -133,8 +133,8 @@ class ReXNet(nn.Module):
         return x
 
 
-def rexnet_plain(pretrained: bool = False, pth: str = None):
-    model = ReXNetPlain()
+def rexnet_plain(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = ReXNetPlain(**kwargs)
     if pretrained and pth is not None:
         model.load_state_dict(torch.load(os.path.expanduser(pth)))
     return model
@@ -156,14 +156,17 @@ class ReXNetPlain(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
-        num_classes: int = 1000
+        num_classes: int = 1000,
+        small_input: bool = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, 32, stride=2,
+            blocks.Conv2dBlock(in_channels, 32, stride=FRONT_S,
                                activation_fn=nn.SiLU),
-            PlainBlock(32, 96, stride=2),
+            PlainBlock(32, 96, stride=FRONT_S),
             PlainBlock(96, 144),
             PlainBlock(144, 192, stride=2),
             PlainBlock(192, 240),
