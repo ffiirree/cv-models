@@ -86,16 +86,24 @@ def micronet_se2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 class MicroNetSE20(nn.Module):
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlock(filters * 4, False),

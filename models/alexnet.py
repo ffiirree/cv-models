@@ -16,11 +16,18 @@ def alexnet(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 
 class AlexNet(nn.Module):
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 4
+
         self.features = nn.Sequential(
-            nn.Conv2d(in_channels, 64, kernel_size=11, stride=4, padding=2),
+            nn.Conv2d(in_channels, 64, kernel_size=11, stride=FRONT_S, padding=2),
             nn.ReLU(inplace=True),
 
             nn.MaxPool2d(kernel_size=3, stride=2),

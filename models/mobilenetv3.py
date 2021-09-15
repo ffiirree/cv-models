@@ -26,15 +26,18 @@ class MobileNetV3Small(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
-        num_classes: int = 1000
+        num_classes: int = 1000,
+        small_input: bool  = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
             blocks.Conv2dBlock(
-                in_channels,  16, 3, stride=2, activation_fn=nn.Hardswish),
+                in_channels, 16, 3, stride=FRONT_S, activation_fn=nn.Hardswish),
             blocks.InvertedResidualBlock(
-                16, 16, t=1, kernel_size=3, stride=2, se_ratio=0.5, se_ind=True),
+                16, 16, t=1, kernel_size=3, stride=FRONT_S, se_ratio=0.5, se_ind=True),
             blocks.InvertedResidualBlock(
                 16, 24, t=72/16, kernel_size=3, stride=2),
             blocks.InvertedResidualBlock(
@@ -89,17 +92,20 @@ class MobileNetV3Large(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
-        num_classes: int = 1000
+        num_classes: int = 1000,
+        small_input: bool  = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
             blocks.Conv2dBlock(
-                in_channels,  16, 3, stride=2, activation_fn=nn.Hardswish),
+                in_channels,  16, 3, stride=FRONT_S, activation_fn=nn.Hardswish),
             blocks.InvertedResidualBlock(
                 16, 16, t=1, kernel_size=3, stride=1),
             blocks.InvertedResidualBlock(
-                16, 24, t=4, kernel_size=3, stride=2),
+                16, 24, t=4, kernel_size=3, stride=FRONT_S),
             blocks.InvertedResidualBlock(
                 24, 24, t=3, kernel_size=3, stride=1),
             blocks.InvertedResidualBlock(

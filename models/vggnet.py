@@ -79,15 +79,19 @@ class VGGNet(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         layers: List[int] = [1, 1, 2, 2, 2],
-        block: nn.Module = Conv2dReLU
+        block: nn.Module = Conv2dReLU,
+        small_input: bool = False
     ):
         super().__init__()
 
+        maxpool1 = nn.Identity() if small_input else nn.MaxPool2d(2, stride=2)
+        maxpool2 = nn.Identity() if small_input else nn.MaxPool2d(2, stride=2)
+
         self.features = nn.Sequential(
             *self.make_layers(in_channels, 64, layers[0], block),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            maxpool1,
             *self.make_layers(64, 128, layers[1], block),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            maxpool2,
             *self.make_layers(128, 256, layers[2], block),
             nn.MaxPool2d(kernel_size=2, stride=2),
             *self.make_layers(256, 512, layers[3], block),

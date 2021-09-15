@@ -40,4 +40,4 @@ if __name__ == '__main__':
                          if name.islower() and not name.startswith("__")
                          and callable(models.__dict__[name])))
         else:
-            print_model(models.__dict__[args.model](), args.table)
+            print_model(models.__dict__[args.model](small_input=False), args.table)

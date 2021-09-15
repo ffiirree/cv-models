@@ -130,17 +130,20 @@ class ThreePathNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        filters: int = 18
+        filters: int = 18,
+        small_input: bool = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             TwoPathX2(filters),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             TwoPathX2(filters * 2),
 
             ThreePathBlock(filters * 4),
@@ -198,17 +201,20 @@ class ThreePathNetV2(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        filters: int = 18
+        filters: int = 18,
+        small_input: bool = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             SplitIdentityPointwiseX2(filters),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2),
 
             ThreePathBlockV2(filters * 4),
@@ -266,17 +272,20 @@ class ThreePathNetX2_0(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        filters: int = 18
+        filters: int = 18,
+        small_input: bool = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             TwoPathX2(filters),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             TwoPathX2(filters * 2),
 
             ThreePathBlock(filters * 4),
@@ -406,16 +415,24 @@ def micronet_a1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
 class MicroNetA15(nn.Module):
     """相较于v7，"""
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 24):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 24,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlock(filters * 4, False),
@@ -468,16 +485,24 @@ def micronet_b1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
 class MicroNetB15(nn.Module):
     """相较于v7，"""
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 24):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 24,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlock(filters * 4, False),
@@ -543,7 +568,12 @@ class PickLayer(nn.Module):
 class MicroNetX15(nn.Module):
     """相较于v7，"""
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 24):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 24
+    ):
         super().__init__()
 
         self.features = nn.Sequential(
@@ -606,16 +636,24 @@ def micronet_c1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
 class MicroNetC15(nn.Module):
     """相较于v7，"""
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 24):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 24,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlockFilter(filters * 4, False),
@@ -669,15 +707,23 @@ class MicroNetA10(nn.Module):
     """Params: 1M"""
     @blocks.batchnorm(position='after')
     # @blocks.nonlinear(nn.SiLU)
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             SplitIdentityBlock(filters),
 
-            blocks.DepthwiseConv2d(filters, filters, stride=2),
+            blocks.DepthwiseConv2d(filters, filters, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters, False),
 
             SplitIdentityBlock(filters * 2, False),
@@ -724,15 +770,23 @@ class MicroNetB10(nn.Module):
     """Params: 1M"""
     @blocks.batchnorm(position='after')
     # @blocks.nonlinear(nn.SiLU)
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             SplitIdentityBlock(filters),
 
-            blocks.DepthwiseConv2d(filters, filters, stride=2),
+            blocks.DepthwiseConv2d(filters, filters, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters, False),
 
             SplitIdentityBlock(filters * 2, False),
@@ -779,15 +833,23 @@ class MicroNetC10(nn.Module):
     """Params: 1M"""
     @blocks.batchnorm(position='after')
     # @blocks.nonlinear(nn.SiLU)
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             SplitIdentityBlock(filters),
 
-            blocks.DepthwiseConv2d(filters, filters, stride=2),
+            blocks.DepthwiseConv2d(filters, filters, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters, False),
 
             SplitIdentityBlockFilters32(filters * 2, False),
@@ -832,16 +894,24 @@ def micronet_b2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 class MicroNetB20(nn.Module):
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlock(filters * 4, False),
@@ -895,16 +965,24 @@ def micronet_c2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 class MicroNetC20(nn.Module):
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlockFilters32(filters * 4, False),
@@ -959,16 +1037,24 @@ def micronet_silu2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
 class MicroNetSiLU20(nn.Module):
     @blocks.nonlinear(nn.SiLU)
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlockFilters32(filters * 4, False),
@@ -1022,16 +1108,24 @@ def micronet_b2_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 class MicroNetB25(nn.Module):
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlock(filters * 4, False),
@@ -1089,16 +1183,24 @@ def micronet_d2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 class MicroNetD20(nn.Module):
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 16):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 16,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlock(filters * 4, False),
@@ -1164,16 +1266,24 @@ def micronet_b5_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 class MicroNetB50(nn.Module):
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 24):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 24,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlock(filters * 4, False, False),
@@ -1248,16 +1358,24 @@ def micronet_c2_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 class MicroNetC25(nn.Module):
     @blocks.batchnorm(position='after')
-    def __init__(self, in_channels: int = 3, num_classes: int = 1000, filters: int = 32):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        small_input: bool = False
+    ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, filters, stride=2),
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
 
             blocks.DepthwiseConv2d(filters, filters),
             blocks.PointwiseBlock(filters, filters * 2),
 
-            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=2),
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
             SplitIdentityPointwiseX2(filters * 2, False),
 
             SplitIdentityBlockFilters32(filters * 4, False),

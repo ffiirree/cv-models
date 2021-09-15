@@ -82,18 +82,22 @@ class ResNet(nn.Module):
         layers: List[int] = [2, 2, 2, 2],
         groups: int = 1,
         width_per_group: int = 64,
-        block: nn.Module = blocks.ResBasicBlock
+        block: nn.Module = blocks.ResBasicBlock,
+        small_input: bool  = False
     ):
         super().__init__()
+
+        FRONT_S = 1 if small_input else 2
 
         self.groups = groups
         self.width_per_group = width_per_group
         self.block = block
 
         features = [
-            blocks.Conv2dBlock(in_channels, 64, 7, stride=2, padding=3),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+            blocks.Conv2dBlock(in_channels, 64, 7, stride=FRONT_S, padding=3),
         ]
+        if not small_input:
+            features.append(nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
 
         features.extend(self.make_layers(
             64 // block.expansion, 64, 1, layers[0]))

@@ -78,12 +78,15 @@ class ReXNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        width_multiplier: float = 1.0
+        width_multiplier: float = 1.0,
+        small_input: bool = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         n = [2, 2, 3, 3, 5]  # repeats
-        s = [2, 2, 2, 1, 2]
+        s = [FRONT_S, 2, 2, 1, 2]
         se = [0, 1/12, 1/12, 1/12, 1/12]
 
         self.depth = (sum(n[:]) + 1) * 3
@@ -92,8 +95,7 @@ class ReXNet(nn.Module):
         def multiplier(x): return int(round(x * width_multiplier))
 
         features = [
-            blocks.Conv2dBlock(in_channels, multiplier(32),
-                               kernel_size=3, stride=2),
+            blocks.Conv2dBlock(in_channels, multiplier(32), 3, FRONT_S),
             InvertedResidualBlock(multiplier(32), multiplier(16), 1)
         ]
 

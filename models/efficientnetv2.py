@@ -128,15 +128,19 @@ class EfficientNetV2(nn.Module):
         layers: List[int] = [2, 4, 5, 6, 9, 15],
         strides: List[int] = [1, 2, 2, 2, 1, 2],
         se_ratio: List[float] = [0, 0, 0, 0.25, 0.25, 0.25],
+        small_input: bool  = False
     ):
         super().__init__()
+
+        FRONT_S = 1 if small_input else 2
+        strides[1] = FRONT_S
 
         self.survival_prob = 0.8
         self.dropout_rate = dropout_rate
         self.blocks = sum(layers)
         self.block_idx = 0
 
-        features = [blocks.Conv2dBlock(in_channels, filters[0], stride=2)]
+        features = [blocks.Conv2dBlock(in_channels, filters[0], stride=FRONT_S)]
 
         for i in range(len(expand_ratio)):
             features.append(

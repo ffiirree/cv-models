@@ -24,13 +24,15 @@ class ShuffleBlockV2(nn.Module):
         self.branch1 = nn.Identity()
         if self.stride != 1:
             self.branch1 = nn.Sequential(OrderedDict([
-                ('dwconv', blocks.DepthwiseConv2dBN(self.inp, self.inp, stride=self.stride)),
+                ('dwconv', blocks.DepthwiseConv2dBN(
+                    self.inp, self.inp, stride=self.stride)),
                 ('conv1x1', blocks.Conv2d1x1Block(self.inp, self.oup))
             ]))
 
         self.branch2 = nn.Sequential(OrderedDict([
             ('conv1x1#1', blocks.Conv2d1x1Block(self.inp, self.oup)),
-            ('dwconv', blocks.DepthwiseConv2dBN(self.oup, self.oup, stride=self.stride)),
+            ('dwconv', blocks.DepthwiseConv2dBN(
+                self.oup, self.oup, stride=self.stride)),
             ('conv1x1#2', blocks.Conv2d1x1Block(self.oup, self.oup))
         ]))
 
@@ -108,14 +110,17 @@ class ShuffleNetV2(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         repeats: List[int] = [4, 8, 4],
-        channels: List[int] = [24, 48, 96, 192, 1024]
+        channels: List[int] = [24, 48, 96, 192, 1024],
+        small_input: bool = False
     ):
         super().__init__()
 
-        self.conv1 = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, channels[0], 3, stride=2),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        )
+        FRONT_S = 1 if small_input else 2
+
+        self.conv1 = blocks.Conv2dBlock(in_channels, channels[0], 3, FRONT_S)
+        self.down1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        if small_input:
+            self.down1 = nn.Identity()
 
         self.stage2 = self.make_layers(repeats[0], channels[0], channels[1])
         self.stage3 = self.make_layers(repeats[1], channels[1], channels[2])
@@ -136,6 +141,7 @@ class ShuffleNetV2(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
+        x = self.down1(x)
         x = self.stage2(x)
         x = self.stage3(x)
         x = self.stage4(x)

@@ -112,13 +112,20 @@ class DenseNet(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         layers: List[int] = [2, 2, 2, 2],
-        channels: List[int] = [64, 128, 256, 512]
+        channels: List[int] = [64, 128, 256, 512],
+        small_input: bool  = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
+        maxpool = nn.Identity() 
+        if not small_input:
+            maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, channels[0], 7, 2, padding=3),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+            blocks.Conv2dBlock(in_channels, channels[0], 7, FRONT_S, padding=3),
+            maxpool,
             DenseBlock(channels[0], 128, layers[0]),
             TransitionLayer(channels[0] + 32 * layers[0], channels[1]),
             DenseBlock(channels[1], 128, layers[1]),

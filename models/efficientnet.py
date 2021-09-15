@@ -189,7 +189,6 @@ class EfficientNet(nn.Module):
     t = [1, 6, 6, 6, 6, 6, 6]  # expand_factor
     c = [32, 16, 24, 40, 80, 112, 192, 320, 1280]  # channels
     n = [1, 2, 2, 3, 3, 4, 1]  # repeats
-    s = [1, 2, 2, 2, 1, 2, 1]  # stride
     k = [3, 3, 5, 3, 5, 5, 3]  # kernel_size
 
     # @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
@@ -201,8 +200,13 @@ class EfficientNet(nn.Module):
         width_coefficient: float = 1,
         depth_coefficient: float = 1,
         dropout_rate: float = 0.2,
+        small_input: bool  = False
     ):
         super().__init__()
+        
+        FRONT_S = 1 if small_input else 2
+
+        self.s = [1, FRONT_S, 2, 2, 1, 2, 1]  # stride
 
         self.survival_prob = 0.8
         self.width_coefficient = width_coefficient
@@ -216,7 +220,7 @@ class EfficientNet(nn.Module):
         self.block_idx = 0
 
         # first conv3x3
-        features = [blocks.Conv2dBlock(in_channels, self.c[0], 3, stride=2)]
+        features = [blocks.Conv2dBlock(in_channels, self.c[0], 3, stride=FRONT_S)]
 
         # blocks
         for i in range(len(self.t)):

@@ -43,19 +43,22 @@ class MobileNetV2(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        multiplier: float = 1.0
+        multiplier: float = 1.0,
+        small_input: bool = False
     ):
         super().__init__()
+
+        FRONT_S = 1 if small_input else 2
 
         t = [1, 6, 6, 6, 6, 6, 6]
         c = [32, 16, 24, 32, 64, 96, 160, 320]
         n = [1, 2, 3, 4, 3, 3, 1]
-        s = [1, 2, 2, 2, 1, 2, 1]
+        s = [1, FRONT_S, 2, 2, 1, 2, 1]
 
         if multiplier < 1.0:
             c = [make_divisible(x * multiplier, 8) for x in c]
 
-        features = [blocks.Conv2dBlock(in_channels, c[0], 3, stride=2)]
+        features = [blocks.Conv2dBlock(in_channels, c[0], 3, stride=FRONT_S)]
 
         for i in range(len(t)):
             features.append(self.make_layers(c[i], t[i], c[i+1], n[i], s[i]))

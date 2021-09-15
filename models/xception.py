@@ -68,15 +68,18 @@ class Xception(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
-        num_classes: int = 1000
+        num_classes: int = 1000,
+        small_input: bool = False
     ):
         super().__init__()
 
+        FRONT_S = 1 if small_input else 2
+
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, 32, stride=2, padding=0),
+            blocks.Conv2dBlock(in_channels, 32, stride=FRONT_S, padding=0),
             blocks.Conv2dBlock(32, 64, padding=0),
 
-            XceptionBlock(64, 128, stride=2, first_relu=False),
+            XceptionBlock(64, 128, stride=FRONT_S, first_relu=False),
             XceptionBlock(128, 256, stride=2),
             XceptionBlock(256, 728, stride=2),
 
