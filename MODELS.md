@@ -2,10 +2,11 @@
 
 - [x] `AlexNet` - [ImageNet Classification with Deep Convolutional Neural Networks](https://papers.nips.cc/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf), 2012
 - [x] `VGGNets` - [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556), 2014
-- [ ] `GoogLeNet` - [Going Deeper with Convolutions](https://arxiv.org/abs/1409.4842), 2014
+- [x] `GoogLeNet` - [Going Deeper with Convolutions](https://arxiv.org/abs/1409.4842), 2014
 - [ ] `Inception-V3` - [Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567), 2015
-- [ ] `Inception-ResNet-V2 and Inception-V4` - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261), 2016
+- [ ] `Inception-V4 and Inception-ResNet` - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261), 2016
 - [x] `ResNet` - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385), 2015
+- [x] `SqueezeNet` - [SqueezeNet: AlexNet-level accuracy with 50x fewer parameters and <0.5MB model size](https://arxiv.org/abs/1602.07360), 2016
 - [x] `ResNeXt` - [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431), 2016
 - [ ] `Res2Net` - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169), 2019
 - [ ] `ResNeSt` - [ResNeSt: Split-Attention Networks](https://arxiv.org/abs/2004.08955), 2020
