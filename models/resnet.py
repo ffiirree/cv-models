@@ -13,7 +13,6 @@ Tsung-Yi Lin, Jonathon Shlens, Barret Zoph
 import os
 import torch
 import torch.nn as nn
-from torch.nn.functional import dropout
 from .core import blocks
 from typing import Any, List
 
@@ -283,8 +282,6 @@ def resnet_rs_420(pretrained: bool = False, pth: str = None, progress: bool = Tr
     kwargs['drop_connect_rate'] = 0.1
     kwargs['dropout_rate'] = 0.4
     return _resnet('resnet_rs_420', [4, 4, 87, 4], blocks.BottleneckV1, 0.25, pretrained, pth, progress, **kwargs)
-
-# TODO: drop_connect_rate
 
 
 class ResNet(nn.Module):
