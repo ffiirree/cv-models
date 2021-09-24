@@ -136,15 +136,15 @@ class ShuffleNet(nn.Module):
         repeats: List[int] = [4, 84, 4],
         channels: List[int] = [],
         g: int = 3,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         self.conv1 = blocks.Conv2dBlock(in_channels, channels[0], 3, FRONT_S)
         self.down1 = nn.MaxPool2d(kernel_size=3, stride=2)
-        if small_input:
+        if thumbnail:
             self.down1 = nn.Identity()
 
         self.stage2 = self.make_layers(repeats[0], channels[0], channels[1], g)

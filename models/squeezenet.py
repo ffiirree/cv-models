@@ -40,12 +40,12 @@ class SqueezeNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
-        maxpool = nn.Identity() if small_input else nn.MaxPool2d(3, 2, ceil_mode=True)
+        FRONT_S = 1 if thumbnail else 2
+        maxpool = nn.Identity() if thumbnail else nn.MaxPool2d(3, 2, ceil_mode=True)
 
         self.features = nn.Sequential(
             nn.Conv2d(in_channels, 96, 7, stride=FRONT_S),

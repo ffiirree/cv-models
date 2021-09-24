@@ -69,11 +69,11 @@ class Xception(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         self.features = nn.Sequential(
             blocks.Conv2dBlock(in_channels, 32, stride=FRONT_S, padding=0),

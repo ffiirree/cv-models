@@ -36,6 +36,7 @@ def parse_args():
                         help='size of the input image size. (default: 224)')
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
+    parser.add_argument('--path', type=str, default=None)
     parser.add_argument('--deterministic', action='store_true',
                         help='reproducibility. (default: false)')
     parser.add_argument('--local_rank', type=int, default=0, metavar='RANK')
@@ -287,9 +288,9 @@ if __name__ == '__main__':
 
     with blocks.batchnorm(args.bn_momentum, args.bn_epsilon, args.bn_position):
         if args.torch:
-            model = torchvision.models.__dict__[args.model]()
+            model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
         else:
-            model = models.__dict__[args.model]()
+            model = models.__dict__[args.model](pretrained=args.pretrained, pth=args.path)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -416,7 +417,7 @@ if __name__ == '__main__':
             train_loader.reset()
             val_loader.reset()
 
-            if args.local_rank == 0:
+            if args.local_rank == 0 and epoch > (args.epochs - 10):
                 model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
                 # with moving_average.average_parameters():
                 torch.save(model.module.state_dict(), model_name)

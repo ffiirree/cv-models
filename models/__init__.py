@@ -19,3 +19,4 @@ from .rexnet import *
 
 from .onenet import *
 from .micronet import *
+from .threepathnet import *

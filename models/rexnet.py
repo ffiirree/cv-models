@@ -8,40 +8,56 @@ __all__ = ['ReXNet', 'rexnet_x0_9', 'rexnet_x1_0',
            'rexnet_x1_3', 'rexnet_x1_5', 'rexnet_x2_0',
            'rexnet_plain']
 
+model_urls = {
+    'rexnet_x0_9': None,
+    'rexnet_x1_0': None,
+    'rexnet_x1_3': None,
+    'rexnet_x1_5': None,
+    'rexnet_x2_0': None,
+    'rexnet_plain': None
+}
 
-def rexnet_x0_9(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ReXNet(width_multiplier=0.9, **kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
+def _rexnet(
+    arch: str,
+    width_multiplier: float = 1.0,
+    pretrained: bool = False,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    model = ReXNet(width_multiplier=width_multiplier, **kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            state_dict = torch.hub.load_state_dict_from_url(
+                model_urls[arch],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
     return model
 
 
-def rexnet_x1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ReXNet(width_multiplier=1.0, **kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
+def rexnet_x0_9(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet('rexnet_x0_9', 0.9, pretrained, pth, progress, **kwargs)
 
 
-def rexnet_x1_3(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ReXNet(width_multiplier=1.3, **kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
+def rexnet_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet('rexnet_x1_0', 1.0, pretrained, pth, progress, **kwargs)
 
 
-def rexnet_x1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ReXNet(width_multiplier=1.5, **kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
+def rexnet_x1_3(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet('rexnet_x1_3', 1.3, pretrained, pth, progress, **kwargs)
 
 
-def rexnet_x2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ReXNet(width_multiplier=2.0, **kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
+def rexnet_x1_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet('rexnet_x1_5', 1.5, pretrained, pth, progress, **kwargs)
+
+
+def rexnet_x2_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet('rexnet_x2_0', 2.0, pretrained, pth, progress, **kwargs)
 
 
 class InvertedResidualBlock(blocks.InvertedResidualBlock):
@@ -79,11 +95,11 @@ class ReXNet(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         width_multiplier: float = 1.0,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         n = [2, 2, 3, 3, 5]  # repeats
         s = [FRONT_S, 2, 2, 1, 2]
@@ -133,10 +149,18 @@ class ReXNet(nn.Module):
         return x
 
 
-def rexnet_plain(pretrained: bool = False, pth: str = None, **kwargs: Any):
+def rexnet_plain(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ReXNetPlain(**kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            state_dict = torch.hub.load_state_dict_from_url(
+                model_urls['rexnet_plain'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
     return model
 
 
@@ -157,11 +181,11 @@ class ReXNetPlain(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         self.features = nn.Sequential(
             blocks.Conv2dBlock(in_channels, 32, stride=FRONT_S,

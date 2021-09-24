@@ -225,7 +225,7 @@ class Conv2dBlock(nn.Sequential):
         )
 
 
-class ResBasicBlock(nn.Module):
+class ResBasicBlockV1(nn.Module):
     expansion: int = 1
 
     def __init__(
@@ -235,6 +235,9 @@ class ResBasicBlock(nn.Module):
         stride: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
+        se_ratio: float = None,
+        drop_connect_rate: float = None,
+        use_resnetd_shortcut: bool = False,
         bn_epsilon: float = None,
         bn_momentum: float = None,
         normalizer_fn: nn.Module = nn.BatchNorm2d,
@@ -245,6 +248,9 @@ class ResBasicBlock(nn.Module):
         bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
         bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
         activation_fn = activation_fn if activation_fn else _NONLINEAR
+
+        self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
+        self.use_shortcut = stride != 1 or inp != oup * self.expansion
 
         if width_per_group != 64:
             raise ValueError('width_per_group are not supported!')
@@ -257,11 +263,28 @@ class ResBasicBlock(nn.Module):
             ('norm2', normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum))
         ]))
 
+        if self.has_se:
+            self.branch1.add_module('se', SEBlock(oup, se_ratio))
+
+        if drop_connect_rate:
+            self.branch1.add_module('drop', DropBlock(drop_connect_rate))
+
         self.branch2 = nn.Identity()
 
-        if inp != oup or stride != 1:
-            self.branch2 = Conv2d1x1BN(
-                inp, oup, stride=stride, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn)
+        if self.use_shortcut:
+            if use_resnetd_shortcut and stride != 1:
+                self.branch2 = nn.Sequential(OrderedDict([
+                    ('pool', nn.AvgPool2d(2, stride=stride)),
+                    ('conv', Conv2d1x1(inp, oup * self.expansion))
+                ]))
+            else:
+                self.branch2 = nn.Sequential(OrderedDict([
+                    ('conv', Conv2d1x1(inp, oup * self.expansion, stride=stride))
+                ]))
+            self.branch2.add_module(
+                'norm', normalizer_fn(
+                    oup * self.expansion, eps=bn_epsilon, momentum=bn_momentum)
+            )
 
         self.combine = Combine('ADD')
         self.relu = activation_fn(inplace=True)
@@ -272,7 +295,7 @@ class ResBasicBlock(nn.Module):
         return x
 
 
-class Bottleneck(nn.Module):
+class BottleneckV1(nn.Module):
     expansion: int = 4
 
     def __init__(
@@ -282,6 +305,9 @@ class Bottleneck(nn.Module):
         stride: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
+        se_ratio: float = None,
+        drop_connect_rate: float = None,
+        use_resnetd_shortcut: bool = False,
         bn_epsilon: float = None,
         bn_momentum: float = None,
         normalizer_fn: nn.Module = nn.BatchNorm2d,
@@ -295,6 +321,9 @@ class Bottleneck(nn.Module):
 
         width = int(oup * (width_per_group / 64)) * groups
 
+        self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
+        self.use_shortcut = stride != 1 or inp != oup * self.expansion
+
         self.branch1 = nn.Sequential(OrderedDict([
             ('conv1', Conv2d1x1(inp, width)),
             ('norm1', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
@@ -304,22 +333,173 @@ class Bottleneck(nn.Module):
             ('relu2', activation_fn(inplace=True)),
             ('conv3', Conv2d1x1(width, oup * self.expansion)),
             ('norm3', normalizer_fn(oup * self.expansion,
-             eps=bn_epsilon, momentum=bn_momentum)),
+             eps=bn_epsilon, momentum=bn_momentum))
         ]))
+
+        if self.has_se:
+            self.branch1.add_module('se', SEBlock(
+                oup * self.expansion, se_ratio))
+
+        if drop_connect_rate:
+            self.branch1.add_module('drop', DropBlock(drop_connect_rate))
 
         self.branch2 = nn.Identity()
 
-        if stride != 1 or inp != oup * self.expansion:
-            self.branch2 = Conv2d1x1BN(
-                inp, oup * self.expansion, stride=stride, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn)
+        if self.use_shortcut:
+            if use_resnetd_shortcut and stride != 1:
+                self.branch2 = nn.Sequential(OrderedDict([
+                    ('pool', nn.AvgPool2d(2, stride=stride)),
+                    ('conv', Conv2d1x1(inp, oup * self.expansion))
+                ]))
+            else:
+                self.branch2 = nn.Sequential(OrderedDict([
+                    ('conv', Conv2d1x1(inp, oup * self.expansion, stride=stride))
+                ]))
+            self.branch2.add_module(
+                'norm', normalizer_fn(
+                    oup * self.expansion, eps=bn_epsilon, momentum=bn_momentum)
+            )
 
         self.combine = Combine('ADD')
         self.relu = activation_fn(inplace=True)
 
     def forward(self, x):
-
         x = self.combine([self.branch1(x), self.branch2(x)])
         x = self.relu(x)
+        return x
+
+
+class ResBasicBlockV2(nn.Module):
+    expansion: int = 1
+
+    def __init__(
+        self,
+        inp,
+        oup,
+        stride: int = 1,
+        groups: int = 1,
+        width_per_group: int = 64,
+        se_ratio: float = None,
+        drop_connect_rate: float = None,
+        use_resnetd_shortcut: bool = False,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
+        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        activation_fn: nn.Module = None
+    ):
+        super().__init__()
+
+        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
+        activation_fn = activation_fn if activation_fn else _NONLINEAR
+
+        self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
+        self.use_shortcut = stride != 1 or inp != oup
+
+        if width_per_group != 64:
+            raise ValueError('width_per_group are not supported!')
+
+        self.branch1 = nn.Sequential(OrderedDict([
+            ('norm1', normalizer_fn(inp, eps=bn_epsilon, momentum=bn_momentum)),
+            ('relu1', activation_fn(inplace=True)),
+            ('conv1', Conv2d3x3(inp, oup, stride=stride, groups=groups)),
+            ('norm2', normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum)),
+            ('relu2', activation_fn(inplace=True)),
+            ('conv2', Conv2d3x3(oup, oup))
+        ]))
+
+        if self.has_se:
+            self.branch1.add_module('se', SEBlock(oup, se_ratio))
+
+        if drop_connect_rate:
+            self.branch1.add_module('drop', DropBlock(drop_connect_rate))
+
+        self.branch2 = nn.Identity()
+
+        if self.use_shortcut:
+            self.branch2 = nn.Sequential()
+            if use_resnetd_shortcut and stride != 1:
+                self.branch2.add_module('pool', nn.AvgPool2d(2, stride))
+                stride = 1
+
+            self.branch2.add_module('norm', normalizer_fn(
+                inp, eps=bn_epsilon, momentum=bn_momentum))
+            self.branch2.add_module('relu', activation_fn(inplace=True))
+            self.branch2.add_module('conv', Conv2d1x1(inp, oup, stride))
+
+        self.combine = Combine('ADD')
+
+    def forward(self, x):
+        x = self.combine([self.branch1(x), self.branch2(x)])
+        return x
+
+
+class BottleneckV2(nn.Module):
+    expansion: int = 4
+
+    def __init__(
+        self,
+        inp: int,
+        oup: int,
+        stride: int = 1,
+        groups: int = 1,
+        width_per_group: int = 64,
+        se_ratio: float = None,
+        drop_connect_rate: float = None,
+        use_resnetd_shortcut: bool = False,
+        bn_epsilon: float = None,
+        bn_momentum: float = None,
+        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        activation_fn: nn.Module = None
+    ):
+        super().__init__()
+
+        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
+        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
+        activation_fn = activation_fn if activation_fn else _NONLINEAR
+
+        width = int(oup * (width_per_group / 64)) * groups
+
+        self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
+        self.use_shortcut = stride != 1 or inp != oup * self.expansion
+
+        self.branch1 = nn.Sequential(OrderedDict([
+            ('norm1', normalizer_fn(inp, eps=bn_epsilon, momentum=bn_momentum)),
+            ('relu1', activation_fn(inplace=True)),
+            ('conv1', Conv2d1x1(inp, width)),
+            ('norm2', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
+            ('relu2', activation_fn(inplace=True)),
+            ('conv2', Conv2d3x3(width, width, stride=stride, groups=groups)),
+            ('norm3', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
+            ('relu3', activation_fn(inplace=True)),
+            ('conv3', Conv2d1x1(width, oup * self.expansion))
+        ]))
+
+        if self.has_se:
+            self.branch1.add_module('se', SEBlock(
+                oup * self.expansion, se_ratio))
+
+        if drop_connect_rate:
+            self.branch1.add_module('drop', DropBlock(drop_connect_rate))
+
+        self.branch2 = nn.Identity()
+
+        if self.use_shortcut:
+            self.branch2 = nn.Sequential()
+            if use_resnetd_shortcut and stride != 1:
+                self.branch2.add_module('pool', nn.AvgPool2d(2, stride))
+                stride = 1
+
+            self.branch2.add_module('norm', normalizer_fn(
+                inp, eps=bn_epsilon, momentum=bn_momentum))
+            self.branch2.add_module('relu', activation_fn(inplace=True))
+            self.branch2.add_module('conv', Conv2d1x1(
+                inp, oup * self.expansion, stride))
+
+        self.combine = Combine('ADD')
+
+    def forward(self, x):
+        x = self.combine([self.branch1(x), self.branch2(x)])
         return x
 
 
@@ -514,10 +694,7 @@ class Combine(nn.Module):
 
     @staticmethod
     def _add(x):
-        y = 0
-        for xi in x:
-            y += xi
-        return y
+        return x[0] + x[1]
 
     @staticmethod
     def _cat(x):

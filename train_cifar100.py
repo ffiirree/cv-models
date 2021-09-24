@@ -32,7 +32,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
     for i, (images, labels) in enumerate(train_loader):
         images, labels = images.cuda(
             non_blocking=True), labels.cuda(non_blocking=True)
-        
+
         origin_labels = labels
         
         if args.mixup or args.label_smoothing:
@@ -56,13 +56,13 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
+        if i % args.print_freq == 0 and args.local_rank == 0:
             logger.info(f'#{epoch:>3} [{args.local_rank}:{i:>3}/{len(train_loader)}], '
                         f't={batch_time.val:>.3f}/{batch_time.avg:>.3f}, '
                         f't1={top1.val:>6.3f}/{top1.avg:>6.3f}, '
-                        f't5={top5.val:>6.3f}/{top5.avg:>6.3f}, '
-                        f'lr={optimizer.param_groups[0]["lr"]:>.10f}, '
-                        f'l={losses.val:>.5f}/{losses.avg:>.5f}')
+                        f't5={top5.avg:>6.3f}, '
+                        f'lr={optimizer.param_groups[0]["lr"]:>.8f}, '
+                        f'l={losses.avg:>.3f}')
 
 
 def validate(test_loader, model, criterion, args):
@@ -259,7 +259,7 @@ if __name__ == '__main__':
         if args.torch:
             model = torchvision.models.__dict__[args.model]()
         else:
-            model = models.__dict__[args.model]()
+            model = models.__dict__[args.model](small_input=True, num_classes=100)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -356,4 +356,5 @@ if __name__ == '__main__':
             # with moving_average.average_parameters():
             torch.save(model.module.state_dict(), model_name)
             logger.info(f'Saved: {model_name}!')
-    logger.info(f'Total time: {benchmark.elapsed():>.3f}s')
+    if args.local_rank == 0:
+        logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

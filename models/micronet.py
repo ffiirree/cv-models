@@ -4,7 +4,7 @@ import torch.nn as nn
 from .core import blocks
 from typing import Any
 
-__all__ = ['micronet_se2_0']
+__all__ = ['micronet_se1_0', 'micronet_se2_0', 'micronet_se2_5']
 
 
 class SplitIdentityBlock(nn.Module):
@@ -77,6 +77,137 @@ class SplitIdentityPointwiseX2(nn.Module):
         return out
 
 
+def micronet_se1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetD10(**kwargs)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MicroNetD10(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 24,
+        thumbnail: bool = False
+    ):
+        super().__init__()
+
+        FRONT_S = 1 if thumbnail else 2
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlock(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwise(filters * 16),
+
+            blocks.SharedDepthwiseConv2d(filters * 16, t=8),
+            blocks.PointwiseBlock(filters * 16, 360),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(360, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+# def micronet_se1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
+#     model = MicroNetSE10(**kwargs)
+#     if pretrained and pth is not None:
+#         model.load_state_dict(torch.load(os.path.expanduser(pth)))
+#     return model
+
+
+# class MicroNetSE10(nn.Module):
+#     """Params: 1M"""
+#     @blocks.batchnorm(position='after')
+#     # @blocks.nonlinear(nn.SiLU)
+#     def __init__(
+#         self,
+#         in_channels: int = 3,
+#         num_classes: int = 1000,
+#         filters: int = 32,
+#         thumbnail: bool = False
+#     ):
+#         super().__init__()
+
+#         FRONT_S = 1 if thumbnail else 2
+
+#         self.features = nn.Sequential(
+#             blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
+
+#             SplitIdentityBlock(filters),
+
+#             blocks.DepthwiseConv2d(filters, filters, stride=FRONT_S),
+#             SplitIdentityPointwiseX2(filters, False),
+
+#             SplitIdentityBlock(filters * 2, False),
+
+#             blocks.GaussianFilter(filters * 2, stride=2),
+#             SplitIdentityPointwiseX2(filters * 2, False),
+
+#             SplitIdentityBlock(filters * 4, False, False),
+#             SplitIdentityBlock(filters * 4, False),
+
+#             blocks.GaussianFilter(filters * 4, stride=2),
+#             SplitIdentityPointwiseX2(filters * 4, False),
+
+#             SplitIdentityBlock(filters * 8, False, False),
+#             SplitIdentityBlock(filters * 8, False, False),
+#             SplitIdentityBlock(filters * 8, False, False),
+#             SplitIdentityBlock(filters * 8, False, False),
+#             SplitIdentityBlock(filters * 8, False),
+
+#             blocks.GaussianFilter(filters * 8, stride=2),
+#             SplitIdentityPointwiseX2(filters * 8, False),
+
+#             SplitIdentityBlock(filters * 16, False),
+
+#             blocks.DepthwiseBlock(filters * 16, filters * 16),
+#             blocks.PointwiseBlock(filters * 16, 380),
+#         )
+
+#         self.avg = nn.AdaptiveAvgPool2d((1, 1))
+#         self.classifier = nn.Linear(380, num_classes)
+
+#     def forward(self, x):
+#         x = self.features(x)
+#         x = self.avg(x)
+#         x = torch.flatten(x, 1)
+#         x = self.classifier(x)
+#         return x
+
+
 def micronet_se2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
     model = MicroNetSE20(**kwargs)
     if pretrained and pth is not None:
@@ -91,11 +222,11 @@ class MicroNetSE20(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         filters: int = 32,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         self.features = nn.Sequential(
             blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
@@ -127,6 +258,81 @@ class MicroNetSE20(nn.Module):
             SplitIdentityPointwise(filters * 16),
 
             SplitIdentityBlock(filters * 16, True, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.SharedDepthwiseConv2d(filters * 16, t=8),
+            blocks.PointwiseBlock(filters * 16, 512),
+        )
+
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            # nn.Dropout(0.15),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avg(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def micronet_se2_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = MicroNetSE25(**kwargs)
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    return model
+
+
+class MicroNetSE25(nn.Module):
+    @blocks.batchnorm(position='after')
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1000,
+        filters: int = 32,
+        thumbnail: bool = False
+    ):
+        super().__init__()
+
+        FRONT_S = 1 if thumbnail else 2
+
+        self.features = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, filters, stride=FRONT_S),
+
+            blocks.DepthwiseConv2d(filters, filters),
+            blocks.PointwiseBlock(filters, filters * 2),
+
+            blocks.DepthwiseConv2d(filters * 2, filters * 2, stride=FRONT_S),
+            SplitIdentityPointwiseX2(filters * 2, False),
+
+            SplitIdentityBlock(filters * 4, False),
+
+            blocks.GaussianFilter(filters * 4, stride=2),
+            SplitIdentityPointwiseX2(filters * 4, False),
+
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False, False),
+            SplitIdentityBlock(filters * 8, False),
+
+            blocks.GaussianFilter(filters * 8, stride=2),
+            SplitIdentityPointwiseX2(filters * 8, False),
+
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False, False),
+            SplitIdentityBlock(filters * 16, False),
+
+            blocks.GaussianFilter(filters * 16, stride=2),
+            SplitIdentityPointwise(filters * 16),
+
+            SplitIdentityBlock(filters * 16, True, False),
+            SplitIdentityBlock(filters * 16, False, False),
             SplitIdentityBlock(filters * 16, False, False),
             SplitIdentityBlock(filters * 16, False),
 

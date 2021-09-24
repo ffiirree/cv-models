@@ -128,11 +128,11 @@ class EfficientNetV2(nn.Module):
         layers: List[int] = [2, 4, 5, 6, 9, 15],
         strides: List[int] = [1, 2, 2, 2, 1, 2],
         se_ratio: List[float] = [0, 0, 0, 0.25, 0.25, 0.25],
-        small_input: bool  = False
+        thumbnail: bool  = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
         strides[1] = FRONT_S
 
         self.survival_prob = 0.8

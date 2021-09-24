@@ -200,11 +200,11 @@ class EfficientNet(nn.Module):
         width_coefficient: float = 1,
         depth_coefficient: float = 1,
         dropout_rate: float = 0.2,
-        small_input: bool  = False
+        thumbnail: bool  = False
     ):
         super().__init__()
         
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         self.s = [1, FRONT_S, 2, 2, 1, 2, 1]  # stride
 

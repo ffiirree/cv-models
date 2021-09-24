@@ -21,11 +21,14 @@ if __name__ == '__main__':
     parser.add_argument('--torch', action='store_true')
     parser.add_argument('--table', action='store_true')
     parser.add_argument('--models', action='store_true')
+    parser.add_argument('--num-classes', type=int, default=1000)
     parser.add_argument('--image-size', type=int, default=224)
 
     args = parser.parse_args()
 
     input = torch.randn(1, 3, args.image_size, args.image_size)
+
+    thumbnail = True if args.image_size < 100 else False
 
     if args.torch:
         if args.models:
@@ -40,4 +43,10 @@ if __name__ == '__main__':
                          if name.islower() and not name.startswith("__")
                          and callable(models.__dict__[name])))
         else:
-            print_model(models.__dict__[args.model](small_input=False), args.table)
+            print_model(
+                models.__dict__[args.model](
+                    thumbnail=thumbnail,
+                    num_classes=args.num_classes
+                ),
+                args.table
+            )

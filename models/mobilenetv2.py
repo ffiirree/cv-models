@@ -9,32 +9,51 @@ __all__ = ['MobileNetV2', 'mobilenet_v2_x1_0',
            'mobilenet_v2_x0_75', 'mobilenet_v2_x0_5', 'mobilenet_v2_x0_35']
 
 
-def mobilenet_v2_x1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = MobileNetV2(**kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+model_urls = {
+    'mobilenet_v2_x1_0': None,
+    'mobilenet_v2_x0_75': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_75-144da943.pth',
+    'mobilenet_v1_x0_5': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_5-1e1467ed.pth',
+    'mobilenet_v1_x0_35': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_35-cc1f8697.pth',
+    'mobilenet_lineardw': None,
+}
+
+
+def _mobilenet_v2(
+    arch: str,
+    multiplier: float = 1.0,
+    pretrained: bool = False,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    model = MobileNetV2(multiplier=multiplier, **kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            state_dict = torch.hub.load_state_dict_from_url(
+                model_urls[arch],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
     return model
 
 
-def mobilenet_v2_x0_75(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = MobileNetV2(multiplier=0.75, **kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
+def mobilenet_v2_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v2('mobilenet_v2_x1_0', 1.0, pretrained, pth, progress, **kwargs)
 
 
-def mobilenet_v2_x0_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = MobileNetV2(multiplier=0.5, **kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
+def mobilenet_v2_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v2('mobilenet_v2_x0_75', 0.75, pretrained, pth, progress, **kwargs)
 
 
-def mobilenet_v2_x0_35(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = MobileNetV2(multiplier=0.35, **kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
+def mobilenet_v2_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v2('mobilenet_v2_x0_5', 0.5, pretrained, pth, progress, **kwargs)
+
+
+def mobilenet_v2_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v2('mobilenet_v2_x0_35', 0.35, pretrained, pth, progress, **kwargs)
 
 
 class MobileNetV2(nn.Module):
@@ -44,11 +63,11 @@ class MobileNetV2(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         multiplier: float = 1.0,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         t = [1, 6, 6, 6, 6, 6, 6]
         c = [32, 16, 24, 32, 64, 96, 160, 320]

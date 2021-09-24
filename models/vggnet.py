@@ -80,12 +80,12 @@ class VGGNet(nn.Module):
         num_classes: int = 1000,
         layers: List[int] = [1, 1, 2, 2, 2],
         block: nn.Module = Conv2dReLU,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        maxpool1 = nn.Identity() if small_input else nn.MaxPool2d(2, stride=2)
-        maxpool2 = nn.Identity() if small_input else nn.MaxPool2d(2, stride=2)
+        maxpool1 = nn.Identity() if thumbnail else nn.MaxPool2d(2, stride=2)
+        maxpool2 = nn.Identity() if thumbnail else nn.MaxPool2d(2, stride=2)
 
         self.features = nn.Sequential(
             *self.make_layers(in_channels, 64, layers[0], block),

@@ -113,14 +113,14 @@ class DenseNet(nn.Module):
         num_classes: int = 1000,
         layers: List[int] = [2, 2, 2, 2],
         channels: List[int] = [64, 128, 256, 512],
-        small_input: bool  = False
+        thumbnail: bool  = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         maxpool = nn.Identity() 
-        if not small_input:
+        if not thumbnail:
             maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.features = nn.Sequential(

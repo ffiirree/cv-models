@@ -20,11 +20,11 @@ class AlexNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 4
+        FRONT_S = 1 if thumbnail else 4
 
         self.features = nn.Sequential(
             nn.Conv2d(in_channels, 64, kernel_size=11, stride=FRONT_S, padding=2),

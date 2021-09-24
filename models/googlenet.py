@@ -77,15 +77,15 @@ class GoogLeNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        small_input: bool = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
-        FRONT_S = 1 if small_input else 2
+        FRONT_S = 1 if thumbnail else 2
 
         self.conv1 = blocks.Conv2dBlock(
             in_channels, 64, 7, stride=FRONT_S, padding=3)
-        self.maxpool1 = nn.Identity() if small_input else nn.MaxPool2d(3, 2, ceil_mode=True)
+        self.maxpool1 = nn.Identity() if thumbnail else nn.MaxPool2d(3, 2, ceil_mode=True)
 
         self.conv2 = blocks.Conv2d1x1Block(64, 64)
         self.conv3 = blocks.Conv2dBlock(64, 192, 3, padding=1)
