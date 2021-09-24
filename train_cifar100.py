@@ -259,7 +259,7 @@ if __name__ == '__main__':
         if args.torch:
             model = torchvision.models.__dict__[args.model]()
         else:
-            model = models.__dict__[args.model](small_input=True, num_classes=100)
+            model = models.__dict__[args.model](thumbnail=True, num_classes=100)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
