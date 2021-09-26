@@ -295,7 +295,7 @@ if __name__ == '__main__':
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
     model = model.cuda()
-    if args.local_rank == 0:
+    if args.local_rank == 0 and not args.evaluate:
         logger.info(f'Model: \n{model}')
 
     model = DistributedDataParallel(model, device_ids=[args.local_rank])
