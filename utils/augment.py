@@ -90,12 +90,13 @@ def color(img: torch.Tensor, factor: float):
 
 
 def shear_x(img: torch.Tensor, level, fill=None):
-    '''Use translate in order not to keep image center invariant'''
-    height = img.shape[1] if isinstance(img, torch.Tensor) else img.size[0]
+    if isinstance(img, Image.Image):
+        return img.transform(img.size, Image.AFFINE, (1, level, 0, 0, 1, 0))
+
     return TF.affine(
         img,
         angle=0,
-        translate=[-height * level / 2, 0],
+        translate=[-img.shape[1] * level / 2, 0],
         scale=1.0,
         shear=[math.degrees(math.atan(level)), 0],
         fill=fill
@@ -103,14 +104,13 @@ def shear_x(img: torch.Tensor, level, fill=None):
 
 
 def shear_y(img: torch.Tensor, level, fill=None):
-    '''Use translate in order not to keep image center invariant.
-    Equivalent of: Image.transform(img.size, Image.AFFINE, (1, factor, 0, 0, 1, 0))
-    '''
-    width = img.shape[2] if isinstance(img, torch.Tensor) else img.size[1]
+    if isinstance(img, Image.Image):
+        return img.transform(img.size, Image.AFFINE, (1, 0, 0, level, 1, 0))
+
     return TF.affine(
         img,
         angle=0,
-        translate=[0, -width * level / 2],
+        translate=[0, -img.shape[2] * level / 2],
         scale=1.0,
         shear=[0, math.degrees(math.atan(level))],
         fill=fill
@@ -160,8 +160,6 @@ def cutout(img: torch.Tensor, pad_size: int, fill=0):
     b = min(h, cutout_center_h + pad_size)
     l = max(0, cutout_center_w - pad_size)
     r = min(w, cutout_center_w + pad_size)
-
-    print(l, t, r, b)
 
     if isinstance(img, torch.Tensor):
         return _t_erase(img, l, t, r, b, fill)
