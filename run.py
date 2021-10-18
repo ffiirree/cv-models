@@ -10,29 +10,27 @@ def run_script(script: str, args: str = ''):
 
 
 if __name__ == '__main__':
-    # cmd = '-m torch.distributed.launch --nproc_per_node=2 train_imagenet.py \
-    #         --data-dir "/datasets/ILSVRC2012" \
-    #         --workers 16 \
-    #         --amp \
-    #         --lr 1.2 --lr-mode cosine \
-    #         --batch-size 1024 \
-    #         --epochs 120 --warmup-epochs 5 \
-    #         --print-freq 250 \
-    #         --momentum 0.9 --wd 0.00003 --no-wd \
-    #         --label-smoothing'
-
-    cmd = '-m torch.distributed.launch --nproc_per_node=1 train_imagenet.py \
+    cmd_v1 = '-m torch.distributed.run --nnodes=1 --nproc_per_node=1 train_imagenet.py \
             --data-dir "/datasets/ILSVRC2012" \
-            --workers 16 \
+            --workers 32 \
             --amp \
             --dali-cpu \
+            --lr 0.1 --lr-mode cosine \
+            --batch-size 256 \
+            --epochs 100 --warmup-epochs 5 \
+            --print-freq 500 \
+            --momentum 0.9 --wd 0.0001 --no-wd \
+            --label-smoothing'
+
+    cmd_v2 = '-m torch.distributed.run --nnodes=1 --nproc_per_node=1 train_imagenet_torchvision.py \
+            --data-dir "/datasets/ILSVRC2012" \
+            --workers 64 \
+            --amp \
             --lr 0.2 --lr-mode cosine \
             --batch-size 512 \
             --epochs 100 --warmup-epochs 5 \
             --print-freq 250 \
-            --momentum 0.9 --wd 0.00005 --no-wd \
+            --momentum 0.9 --wd 0.0001 --no-wd \
             --label-smoothing'
 
-
-    run_script(cmd, '--model micronet_se1_0')
-
+    run_script(cmd_v1, '--model efficientnet_b0')

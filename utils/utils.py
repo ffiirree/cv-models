@@ -1,13 +1,14 @@
 import time
 from json import dumps
 import torch
+from torch import nn
 import torchvision
 import platform
 import numpy as np
 import random
 
 __all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers',
-           'accuracy', 'AverageMeter', 'module_parameters', 'one_hot']
+           'accuracy', 'AverageMeter', 'module_parameters', 'one_hot', 'group_params']
 
 
 class Benchmark:
@@ -95,6 +96,32 @@ def module_parameters(model):
             yield module, k, v
 
 
+def group_params(model, wd: float, no_bias_decay: bool = False):
+    '''As pointed out by Jia et al. 
+    Highly scalable deep learning training system with mixed-precision: Training imagenet in four minutes, 
+    however, it’s recommended to only apply the regularization
+    to weights to avoid overfitting. The no bias decay
+    heuristic follows this recommendation, it only applies
+    the weight decay to the weights in convolution and fullyconnected
+    layers. Other parameters, including the biases 
+    and $\alpha$ and $\beta$  in BN layers, are left unregularized.
+    .'''
+    if not no_bias_decay:
+        return [{'params': model.parameters(), 'weight_decay': wd}]
+    else:
+        wd_params = []
+        no_wd_params = []
+        for m, n, p in module_parameters(model):
+            if isinstance(m, nn.modules.batchnorm._BatchNorm) or n == 'bias':
+                no_wd_params.append(p)
+            else:
+                wd_params.append(p)
+        return [
+            {'params': wd_params, 'weight_decay': wd},
+            {'params': no_wd_params, 'weight_decay': 0.}
+        ]
+
+
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
@@ -128,6 +155,7 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
 
 def one_hot(x, n):
     y = torch.zeros(x.shape[0], n, device=x.device)

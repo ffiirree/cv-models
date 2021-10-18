@@ -1,4 +1,6 @@
 import argparse
+import os
+
 from models.core import blocks
 import time
 import datetime
@@ -11,7 +13,6 @@ import models
 from utils import *
 from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
-from torchvision.transforms.transforms import RandomAdjustSharpness, RandomGrayscale, RandomHorizontalFlip, RandomResizedCrop, RandomRotation
 
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
@@ -34,7 +35,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
             non_blocking=True), labels.cuda(non_blocking=True)
 
         origin_labels = labels
-        
+
         if args.mixup or args.label_smoothing:
             labels = one_hot(labels, 100)
 
@@ -89,13 +90,6 @@ def validate(test_loader, model, criterion, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            # if i % args.print_freq == 0:
-            #     logger.info(f'Validation [{args.local_rank}:{i:>2}/{len(test_loader)}], '
-            #                 f'time={batch_time.val:>.3f}({batch_time.avg:>.3f}), '
-            #                 f'loss={loss.item():>.5f}, '
-            #                 f'top1={top1.val:>6.3f}({top1.avg:>6.3f}), '
-            #                 f'top5={top5.val:>6.3f}({top5.avg:>6.3f})')
-
     dist.all_reduce(losses)
     top1 = torch.tensor([top1.avg]).cuda()
     top5 = torch.tensor([top5.avg]).cuda()
@@ -129,7 +123,6 @@ def parse_args():
                         help='use pre-trained model. (default: false)')
     parser.add_argument('--deterministic', action='store_true',
                         help='reproducibility. (default: false)')
-    parser.add_argument('--local_rank', type=int, default=0, metavar='RANK')
     parser.add_argument('--workers', '-j', type=int, default=4, metavar='N',
                         help='number of data loading workers pre GPU. (default: 4)')
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
@@ -160,8 +153,6 @@ def parse_args():
                         help='number of warmup epochs. (default: 0)')
     parser.add_argument('--mixup', action='store_true',
                         help='whether train the model with mix-up. (default: false)')
-    parser.add_argument('--augment', action='store_true',
-                        help='data augmentation. (default: false)')
     parser.add_argument('--mixup-alpha', type=float, default=0.2, metavar='V',
                         help='beta distribution parameter for mixup sampling. (default: 0.2)')
     parser.add_argument('--mixup-off-epoch', type=int, default=0, metavar='N',
@@ -187,6 +178,10 @@ def parse_args():
     parser.add_argument('--download', action='store_true')
     parser.add_argument('--dali-cpu', action='store_true',
                         help='runs CPU based version of DALI pipeline. (default: false)')
+    parser.add_argument('--augment', type=str, default='standard',
+                        choices=['standard', 'randaugment', 'autoaugment'])
+    parser.add_argument('--randaugment_n', type=int, default=1)
+    parser.add_argument('--randaugment_m', type=int, default=5)
     parser.add_argument('--output-dir', type=str,
                         default=f'logs/{datetime.date.today()}', metavar='DIR')
     return parser.parse_args()
@@ -197,6 +192,8 @@ if __name__ == '__main__':
 
     args = parse_args()
     args.batch_size = int(args.batch_size / torch.cuda.device_count())
+
+    args.local_rank = int(os.environ['LOCAL_RANK'])
 
     torch.backends.cudnn.benchmark = True
     if args.deterministic:
@@ -212,20 +209,32 @@ if __name__ == '__main__':
     if args.local_rank == 0 and args.download:
         CIFAR100(args.data_dir, True, download=True)
         CIFAR100(args.data_dir, False, download=True)
-    dist.barrier()
+        dist.barrier()
+
+    if args.augment == 'standard':
+        aug = [
+            T.RandomCrop(32, 4),
+            T.RandomHorizontalFlip(),
+        ]
+    elif args.augment == 'randaugment':
+        aug = [RandAugment(args.randaugment_n, args.randaugment_m)]
+    elif args.augment == 'autoaugment':
+        aug = [T.AutoAugment(T.AutoAugmentPolicy.CIFAR10)]
+    else:
+        aug = []
 
     train_dataset = CIFAR100(
         args.data_dir,
         True,
-        transform=T.Compose([
-            # T.RandomAffine((-15, 15), translate=(0.1, 0.1), scale=(0.8, 1.2)),
-            T.RandomCrop(32, 4),
-            T.RandomHorizontalFlip(),
+        transform=T.Compose(aug+[
             T.ToTensor(),
             T.Normalize(mean=mean, std=std),
         ])
     )
     train_sampler = DistributedSampler(train_dataset, shuffle=True)
+
+    if args.local_rank == 0:
+        logger.info(f'Transforms: \n{train_dataset.transform}')
 
     train_loader = DataLoader(
         train_dataset,
@@ -259,7 +268,8 @@ if __name__ == '__main__':
         if args.torch:
             model = torchvision.models.__dict__[args.model]()
         else:
-            model = models.__dict__[args.model](thumbnail=True, num_classes=100)
+            model = models.__dict__[args.model](
+                thumbnail=True, num_classes=100)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -267,52 +277,24 @@ if __name__ == '__main__':
     if args.local_rank == 0:
         logger.info(f'Model: \n{model}')
 
-    model = DistributedDataParallel(model, device_ids=[args.local_rank])
+    model = DistributedDataParallel(model,
+                                    device_ids=[args.local_rank],
+                                    output_device=args.local_rank)
 
-    if args.no_wd:
-        wd = []
-        no_wd = []
-        for m, n, p in module_parameters(model):
-            if isinstance(m, nn.modules.batchnorm._BatchNorm) or n == 'bias':
-                no_wd.append(p)
-            else:
-                wd.append(p)
-
-        assert len(list(model.parameters())) == (len(no_wd) + len(wd)), ''
-
-        if args.optim == 'sgd':
-            optimizer = torch.optim.SGD([
-                {'params': wd, 'weight_decay': args.wd},
-                {'params': no_wd, 'weight_decay': 0.}],
-                args.lr,
-                momentum=args.momentum,
-                nesterov=args.nesterov)
-        elif args.optim == 'rmsprop':
-            optimizer = torch.optim.RMSprop([
-                {'params': wd, 'weight_decay': args.wd},
-                {'params': no_wd, 'weight_decay': 0.}],
-                lr=args.lr,
-                alpha=args.rmsprop_decay,
-                momentum=args.momentum,
-                eps=args.rmsprop_epsilon)
-        else:
-            raise ValueError(f'Invalid optimizer name: {args.optim}.')
-    else:
-        if args.optim == 'sgd':
-            optimizer = torch.optim.SGD(model.parameters(),
-                                        args.lr,
+    param_groups = group_params(model, wd=args.wd, no_bias_decay=args.no_wd)
+    if args.optim == 'sgd':
+        optimizer = torch.optim.SGD(param_groups,
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    nesterov=args.nesterov)
+    elif args.optim == 'rmsprop':
+        optimizer = torch.optim.RMSprop(param_groups,
+                                        lr=args.lr,
+                                        alpha=args.rmsprop_decay,
                                         momentum=args.momentum,
-                                        weight_decay=args.wd,
-                                        nesterov=args.nesterov)
-        elif args.optim == 'rmsprop':
-            optimizer = torch.optim.RMSprop(model.parameters(),
-                                            lr=args.lr,
-                                            alpha=args.rmsprop_decay,
-                                            momentum=args.momentum,
-                                            weight_decay=args.wd,
-                                            eps=args.rmsprop_epsilon)
-        else:
-            raise ValueError(f'Invalid optimizer name: {args.optim}.')
+                                        eps=args.rmsprop_epsilon)
+    else:
+        raise ValueError(f'Invalid optimizer name: {args.optim}.')
 
     if args.label_smoothing or args.mixup:
         criterion = LabelSmoothingCrossEntropyLoss(0.1).cuda()

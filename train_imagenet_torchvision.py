@@ -3,18 +3,17 @@ import time
 import datetime
 import argparse
 import torch
+from torch.utils.data import DataLoader
 import torchvision
+from torchvision.datasets import ImageFolder
+import torchvision.transforms as T
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data.distributed import DistributedSampler
 
 from utils import *
 import models
 from models.core import blocks
-
-import nvidia.dali.fn as fn
-import nvidia.dali.types as types
-from nvidia.dali.pipeline import pipeline_def
-from nvidia.dali.plugin.pytorch import DALIClassificationIterator, LastBatchPolicy
 
 
 def parse_args():
@@ -69,11 +68,6 @@ def parse_args():
                         help='number of warmup epochs. (default: 0)')
     parser.add_argument('--mixup', action='store_true',
                         help='whether train the model with mix-up. (default: false)')
-    parser.add_argument('--augment', action='store_true',
-                        help='data augmentation. (default: false)')
-    parser.add_argument('--augment_m', type=float, default=0.4)
-    parser.add_argument('--morph', action='store_true')
-    parser.add_argument('--morph_p', type=float, default=0.5)
     parser.add_argument('--mixup-alpha', type=float, default=0.2, metavar='V',
                         help='beta distribution parameter for mixup sampling. (default: 0.2)')
     parser.add_argument('--mixup-off-epoch', type=int, default=0, metavar='N',
@@ -96,81 +90,13 @@ def parse_args():
                         help='use SyncBatchNorm. (default: false)')
     parser.add_argument('--amp', action='store_true',
                         help='mixed precision. (default: false)')
-    parser.add_argument('--dali-cpu', action='store_true',
-                        help='runs CPU based version of DALI pipeline. (default: false)')
+    parser.add_argument('--augment', type=str, default='none',
+                        choices=['none', 'standard', 'randaugment', 'autoaugment'])
+    parser.add_argument('--randaugment_n', type=int, default=2)
+    parser.add_argument('--randaugment_m', type=int, default=10)
     parser.add_argument('--output-dir', type=str,
                         default=f'logs/{datetime.date.today()}', metavar='DIR')
     return parser.parse_args()
-
-
-@pipeline_def
-def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=False, is_training=True, args=None):
-    images, labels = fn.readers.file(file_root=data_dir,
-                                     shard_id=shard_id,
-                                     num_shards=num_shards,
-                                     random_shuffle=is_training,
-                                     pad_last_batch=True,
-                                     name="Reader")
-
-    dali_device = 'cpu' if dali_cpu else 'gpu'
-    decoder_device = 'cpu' if dali_cpu else 'mixed'
-    # ask nvJPEG to preallocate memory for the biggest sample in ImageNet for CPU and GPU to avoid reallocations in runtime
-    device_memory_padding = 211025920 if decoder_device == 'mixed' else 0
-    host_memory_padding = 140544512 if decoder_device == 'mixed' else 0
-    # ask HW NVJPEG to allocate memory ahead for the biggest image in the data set to avoid reallocations in runtime
-    preallocate_width_hint = 5980 if decoder_device == 'mixed' else 0
-    preallocate_height_hint = 6430 if decoder_device == 'mixed' else 0
-
-    if is_training:
-        images = fn.decoders.image_random_crop(images,
-                                               device=decoder_device,
-                                               output_type=types.RGB,
-                                               device_memory_padding=device_memory_padding,
-                                               host_memory_padding=host_memory_padding,
-                                               preallocate_width_hint=preallocate_width_hint,
-                                               preallocate_height_hint=preallocate_height_hint,
-                                               random_aspect_ratio=[3/4, 4/3],
-                                               random_area=[0.08, 1.0],
-                                               num_attempts=100)
-        images = fn.resize(images,
-                           device=dali_device,
-                           resize_x=crop,
-                           resize_y=crop,
-                           interp_type=types.INTERP_TRIANGULAR)
-        if args.augment:
-            images = fn.color_twist(images,
-                                    device=dali_device,
-                                    brightness=fn.random.uniform(
-                                        range=[1 - args.augment_m, 1.0 + args.augment_m]),
-                                    contrast=fn.random.uniform(
-                                        range=[1 - args.augment_m, 1.0 + args.augment_m]),
-                                    saturation=fn.random.uniform(
-                                        range=[1 - args.augment_m, 1.0 + args.augment_m]),
-                                    hue=fn.random.uniform(range=[- args.augment_m * 180, args.augment_m * 180]))  # The hue change in degrees.0~360 or -180~180.
-        mirror = fn.random.coin_flip(probability=0.5)
-    else:
-        images = fn.decoders.image(images,
-                                   device=decoder_device,
-                                   output_type=types.RGB)
-        images = fn.resize(images,
-                           device=dali_device,
-                           size=size,
-                           mode="not_smaller",
-                           interp_type=types.INTERP_TRIANGULAR)
-        mirror = False
-
-    images = fn.crop_mirror_normalize(images.gpu(),
-                                      dtype=types.FLOAT,
-                                      output_layout="CHW",
-                                      crop=(crop, crop),
-                                      mean=[0.485 * 255, 0.456 *
-                                            255, 0.406 * 255],
-                                      std=[0.229 * 255, 0.224 *
-                                           255, 0.225 * 255],
-                                      mirror=mirror)
-
-    labels = labels.gpu()
-    return images, labels
 
 
 def train(train_loader, model, criterion, optimizer, scheduler, moving_average, epoch, args):
@@ -179,7 +105,6 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
     top1 = AverageMeter()
     top5 = AverageMeter()
     mixup = MixUp(args.mixup_alpha)
-    morph = MorphAugment(args.morph_p)
 
     use_mixup = args.mixup and args.mixup_off_epoch < (args.epochs - epoch)
     if args.local_rank == 0 and use_mixup:
@@ -188,9 +113,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
     model.train()
 
     end = time.time()
-    for i, data in enumerate(train_loader):
-        input = data[0]["data"]
-        target = data[0]["label"].squeeze(-1).long()
+    for i, (images, labels) in enumerate(train_loader):
+        input = images.cuda(non_blocking=True)
+        target = labels.cuda(non_blocking=True)
         original_target = target
 
         # MixUP
@@ -199,9 +124,6 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
 
         if use_mixup:
             input, target = mixup.mix(input, target)
-
-        if args.morph:
-            input = morph(input)
 
         optimizer.zero_grad(set_to_none=True)
 
@@ -242,9 +164,9 @@ def validate(val_loader, model, criterion, moving_average):
 
     model.eval()
     end = time.time()
-    for i, data in enumerate(val_loader):
-        input = data[0]["data"]
-        target = data[0]["label"].squeeze(-1).long()
+    for i, (images, labels) in enumerate(val_loader):
+        input = images.cuda(non_blocking=True)
+        target = labels.cuda(non_blocking=True)
 
         # compute output
         with torch.no_grad():  # , moving_average.average_parameters():
@@ -278,6 +200,7 @@ if __name__ == '__main__':
     args.batch_size = int(args.batch_size / torch.cuda.device_count())
 
     args.local_rank = int(os.environ['LOCAL_RANK'])
+    args.workers = args.workers // torch.cuda.device_count()
 
     torch.backends.cudnn.benchmark = True
     if args.deterministic:
@@ -292,11 +215,9 @@ if __name__ == '__main__':
 
     with blocks.batchnorm(args.bn_momentum, args.bn_epsilon, args.bn_position):
         if args.torch:
-            model = torchvision.models.__dict__[
-                args.model](pretrained=args.pretrained)
+            model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
         else:
-            model = models.__dict__[args.model](
-                pretrained=args.pretrained, pth=args.path)
+            model = models.__dict__[args.model](pretrained=args.pretrained, pth=args.path)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -330,37 +251,64 @@ if __name__ == '__main__':
 
     moving_average = ExponentialMovingAverage(
         model.parameters(), decay=args.moving_average_decay)
-    pipe = create_dali_pipeline(batch_size=args.batch_size,
-                                num_threads=args.workers,
-                                device_id=args.local_rank,
-                                seed=12 + args.local_rank,
-                                data_dir=os.path.join(args.data_dir, 'train'),
-                                crop=args.input_size,
-                                size=256,
-                                dali_cpu=args.dali_cpu,
-                                shard_id=args.local_rank,
-                                num_shards=dist.get_world_size(),
-                                is_training=True,
-                                args=args)
-    pipe.build()
-    train_loader = DALIClassificationIterator(
-        pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
 
-    pipe = create_dali_pipeline(batch_size=args.batch_size,
-                                num_threads=args.workers,
-                                device_id=args.local_rank,
-                                seed=12 + args.local_rank,
-                                data_dir=os.path.join(args.data_dir, 'val'),
-                                crop=args.input_size,
-                                size=256,
-                                dali_cpu=args.dali_cpu,
-                                shard_id=args.local_rank,
-                                num_shards=dist.get_world_size(),
-                                is_training=False,
-                                args=args)
-    pipe.build()
-    val_loader = DALIClassificationIterator(
-        pipe, reader_name="Reader", last_batch_policy=LastBatchPolicy.PARTIAL)
+    aug = [
+        T.RandomResizedCrop(224),
+        T.RandomHorizontalFlip(),
+        LocalDestroyer()
+    ]
+    if args.augment == 'randaugment':
+        aug.append(RandAugment(args.randaugment_n, args.randaugment_m))
+    elif args.augment == 'autoaugment':
+        aug.append(T.AutoAugment(T.AutoAugmentPolicy.IMAGENET))
+    elif args.augment == 'standard':
+        aug.append(T.ColorJitter(brightness=0.4,
+                                 contrast=0.4,
+                                 saturation=0.4,
+                                 hue=0.4))
+    elif args.augment == 'none':
+        ...
+    else:
+        raise ValueError(f'Invalid augmentation name: {args.augment}.')
+
+    train_dataset = ImageFolder(
+        os.path.join(args.data_dir, 'train'),
+        T.Compose(aug+[
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406],
+                        std=[0.229, 0.224, 0.225]),
+        ]))
+
+    if args.local_rank == 0:
+        logger.info(f'Transforms: \n{train_dataset.transform}')
+
+    train_sampler = DistributedSampler(train_dataset)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=train_sampler
+    )
+
+    val_dataset = ImageFolder(os.path.join(args.data_dir, 'val'),
+                              T.Compose([
+                                  # If size is an int, smaller edge of the image will be 
+                                  # matched to this number.
+                                  T.Resize(256),
+                                  T.CenterCrop(224),
+                                  LocalDestroyer(),
+                                  T.ToTensor(),
+                                  T.Normalize(mean=[0.485, 0.456, 0.406],
+                                              std=[0.229, 0.224, 0.225]),
+                              ]))
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=DistributedSampler(val_dataset, shuffle=False))
 
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
 
@@ -388,11 +336,10 @@ if __name__ == '__main__':
             logger.info(f'step:{len(train_loader)}')
 
         for epoch in range(0, args.epochs):
+            train_sampler.set_epoch(epoch)
             train(train_loader, model, criterion,
                   optimizer, scheduler, moving_average, epoch, args)
             validate(val_loader, model, val_criterion, moving_average)
-            train_loader.reset()
-            val_loader.reset()
 
             if args.local_rank == 0 and epoch > (args.epochs - 10):
                 model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
