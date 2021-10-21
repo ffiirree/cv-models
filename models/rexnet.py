@@ -95,6 +95,7 @@ class ReXNet(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         width_multiplier: float = 1.0,
+        dropout_rate: float = 0.2,
         thumbnail: bool = False
     ):
         super().__init__()
@@ -137,7 +138,7 @@ class ReXNet(nn.Module):
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Sequential(
-            nn.Dropout(0.2),
+            nn.Dropout(dropout_rate),
             nn.Linear(multiplier(1280), num_classes)
         )
 
@@ -181,6 +182,7 @@ class ReXNetPlain(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
+        dropout_rate: float = 0.2,
         thumbnail: bool = False
     ):
         super().__init__()
@@ -208,7 +210,7 @@ class ReXNetPlain(nn.Module):
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Sequential(
-            nn.Dropout(0.2),
+            nn.Dropout(dropout_rate),
             nn.Linear(1280, num_classes)
         )
 

@@ -27,6 +27,7 @@ class MobileNetV3Small(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
+        dropout_rate: float = 0.2,
         thumbnail: bool  = False
     ):
         super().__init__()
@@ -67,7 +68,7 @@ class MobileNetV3Small(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(576, 1024),
             nn.Hardswish(inplace=True),
-            nn.Dropout(0.2),
+            nn.Dropout(dropout_rate),
             nn.Linear(1024, num_classes)
         )
 
@@ -93,6 +94,7 @@ class MobileNetV3Large(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
+        dropout_rate: float = 0.2,
         thumbnail: bool  = False
     ):
         super().__init__()
@@ -140,7 +142,7 @@ class MobileNetV3Large(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(960, 1280),
             nn.Hardswish(inplace=True),
-            nn.Dropout(0.2),
+            nn.Dropout(dropout_rate),
             nn.Linear(1280, num_classes)
         )
 

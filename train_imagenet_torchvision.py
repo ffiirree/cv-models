@@ -94,6 +94,8 @@ def parse_args():
                         choices=['none', 'standard', 'randaugment', 'autoaugment'])
     parser.add_argument('--randaugment_n', type=int, default=2)
     parser.add_argument('--randaugment_m', type=int, default=10)
+    parser.add_argument('--dropout-rate', type=float, default=0.)
+    parser.add_argument('--drop-path-rate', type=float, default=0.)
     parser.add_argument('--output-dir', type=str,
                         default=f'logs/{datetime.date.today()}', metavar='DIR')
     return parser.parse_args()
@@ -217,7 +219,12 @@ if __name__ == '__main__':
         if args.torch:
             model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
         else:
-            model = models.__dict__[args.model](pretrained=args.pretrained, pth=args.path)
+            model = models.__dict__[args.model](
+                pretrained=args.pretrained, 
+                pth=args.path,
+                dropout_rate=args.dropout_rate,
+                drop_path_rate=args.drop_path_rate
+            )
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -254,8 +261,7 @@ if __name__ == '__main__':
 
     aug = [
         T.RandomResizedCrop(224),
-        T.RandomHorizontalFlip(),
-        LocalDestroyer()
+        T.RandomHorizontalFlip()
     ]
     if args.augment == 'randaugment':
         aug.append(RandAugment(args.randaugment_n, args.randaugment_m))

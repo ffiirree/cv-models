@@ -15,6 +15,7 @@
 - [x] `DenseNet` - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993), 2016
 - [ ] `DLA` - [Deep Layer Aggregation](https://arxiv.org/abs/1707.06484), CVPR, 2017
 - [ ] `DPN` - [Dual Path Networks](https://arxiv.org/abs/1707.01629), 2017
+- [ ] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
 - [ ] `NASNet-A` - [Learning Transferable Architectures for Scalable Image Recognition](https://arxiv.org/abs/1707.07012), 2017
 - [ ] `PNasNet` - [Progressive Neural Architecture Search](https://arxiv.org/abs/1712.00559), 2017
 - [x] `MobileNets` - [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861), 2017
@@ -40,12 +41,13 @@
 
 ## Transformer
 
-- [ ] `ViT` - [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929), 2020
-- [ ] `Swin Transformer` - [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030), 2021
+- [x] `ViT` - [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929), ICLR, 2020
+- [x] `DeiT` - [Training data-efficient image transformers & distillation through attention](https://arxiv.org/abs/2012.12877), 2020
+- [ ] `Swin Transformer` - [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030), ICCV, 2021
 - [ ] `Twins` - [Twins: Revisiting the Design of Spatial Attention in Vision Transformers](https://arxiv.org/abs/2104.13840), 2021
 
 ## MLP
 
-- [ ] `MLP-Mixer` - [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601), 2021
+- [x] `MLP-Mixer` - [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601), 2021
 - [ ] `ResMLP` - [ResMLP: Feedforward networks for image classification with data-efficient training](https://arxiv.org/abs/2105.03404)
 - [ ] `gMLP` - [Pay Attention to MLPs](https://arxiv.org/abs/2105.08050), 2021

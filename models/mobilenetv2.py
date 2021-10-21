@@ -63,6 +63,7 @@ class MobileNetV2(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         multiplier: float = 1.0,
+        dropout_rate: float = 0.2,
         thumbnail: bool = False
     ):
         super().__init__()
@@ -87,7 +88,7 @@ class MobileNetV2(nn.Module):
         self.features = nn.Sequential(*features)
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
-            nn.Dropout(0.2, inplace=True),
+            nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(1280, num_classes)
         )
 

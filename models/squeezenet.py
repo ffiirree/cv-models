@@ -40,6 +40,7 @@ class SqueezeNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
+        dropout_rate: float = 0.5,
         thumbnail: bool = False
     ):
         super().__init__()
@@ -68,7 +69,7 @@ class SqueezeNet(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-            nn.Dropout(0.5),
+            nn.Dropout(dropout_rate),
             blocks.Conv2d1x1(512, num_classes, bias=True),
             nn.ReLU(inplace=True),
             nn.AdaptiveAvgPool2d((1, 1))

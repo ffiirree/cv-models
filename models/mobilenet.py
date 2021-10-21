@@ -103,6 +103,7 @@ class MobileNet(nn.Module):
         base_width: int = 32,
         block: Type[Union[MobileBlock, DepthSepBlock]] = MobileBlock,
         depth_multiplier: float = 1.0,
+        dropout_rate: float = 0.2,
         thumbnail: bool = False
     ):
         super().__init__()
@@ -127,7 +128,7 @@ class MobileNet(nn.Module):
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
-            nn.Dropout(0.2, inplace=True),
+            nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(depth(base_width * 32), num_classes)
         )
 

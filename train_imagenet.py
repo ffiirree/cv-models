@@ -32,6 +32,8 @@ def parse_args():
                         help='use torchvision models. (default: false)')
     parser.add_argument('--model', type=str, default='muxnet_v2', choices=model_names,
                         help='type of model to use. (default: muxnet_v2)')
+    parser.add_argument('--dropout-rate', type=float, default=0.)
+    parser.add_argument('--drop-path-rate', type=float, default=0.)
     parser.add_argument('--input-size', type=int, default=224,  metavar='SIZE',
                         help='size of the input image size. (default: 224)')
     parser.add_argument('--pretrained', action='store_true',
@@ -296,7 +298,11 @@ if __name__ == '__main__':
                 args.model](pretrained=args.pretrained)
         else:
             model = models.__dict__[args.model](
-                pretrained=args.pretrained, pth=args.path)
+                pretrained=args.pretrained, 
+                pth=args.path,
+                dropout_rate=args.dropout_rate,
+                drop_path_rate=args.drop_path_rate
+            )
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 

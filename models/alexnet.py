@@ -20,6 +20,7 @@ class AlexNet(nn.Module):
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
+        dropout_rate: float = 0.5,
         thumbnail: bool = False
     ):
         super().__init__()
@@ -52,10 +53,10 @@ class AlexNet(nn.Module):
         self.avg = nn.AdaptiveAvgPool2d((6, 6))
 
         self.classifier = nn.Sequential(
-            nn.Dropout(0.5),
+            nn.Dropout(dropout_rate),
             nn.Linear(9216, 4096),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
+            nn.Dropout(dropout_rate),
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True),
             nn.Linear(4096, num_classes)

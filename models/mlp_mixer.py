@@ -1,7 +1,7 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core.blocks import MlpBlock, DropPath
 from typing import Any
 
 __all__ = ['Mixer', 'mixer_s32_224', 'mixer_s16_224', 'mixer_b32_224',
@@ -18,37 +18,28 @@ model_urls = {
 }
 
 
-class MlpBlock(nn.Sequential):
+class MixerBlock(nn.Module):
     def __init__(
         self,
-        in_features,
-        hidden_features=None,
-        out_features=None,
-        activation_fn: nn.Module = nn.GELU
+        hidden_dim,
+        sequence_len,
+        ratio=(0.5, 4.0),
+        dropout_rate: float = 0.,
+        drop_path_rate: float = 0.
     ):
-        hidden_features = hidden_features or in_features
-        out_features = out_features or in_features
-
-        super().__init__(
-            nn.Linear(in_features, hidden_features),
-            activation_fn(),
-            nn.Linear(hidden_features, out_features)
-        )
-
-
-class MixerBlock(nn.Module):
-    def __init__(self, hidden_dim, sequence_len, ratio=(0.5, 4.0)):
         super().__init__()
 
         self.norm1 = nn.LayerNorm(hidden_dim)
-        self.token_mixing = MlpBlock(sequence_len, int(hidden_dim * ratio[0]))
+        self.token_mixing = MlpBlock(sequence_len, int(hidden_dim * ratio[0]), dropout_rate=dropout_rate)
+        self.drop1 = DropPath(1. - drop_path_rate)
+        
         self.norm2 = nn.LayerNorm(hidden_dim)
-        self.channel_mixing = MlpBlock(hidden_dim, int(hidden_dim * ratio[1]))
+        self.channel_mixing = MlpBlock(hidden_dim, int(hidden_dim * ratio[1]), dropout_rate=dropout_rate)
+        self.drop2 = DropPath(1. - drop_path_rate)
 
     def forward(self, x):
-        x = x + \
-            self.token_mixing(self.norm1(x).transpose(1, 2)).transpose(1, 2)
-        x = x + self.channel_mixing(self.norm2(x))
+        x = x + self.drop1(self.token_mixing(self.norm1(x).transpose(1, 2)).transpose(1, 2))
+        x = x + self.drop2(self.channel_mixing(self.norm2(x)))
         return x
 
 
@@ -65,6 +56,8 @@ class Mixer(nn.Module):
         patch_size: int = 32,
         hidden_dim: int = 768,
         num_blocks: int = 12,
+        dropout_rate: float = 0.,
+        drop_path_rate: float = 0.,
         **kwargs: Any
     ):
         super().__init__()
@@ -75,7 +68,11 @@ class Mixer(nn.Module):
         self.stem = nn.Conv2d(in_channels, hidden_dim,
                               kernel_size=patch_size, stride=patch_size)
         self.mixer = nn.Sequential(
-            *[MixerBlock(hidden_dim, self.num_patches) for _ in range(self.num_blocks)]
+            *[
+                MixerBlock(
+                    hidden_dim, self.num_patches, dropout_rate=dropout_rate, drop_path_rate=drop_path_rate
+                ) for _ in range(self.num_blocks)
+            ]
         )
         self.norm = nn.LayerNorm(hidden_dim)
 

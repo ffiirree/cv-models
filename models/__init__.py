@@ -16,6 +16,7 @@ from .efficientnetv2 import *
 from .mlp_mixer import *
 from .aaai22 import *
 from .rexnet import *
+from .vision_transformer import *
 
 from .onenet import *
 from .micronet import *
