@@ -1,15 +1,16 @@
+from functools import partial
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any
 
-__all__ = ['MnasNet', 'mnasnet_a1']
 
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
 
+@export
 def mnasnet_a1(pretrained: bool = False, pth: str = None, **kwargs: Any):
     model = MnasNet(**kwargs)
     if pretrained and pth is not None:
@@ -17,13 +18,14 @@ def mnasnet_a1(pretrained: bool = False, pth: str = None, **kwargs: Any):
     return model
 
 
+@export
 class MnasNet(nn.Module):
-    @blocks.batchnorm(momentum=_BN_MOMENTUM)
+    @blocks.normalizer(fn=partial(nn.BatchNorm2d, momentum=_BN_MOMENTUM))
     def __init__(
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        thumbnail: bool  = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
@@ -36,9 +38,7 @@ class MnasNet(nn.Module):
         k = [3, 3, 5, 3, 3, 5, 3]
         se = [0, 0, 0.25, 0, 0.25, 0.25, 0]
 
-        features = [
-            blocks.Conv2dBlock(in_channels, c[0], kernel_size=3, stride=FRONT_S)
-        ]
+        features = [blocks.Conv2dBlock(in_channels, c[0], kernel_size=3, stride=FRONT_S)]
 
         for i in range(len(t)):
             features.append(
@@ -65,16 +65,10 @@ class MnasNet(nn.Module):
         kernel_size: int = 3,
         se_ratio: float = None
     ):
-        layers = [
-            blocks.InvertedResidualBlock(
-                inp, oup, t, kernel_size, stride, se_ratio=se_ratio)
-        ]
+        layers = [blocks.InvertedResidualBlock(inp, oup, t, kernel_size, stride, se_ratio=se_ratio)]
 
         for _ in range(n - 1):
-            layers.append(
-                blocks.InvertedResidualBlock(
-                    oup, oup, t, kernel_size, se_ratio=se_ratio)
-            )
+            layers.append(blocks.InvertedResidualBlock(oup, oup, t, kernel_size, se_ratio=se_ratio))
         return nn.Sequential(*layers)
 
     def forward(self, x):

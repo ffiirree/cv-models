@@ -1,63 +1,9 @@
+from functools import partial
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any
-
-__all__ = ['ReXNet', 'rexnet_x0_9', 'rexnet_x1_0',
-           'rexnet_x1_3', 'rexnet_x1_5', 'rexnet_x2_0',
-           'rexnet_plain']
-
-model_urls = {
-    'rexnet_x0_9': None,
-    'rexnet_x1_0': None,
-    'rexnet_x1_3': None,
-    'rexnet_x1_5': None,
-    'rexnet_x2_0': None,
-    'rexnet_plain': None
-}
-
-
-def _rexnet(
-    arch: str,
-    width_multiplier: float = 1.0,
-    pretrained: bool = False,
-    pth: str = None,
-    progress: bool = True,
-    **kwargs: Any
-):
-    model = ReXNet(width_multiplier=width_multiplier, **kwargs)
-
-    if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            state_dict = torch.hub.load_state_dict_from_url(
-                model_urls[arch],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
-    return model
-
-
-def rexnet_x0_9(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _rexnet('rexnet_x0_9', 0.9, pretrained, pth, progress, **kwargs)
-
-
-def rexnet_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _rexnet('rexnet_x1_0', 1.0, pretrained, pth, progress, **kwargs)
-
-
-def rexnet_x1_3(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _rexnet('rexnet_x1_3', 1.3, pretrained, pth, progress, **kwargs)
-
-
-def rexnet_x1_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _rexnet('rexnet_x1_5', 1.5, pretrained, pth, progress, **kwargs)
-
-
-def rexnet_x2_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _rexnet('rexnet_x2_0', 2.0, pretrained, pth, progress, **kwargs)
 
 
 class InvertedResidualBlock(blocks.InvertedResidualBlock):
@@ -86,9 +32,10 @@ class InvertedResidualBlock(blocks.InvertedResidualBlock):
         return out
 
 
+@export
 class ReXNet(nn.Module):
 
-    @blocks.nonlinear(nn.SiLU)
+    @blocks.nonlinear(partial(nn.SiLU, inplace=True))
     @blocks.se(divisor=1, use_norm=True)
     def __init__(
         self,
@@ -118,21 +65,13 @@ class ReXNet(nn.Module):
 
         inplanes, planes = 16, 16 + increase
         for i, layers in enumerate(n):
-            features.append(
-                InvertedResidualBlock(
-                    multiplier(inplanes), multiplier(planes), 6,
-                    stride=s[i], se_ratio=se[i])
-            )
+            features.append(InvertedResidualBlock(multiplier(inplanes), multiplier(planes), 6, stride=s[i], se_ratio=se[i]))
             inplanes, planes = planes, planes + increase
             for _ in range(layers - 1):
-                features.append(
-                    InvertedResidualBlock(
-                        multiplier(inplanes), multiplier(planes), 6, se_ratio=se[i])
-                )
+                features.append(InvertedResidualBlock(multiplier(inplanes), multiplier(planes), 6, se_ratio=se[i]))
                 inplanes, planes = planes, planes + increase
 
-        features.append(blocks.Conv2d1x1Block(
-            multiplier(inplanes), multiplier(1280)))
+        features.append(blocks.Conv2d1x1Block(multiplier(inplanes), multiplier(1280)))
 
         self.features = nn.Sequential(*features)
 
@@ -150,21 +89,54 @@ class ReXNet(nn.Module):
         return x
 
 
-def rexnet_plain(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    model = ReXNetPlain(**kwargs)
-    
+def _rexnet(
+    width_multiplier: float = 1.0,
+    pretrained: bool = False,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    model = ReXNet(width_multiplier=width_multiplier, **kwargs)
+
     if pretrained:
         if pth is not None:
             state_dict = torch.load(os.path.expanduser(pth))
         else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
             state_dict = torch.hub.load_state_dict_from_url(
-                model_urls['rexnet_plain'],
+                kwargs['url'],
                 progress=progress
             )
         model.load_state_dict(state_dict)
     return model
 
 
+@export
+def rexnet_x0_9(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet(0.9, pretrained, pth, progress, **kwargs)
+
+
+@export
+def rexnet_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet(1.0, pretrained, pth, progress, **kwargs)
+
+
+@export
+def rexnet_x1_3(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet(1.3, pretrained, pth, progress, **kwargs)
+
+
+@export
+def rexnet_x1_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet(1.5, pretrained, pth, progress, **kwargs)
+
+
+@export
+def rexnet_x2_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _rexnet(2.0, pretrained, pth, progress, **kwargs)
+
+
+@export
 class PlainBlock(nn.Sequential):
     def __init__(self, inplanes, planes, stride: int = 1):
         super().__init__(
@@ -190,8 +162,7 @@ class ReXNetPlain(nn.Module):
         FRONT_S = 1 if thumbnail else 2
 
         self.features = nn.Sequential(
-            blocks.Conv2dBlock(in_channels, 32, stride=FRONT_S,
-                               activation_fn=nn.SiLU),
+            blocks.Conv2dBlock(in_channels, 32, stride=FRONT_S, activation_fn=partial(nn.SiLU, inplace=True)),
             PlainBlock(32, 96, stride=FRONT_S),
             PlainBlock(96, 144),
             PlainBlock(144, 192, stride=2),
@@ -220,3 +191,20 @@ class ReXNetPlain(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
+
+
+@export
+def rexnet_plain(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    model = ReXNetPlain(**kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+    return model

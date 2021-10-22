@@ -1,63 +1,8 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any, OrderedDict, List
-
-__all__ = ['DenseNet', 'densenet121', 'densenet169',
-           'densenet201', 'densenet264']
-
-
-def densenet121(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = DenseNet(
-        layers=[6, 12, 24, 16],
-        channels=[64, 128, 256, 512],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def densenet169(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = DenseNet(
-        layers=[6, 12, 32, 32],
-        channels=[64, 128, 256, 640],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def densenet201(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = DenseNet(
-        layers=[6, 12, 48, 32],
-        channels=[64, 128, 256, 896],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def densenet264(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = DenseNet(
-        layers=[6, 12, 64, 48],
-        channels=[64, 128, 256, 1408],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
 
 
 class DenseLayer(nn.Sequential):
@@ -106,6 +51,7 @@ class DenseBlock(nn.Module):
         return torch.cat(outs, dim=1)
 
 
+@export
 class DenseNet(nn.Module):
     def __init__(
         self,
@@ -113,13 +59,13 @@ class DenseNet(nn.Module):
         num_classes: int = 1000,
         layers: List[int] = [2, 2, 2, 2],
         channels: List[int] = [64, 128, 256, 512],
-        thumbnail: bool  = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
         FRONT_S = 1 if thumbnail else 2
 
-        maxpool = nn.Identity() 
+        maxpool = nn.Identity()
         if not thumbnail:
             maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -147,3 +93,46 @@ class DenseNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
+
+
+def _densenet(
+    layers: List[int],
+    channels: List[int],
+    pretrained: bool = False,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    model = DenseNet(layers=layers, channels=channels, **kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+    return model
+
+
+@export
+def densenet121(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _densenet([6, 12, 24, 16], [64, 128, 256, 512], pretrained, pth, progress, **kwargs)
+
+
+@export
+def densenet169(pretrained: bool = False, pth: str = None, progress: bool = True,  **kwargs: Any):
+    return _densenet([6, 12, 32, 32], [64, 128, 256, 640], pretrained, pth, progress, **kwargs)
+
+
+@export
+def densenet201(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _densenet([6, 12, 48, 32], [64, 128, 256, 896], pretrained, pth, progress, **kwargs)
+
+
+@export
+def densenet264(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _densenet([6, 12, 64, 48], [64, 128, 256, 1408], pretrained, pth, progress, **kwargs)

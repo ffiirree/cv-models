@@ -1,11 +1,8 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any, OrderedDict, List
-
-__all__ = ['ShuffleNetV2', 'shufflenet_v2_x0_5',
-           'shufflenet_v2_x1_0', 'shufflenet_v2_x1_5', 'shufflenet_v2_x2_0']
 
 
 class ShuffleBlockV2(nn.Module):
@@ -52,58 +49,7 @@ class ShuffleBlockV2(nn.Module):
         return out
 
 
-def shufflenet_v2_x0_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ShuffleNetV2(
-        repeats=[4, 8, 4],
-        channels=[24, 48, 96, 192, 1024],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def shufflenet_v2_x1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ShuffleNetV2(
-        repeats=[4, 8, 4],
-        channels=[24, 116, 232, 464, 1024],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def shufflenet_v2_x1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ShuffleNetV2(
-        repeats=[4, 8, 4],
-        channels=[24, 176, 352, 704, 1024],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def shufflenet_v2_x2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = ShuffleNetV2(
-        repeats=[4, 8, 4],
-        channels=[24, 244, 488, 976, 2048],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
+@export
 class ShuffleNetV2(nn.Module):
     def __init__(
         self,
@@ -150,3 +96,46 @@ class ShuffleNetV2(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
+
+
+def _shufflenet_v2(
+    repeats: List[int],
+    channels: List[int],
+    pretrained: bool = False,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    model = ShuffleNetV2(repeats=repeats, channels=channels, **kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+    return model
+
+
+@export
+def shufflenet_v2_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _shufflenet_v2([4, 8, 4], [24, 48, 96, 192, 1024], pretrained, pth, progress, **kwargs)
+
+
+@export
+def shufflenet_v2_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _shufflenet_v2([4, 8, 4], [24, 116, 232, 464, 1024], pretrained, pth, progress, **kwargs)
+
+
+@export
+def shufflenet_v2_x1_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _shufflenet_v2([4, 8, 4], [24, 176, 352, 704, 1024], pretrained, pth, progress, **kwargs)
+
+
+@export
+def shufflenet_v2_x2_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _shufflenet_v2([4, 8, 4], [24, 244, 488, 976, 2048], pretrained, pth, progress, **kwargs)

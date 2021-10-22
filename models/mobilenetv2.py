@@ -1,63 +1,14 @@
+from functools import partial
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
-from .core.functional import make_divisible
+from .core import blocks, make_divisible, export, config
 from typing import Any
 
-__all__ = ['MobileNetV2', 'mobilenet_v2_x1_0',
-           'mobilenet_v2_x0_75', 'mobilenet_v2_x0_5', 'mobilenet_v2_x0_35']
 
-
-model_urls = {
-    'mobilenet_v2_x1_0': None,
-    'mobilenet_v2_x0_75': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_75-144da943.pth',
-    'mobilenet_v1_x0_5': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_5-1e1467ed.pth',
-    'mobilenet_v1_x0_35': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_35-cc1f8697.pth',
-    'mobilenet_lineardw': None,
-}
-
-
-def _mobilenet_v2(
-    arch: str,
-    multiplier: float = 1.0,
-    pretrained: bool = False,
-    pth: str = None,
-    progress: bool = True,
-    **kwargs: Any
-):
-    model = MobileNetV2(multiplier=multiplier, **kwargs)
-
-    if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            state_dict = torch.hub.load_state_dict_from_url(
-                model_urls[arch],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
-    return model
-
-
-def mobilenet_v2_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v2('mobilenet_v2_x1_0', 1.0, pretrained, pth, progress, **kwargs)
-
-
-def mobilenet_v2_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v2('mobilenet_v2_x0_75', 0.75, pretrained, pth, progress, **kwargs)
-
-
-def mobilenet_v2_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v2('mobilenet_v2_x0_5', 0.5, pretrained, pth, progress, **kwargs)
-
-
-def mobilenet_v2_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v2('mobilenet_v2_x0_35', 0.35, pretrained, pth, progress, **kwargs)
-
-
+@export
 class MobileNetV2(nn.Module):
-    @blocks.nonlinear(nn.ReLU6)
+    @blocks.nonlinear(partial(nn.ReLU6, inplace=True))
     def __init__(
         self,
         in_channels: int = 3,
@@ -94,9 +45,7 @@ class MobileNetV2(nn.Module):
 
     @staticmethod
     def make_layers(inp: int, t: int, oup: int, n: int, stride: int):
-        layers = [
-            blocks.InvertedResidualBlock(inp, oup, t, stride=stride)
-        ]
+        layers = [blocks.InvertedResidualBlock(inp, oup, t, stride)]
 
         for _ in range(n - 1):
             layers.append(blocks.InvertedResidualBlock(oup, oup, t))
@@ -111,3 +60,48 @@ class MobileNetV2(nn.Module):
         x = self.classifier(x)
 
         return x
+
+
+def _mobilenet_v2(
+    multiplier: float = 1.0,
+    pretrained: bool = False,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    model = MobileNetV2(multiplier=multiplier, **kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+    return model
+
+
+@export
+def mobilenet_v2_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v2(1.0, pretrained, pth, progress, **kwargs)
+
+
+@export
+@config(url='https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_75-144da943.pth')
+def mobilenet_v2_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v2(0.75, pretrained, pth, progress, **kwargs)
+
+
+@export
+@config(url='https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_5-1e1467ed.pth')
+def mobilenet_v2_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v2(0.5, pretrained, pth, progress, **kwargs)
+
+
+@export
+@config(url='https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v2_x0_35-cc1f8697.pth')
+def mobilenet_v2_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v2(0.35, pretrained, pth, progress, **kwargs)

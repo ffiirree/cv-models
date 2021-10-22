@@ -6,15 +6,6 @@ from typing import Any
 __all__ = ['AlexNet', 'alexnet']
 
 
-def alexnet(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = AlexNet(**kwargs)
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
 class AlexNet(nn.Module):
     def __init__(
         self,
@@ -28,7 +19,8 @@ class AlexNet(nn.Module):
         FRONT_S = 1 if thumbnail else 4
 
         self.features = nn.Sequential(
-            nn.Conv2d(in_channels, 64, kernel_size=11, stride=FRONT_S, padding=2),
+            nn.Conv2d(in_channels, 64, kernel_size=11,
+                      stride=FRONT_S, padding=2),
             nn.ReLU(inplace=True),
 
             nn.MaxPool2d(kernel_size=3, stride=2),
@@ -68,3 +60,20 @@ class AlexNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
+
+
+def alexnet(pretrained: bool = False, pth: str = None, progress: bool = False, **kwargs: Any):
+    model = AlexNet(**kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+
+    return model

@@ -1,40 +1,37 @@
 from typing import List, OrderedDict
 from contextlib import contextmanager
+from functools import partial
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .functional import *
 
-_BN_MOMENTUM: float = 0.1
-_BN_EPSILON: float = 1e-5
-_BN_POSIITON: str = 'before'
-_NONLINEAR: nn.Module = nn.ReLU
+_NORM_POSIITON: str = 'before'
+_NORMALIZER: nn.Module = nn.BatchNorm2d
+_NONLINEAR: nn.Module = partial(nn.ReLU, inplace=True)
 _SE_GATING_FN: nn.Module = nn.Sigmoid
 _SE_DIVISOR: int = 8
 _SE_USE_NORM: bool = False
 
 
 @contextmanager
-def batchnorm(
-    momentum: float = _BN_MOMENTUM,
-    eps: float = _BN_EPSILON,
-    position: str = _BN_POSIITON
+def normalizer(
+    fn: nn.Module = _NORMALIZER,
+    position: str = _NORM_POSIITON
 ):
-    global _BN_MOMENTUM, _BN_EPSILON, _BN_POSIITON
 
-    _pre_momentum = _BN_MOMENTUM
-    _pre_eps = _BN_EPSILON
-    _pre_position = _BN_POSIITON
+    global _NORMALIZER, _NORM_POSIITON
 
-    _BN_MOMENTUM = momentum
-    _BN_EPSILON = eps
-    _BN_POSIITON = position
+    _pre_normalizer = _NORMALIZER
+    _pre_position = _NORM_POSIITON
+
+    _NORMALIZER = fn
+    _NORM_POSIITON = position
 
     yield
 
-    _BN_MOMENTUM = _pre_momentum
-    _BN_EPSILON = _pre_eps
-    _BN_POSIITON = _pre_position
+    _NORMALIZER = _pre_normalizer
+    _NORM_POSIITON = _pre_position
 
 
 @contextmanager
@@ -71,22 +68,19 @@ def se(
 
 def norm_activation(
     channels,
-    bn_epsilon: float = None,
-    bn_momentum: float = None,
-    normalizer_fn: nn.Module = nn.BatchNorm2d,
+    normalizer_fn: nn.Module = None,
     activation_fn: nn.Module = None,
     norm_position: str = None
 ) -> List[nn.Module]:
-    norm_position = norm_position if norm_position else _BN_POSIITON
+    norm_position = norm_position or _NORM_POSIITON
     assert norm_position in ['before', 'after', 'none'], ''
 
-    bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-    bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-    activation_fn = activation_fn if activation_fn else _NONLINEAR
+    normalizer_fn = normalizer_fn or _NORMALIZER
+    activation_fn = activation_fn or _NONLINEAR
 
     layers = [
-        normalizer_fn(channels, eps=bn_epsilon, momentum=bn_momentum),
-        activation_fn(inplace=True)
+        normalizer_fn(channels),
+        activation_fn()
     ]
 
     if norm_position == 'before':
@@ -95,7 +89,7 @@ def norm_activation(
         layers.reverse()
         return layers
 
-    return [activation_fn(inplace=True)]
+    return [activation_fn()]
 
 
 class Conv2d3x3(nn.Conv2d):
@@ -139,17 +133,14 @@ class Conv2d3x3BN(nn.Sequential):
         padding: int = 1,
         bias: bool = False,
         groups: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d
+        normalizer_fn: nn.Module = None
     ):
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
+        normalizer_fn = normalizer_fn or _NORMALIZER
 
         super().__init__(
             Conv2d3x3(in_channels, out_channels, stride=stride,
                       padding=padding, bias=bias, groups=groups),
-            normalizer_fn(out_channels, eps=bn_epsilon, momentum=bn_momentum)
+            normalizer_fn(out_channels)
         )
 
 
@@ -162,17 +153,14 @@ class Conv2d1x1BN(nn.Sequential):
         padding: int = 0,
         bias: bool = False,
         groups: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d
+        normalizer_fn: nn.Module = None
     ):
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
+        normalizer_fn = normalizer_fn or _NORMALIZER
 
         super().__init__(
             Conv2d1x1(in_channels, out_channels, stride=stride,
                       padding=padding, bias=bias, groups=groups),
-            normalizer_fn(out_channels, eps=bn_epsilon, momentum=bn_momentum)
+            normalizer_fn(out_channels)
         )
 
 
@@ -185,18 +173,14 @@ class Conv2d1x1Block(nn.Sequential):
         padding: int = 0,
         bias: bool = False,
         groups: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None,
         norm_position: str = None
     ):
         super().__init__(
             Conv2d1x1(in_channels, out_channels, stride=stride,
                       padding=padding, bias=bias, groups=groups),
-            *norm_activation(out_channels, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                             normalizer_fn=normalizer_fn, activation_fn=activation_fn,
-                             norm_position=norm_position)
+            *norm_activation(out_channels, normalizer_fn, activation_fn, norm_position)
         )
 
 
@@ -210,18 +194,14 @@ class Conv2dBlock(nn.Sequential):
         padding: int = 1,
         bias: bool = False,
         groups: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None,
         norm_position: str = None,
     ):
         super().__init__(
             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
                       bias=bias, stride=stride, padding=padding, groups=groups),
-            *norm_activation(out_channels, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                             normalizer_fn=normalizer_fn, activation_fn=activation_fn,
-                             norm_position=norm_position)
+            *norm_activation(out_channels, normalizer_fn, activation_fn, norm_position)
         )
 
 
@@ -236,18 +216,15 @@ class ResBasicBlockV1(nn.Module):
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
-        drop_connect_rate: float = None,
+        drop_path_rate: float = None,
         use_resnetd_shortcut: bool = False,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None
     ):
         super().__init__()
 
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
+        normalizer_fn = normalizer_fn or _NORMALIZER
+        activation_fn = activation_fn or _NONLINEAR
 
         self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
         self.use_shortcut = stride != 1 or inp != oup * self.expansion
@@ -257,17 +234,17 @@ class ResBasicBlockV1(nn.Module):
 
         self.branch1 = nn.Sequential(OrderedDict([
             ('conv1', Conv2d3x3(inp, oup, stride=stride, groups=groups)),
-            ('norm1', normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum)),
-            ('relu1', activation_fn(inplace=True)),
+            ('norm1', normalizer_fn(oup)),
+            ('relu1', activation_fn()),
             ('conv2', Conv2d3x3(oup, oup)),
-            ('norm2', normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum))
+            ('norm2', normalizer_fn(oup))
         ]))
 
         if self.has_se:
             self.branch1.add_module('se', SEBlock(oup, se_ratio))
 
-        if drop_connect_rate:
-            self.branch1.add_module('drop', DropPath(drop_connect_rate))
+        if drop_path_rate:
+            self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
 
         self.branch2 = nn.Identity()
 
@@ -275,19 +252,17 @@ class ResBasicBlockV1(nn.Module):
             if use_resnetd_shortcut and stride != 1:
                 self.branch2 = nn.Sequential(OrderedDict([
                     ('pool', nn.AvgPool2d(2, stride=stride)),
-                    ('conv', Conv2d1x1(inp, oup * self.expansion))
+                    ('conv', Conv2d1x1(inp, oup)),
+                    ('norm', normalizer_fn(oup))
                 ]))
             else:
                 self.branch2 = nn.Sequential(OrderedDict([
-                    ('conv', Conv2d1x1(inp, oup * self.expansion, stride=stride))
+                    ('conv', Conv2d1x1(inp, oup, stride=stride)),
+                    ('norm', normalizer_fn(oup))
                 ]))
-            self.branch2.add_module(
-                'norm', normalizer_fn(
-                    oup * self.expansion, eps=bn_epsilon, momentum=bn_momentum)
-            )
 
         self.combine = Combine('ADD')
-        self.relu = activation_fn(inplace=True)
+        self.relu = activation_fn()
 
     def forward(self, x):
         x = self.combine([self.branch1(x), self.branch2(x)])
@@ -306,18 +281,15 @@ class BottleneckV1(nn.Module):
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
-        drop_connect_rate: float = None,
+        drop_path_rate: float = None,
         use_resnetd_shortcut: bool = False,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None
     ):
         super().__init__()
 
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
+        normalizer_fn = normalizer_fn or _NORMALIZER
+        activation_fn = activation_fn or _NONLINEAR
 
         width = int(oup * (width_per_group / 64)) * groups
 
@@ -326,22 +298,21 @@ class BottleneckV1(nn.Module):
 
         self.branch1 = nn.Sequential(OrderedDict([
             ('conv1', Conv2d1x1(inp, width)),
-            ('norm1', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
-            ('relu1', activation_fn(inplace=True)),
+            ('norm1', normalizer_fn(width)),
+            ('relu1', activation_fn()),
             ('conv2', Conv2d3x3(width, width, stride=stride, groups=groups)),
-            ('norm2', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
-            ('relu2', activation_fn(inplace=True)),
+            ('norm2', normalizer_fn(width)),
+            ('relu2', activation_fn()),
             ('conv3', Conv2d1x1(width, oup * self.expansion)),
-            ('norm3', normalizer_fn(oup * self.expansion,
-             eps=bn_epsilon, momentum=bn_momentum))
+            ('norm3', normalizer_fn(oup * self.expansion,))
         ]))
 
         if self.has_se:
             self.branch1.add_module('se', SEBlock(
                 oup * self.expansion, se_ratio))
 
-        if drop_connect_rate:
-            self.branch1.add_module('drop', DropPath(drop_connect_rate))
+        if drop_path_rate:
+            self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
 
         self.branch2 = nn.Identity()
 
@@ -349,19 +320,17 @@ class BottleneckV1(nn.Module):
             if use_resnetd_shortcut and stride != 1:
                 self.branch2 = nn.Sequential(OrderedDict([
                     ('pool', nn.AvgPool2d(2, stride=stride)),
-                    ('conv', Conv2d1x1(inp, oup * self.expansion))
+                    ('conv', Conv2d1x1(inp, oup * self.expansion)),
+                    ('norm', normalizer_fn(oup * self.expansion))
                 ]))
             else:
                 self.branch2 = nn.Sequential(OrderedDict([
-                    ('conv', Conv2d1x1(inp, oup * self.expansion, stride=stride))
+                    ('conv', Conv2d1x1(inp, oup * self.expansion, stride=stride)),
+                    ('norm', normalizer_fn(oup * self.expansion))
                 ]))
-            self.branch2.add_module(
-                'norm', normalizer_fn(
-                    oup * self.expansion, eps=bn_epsilon, momentum=bn_momentum)
-            )
 
         self.combine = Combine('ADD')
-        self.relu = activation_fn(inplace=True)
+        self.relu = activation_fn()
 
     def forward(self, x):
         x = self.combine([self.branch1(x), self.branch2(x)])
@@ -380,18 +349,15 @@ class ResBasicBlockV2(nn.Module):
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
-        drop_connect_rate: float = None,
+        drop_path_rate: float = None,
         use_resnetd_shortcut: bool = False,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None
     ):
         super().__init__()
 
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
+        normalizer_fn = normalizer_fn or _NORMALIZER
+        activation_fn = activation_fn or _NONLINEAR
 
         self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
         self.use_shortcut = stride != 1 or inp != oup
@@ -400,19 +366,19 @@ class ResBasicBlockV2(nn.Module):
             raise ValueError('width_per_group are not supported!')
 
         self.branch1 = nn.Sequential(OrderedDict([
-            ('norm1', normalizer_fn(inp, eps=bn_epsilon, momentum=bn_momentum)),
-            ('relu1', activation_fn(inplace=True)),
+            ('norm1', normalizer_fn(inp)),
+            ('relu1', activation_fn()),
             ('conv1', Conv2d3x3(inp, oup, stride=stride, groups=groups)),
-            ('norm2', normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum)),
-            ('relu2', activation_fn(inplace=True)),
+            ('norm2', normalizer_fn(oup)),
+            ('relu2', activation_fn()),
             ('conv2', Conv2d3x3(oup, oup))
         ]))
 
         if self.has_se:
             self.branch1.add_module('se', SEBlock(oup, se_ratio))
 
-        if drop_connect_rate:
-            self.branch1.add_module('drop', DropPath(drop_connect_rate))
+        if drop_path_rate:
+            self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
 
         self.branch2 = nn.Identity()
 
@@ -422,9 +388,8 @@ class ResBasicBlockV2(nn.Module):
                 self.branch2.add_module('pool', nn.AvgPool2d(2, stride))
                 stride = 1
 
-            self.branch2.add_module('norm', normalizer_fn(
-                inp, eps=bn_epsilon, momentum=bn_momentum))
-            self.branch2.add_module('relu', activation_fn(inplace=True))
+            self.branch2.add_module('norm', normalizer_fn(inp))
+            self.branch2.add_module('relu', activation_fn())
             self.branch2.add_module('conv', Conv2d1x1(inp, oup, stride))
 
         self.combine = Combine('ADD')
@@ -445,18 +410,15 @@ class BottleneckV2(nn.Module):
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
-        drop_connect_rate: float = None,
+        drop_path_rate: float = None,
         use_resnetd_shortcut: bool = False,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None
     ):
         super().__init__()
 
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
+        normalizer_fn = normalizer_fn or _NORMALIZER
+        activation_fn = activation_fn or _NONLINEAR
 
         width = int(oup * (width_per_group / 64)) * groups
 
@@ -464,14 +426,14 @@ class BottleneckV2(nn.Module):
         self.use_shortcut = stride != 1 or inp != oup * self.expansion
 
         self.branch1 = nn.Sequential(OrderedDict([
-            ('norm1', normalizer_fn(inp, eps=bn_epsilon, momentum=bn_momentum)),
-            ('relu1', activation_fn(inplace=True)),
+            ('norm1', normalizer_fn(inp)),
+            ('relu1', activation_fn()),
             ('conv1', Conv2d1x1(inp, width)),
-            ('norm2', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
-            ('relu2', activation_fn(inplace=True)),
+            ('norm2', normalizer_fn(width)),
+            ('relu2', activation_fn()),
             ('conv2', Conv2d3x3(width, width, stride=stride, groups=groups)),
-            ('norm3', normalizer_fn(width, eps=bn_epsilon, momentum=bn_momentum)),
-            ('relu3', activation_fn(inplace=True)),
+            ('norm3', normalizer_fn(width)),
+            ('relu3', activation_fn()),
             ('conv3', Conv2d1x1(width, oup * self.expansion))
         ]))
 
@@ -479,8 +441,8 @@ class BottleneckV2(nn.Module):
             self.branch1.add_module('se', SEBlock(
                 oup * self.expansion, se_ratio))
 
-        if drop_connect_rate:
-            self.branch1.add_module('drop', DropPath(drop_connect_rate))
+        if drop_path_rate:
+            self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
 
         self.branch2 = nn.Identity()
 
@@ -490,9 +452,8 @@ class BottleneckV2(nn.Module):
                 self.branch2.add_module('pool', nn.AvgPool2d(2, stride))
                 stride = 1
 
-            self.branch2.add_module('norm', normalizer_fn(
-                inp, eps=bn_epsilon, momentum=bn_momentum))
-            self.branch2.add_module('relu', activation_fn(inplace=True))
+            self.branch2.add_module('norm', normalizer_fn(inp))
+            self.branch2.add_module('relu', activation_fn())
             self.branch2.add_module('conv', Conv2d1x1(
                 inp, oup * self.expansion, stride))
 
@@ -549,17 +510,14 @@ class DepthwiseConv2dBN(nn.Sequential):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d
+        normalizer_fn: nn.Module = None
     ):
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
+        normalizer_fn = normalizer_fn or _NORMALIZER
 
         super().__init__(
             DepthwiseConv2d(inp, oup, kernel_size,
                             stride=stride, padding=padding),
-            normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum)
+            normalizer_fn(oup)
         )
 
 
@@ -569,16 +527,13 @@ class PointwiseConv2dBN(nn.Sequential):
         inp,
         oup,
         stride: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d
+        normalizer_fn: nn.Module = None
     ):
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
+        normalizer_fn = normalizer_fn or _NORMALIZER
 
         super().__init__(
             PointwiseConv2d(inp, oup, stride=stride),
-            normalizer_fn(oup, eps=bn_epsilon, momentum=bn_momentum)
+            normalizer_fn(oup)
         )
 
 
@@ -590,18 +545,13 @@ class DepthwiseBlock(nn.Sequential):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None,
         norm_position: str = None
     ):
         super().__init__(
-            DepthwiseConv2d(inp, oup, kernel_size,
-                            stride=stride, padding=padding),
-            *norm_activation(oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                             normalizer_fn=normalizer_fn, activation_fn=activation_fn,
-                             norm_position=norm_position)
+            DepthwiseConv2d(inp, oup, kernel_size, stride, padding=padding),
+            *norm_activation(oup, normalizer_fn, activation_fn, norm_position)
         )
 
 
@@ -612,17 +562,13 @@ class PointwiseBlock(nn.Sequential):
         oup,
         stride: int = 1,
         groups: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None,
         norm_position: str = None,
     ):
         super().__init__(
             PointwiseConv2d(inp, oup, stride=stride, groups=groups),
-            *norm_activation(oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                             normalizer_fn=normalizer_fn, activation_fn=activation_fn,
-                             norm_position=norm_position)
+            *norm_activation(oup, normalizer_fn, activation_fn, norm_position)
         )
 
 
@@ -634,21 +580,21 @@ class SEBlock(nn.Module):
         self,
         channels,
         ratio,
-        inner_activation_fn: nn.Module = nn.ReLU,
+        inner_activation_fn: nn.Module = partial(nn.ReLU, inplace=True),
         gating_fn: nn.Module = None
     ):
         super().__init__()
 
         squeezed_channels = make_divisible(int(channels * ratio), _SE_DIVISOR)
-        gating_fn = gating_fn if gating_fn else _SE_GATING_FN
+        gating_fn = gating_fn or _SE_GATING_FN
 
         layers = OrderedDict([])
 
         layers['pooling'] = nn.AdaptiveAvgPool2d((1, 1))
         layers['reduce'] = Conv2d1x1(channels, squeezed_channels, bias=True)
         if _SE_USE_NORM:
-            layers['norm'] = nn.BatchNorm2d(squeezed_channels)
-        layers['relu'] = inner_activation_fn(inplace=True)
+            layers['norm'] = _NORMALIZER(squeezed_channels)
+        layers['relu'] = inner_activation_fn()
         layers['expand'] = Conv2d1x1(squeezed_channels, channels, bias=True)
         layers['sigmoid'] = gating_fn()
 
@@ -834,25 +780,6 @@ class GaussianFilter(nn.Module):
         return s.format(**self.__dict__)
 
 
-class Shift(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x):
-        blocks = []
-
-        blocks.append(torch.roll(x, (1, 1), (2, 3)))
-        blocks.append(torch.roll(x, 1, 2))
-        blocks.append(torch.roll(x, (1, -1), (2, 3)))
-        blocks.append(torch.roll(x, 1, 3))
-        blocks.append(x)
-        blocks.append(torch.roll(x, -1, 3))
-        blocks.append(torch.roll(x, (-1, 1), (2, 3)))
-        blocks.append(torch.roll(x, -1, 2))
-        blocks.append(torch.roll(x, (-1, -1), (2, 3)))
-        return torch.cat(blocks, 1)
-
-
 class InvertedResidualBlock(nn.Module):
     def __init__(
         self,
@@ -865,9 +792,7 @@ class InvertedResidualBlock(nn.Module):
         se_ratio: float = None,
         se_ind: bool = False,
         survival_prob: float = None,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None,
         dw_se_act: nn.Module = None
     ):
@@ -883,23 +808,21 @@ class InvertedResidualBlock(nn.Module):
             se_ratio / t)
         self.has_se = (self.se_ratio is not None) and (
             self.se_ratio > 0) and (self.se_ratio <= 1)
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
+
+        normalizer_fn = normalizer_fn or _NORMALIZER
+        activation_fn = activation_fn or _NONLINEAR
 
         layers = []
         if t != 1:
             layers.append(Conv2d1x1Block(
-                inp, self.planes,
-                bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn,
-                activation_fn=activation_fn))
+                inp, self.planes, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
 
         if dw_se_act is None:
             layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                         bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
+                                         normalizer_fn=normalizer_fn, activation_fn=activation_fn))
         else:
             layers.append(DepthwiseConv2dBN(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                            bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
+                                            normalizer_fn=normalizer_fn))
 
         if self.has_se:
             layers.append(SEBlock(self.planes, self.se_ratio))
@@ -907,8 +830,9 @@ class InvertedResidualBlock(nn.Module):
         if dw_se_act:
             layers.append(dw_se_act())
 
-        layers.append(Conv2d1x1BN(
-            self.planes, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
+        layers.append(
+            Conv2d1x1BN(self.planes, oup, normalizer_fn=normalizer_fn)
+        )
 
         if self.apply_residual and survival_prob:
             layers.append(DropPath(survival_prob))
@@ -922,137 +846,6 @@ class InvertedResidualBlock(nn.Module):
             return self.combine([self.branch2(x), self.branch1(x)])
         else:
             return self.branch1(x)
-
-
-class HalfDepthwiseBlock(nn.Module):
-    def __init__(
-        self,
-        inp,
-        oup,
-        kernel_size: int = 3,
-        stride: int = 1,
-        padding: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
-        activation_fn: nn.Module = None,
-        norm_position: str = None
-    ):
-        super().__init__()
-        self.split = ChannelChunk(2)
-        self.branch1 = nn.Identity()
-
-        self.branch2 = nn.Sequential(
-            DepthwiseConv2d(inp // 2, oup // 2, kernel_size,
-                            stride=stride, padding=padding),
-            *norm_activation(oup // 2, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                             normalizer_fn=normalizer_fn, activation_fn=activation_fn,
-                             norm_position=norm_position)
-        )
-        self.concat = Combine('CONCAT')
-
-    def forward(self, x):
-        x1, x2 = self.split(x)
-        out = self.concat([self.branch1(x1), self.branch2(x2)])
-        return out
-
-
-class HalfDWInvertedResidualBlock(nn.Module):
-    def __init__(
-        self,
-        inp,
-        oup,
-        t,
-        kernel_size: int = 3,
-        stride: int = 1,
-        padding: int = None,
-        se_ratio: float = None,
-        se_ind: bool = False,
-        survival_prob: float = None,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
-        activation_fn: nn.Module = None
-    ):
-        super().__init__()
-
-        self.inp = inp
-        self.planes = int(self.inp * t)
-        self.oup = oup
-        self.stride = stride
-        self.padding = padding if padding is not None else (kernel_size // 2)
-        self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (
-            se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (
-            self.se_ratio > 0) and (self.se_ratio <= 1)
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
-
-        layers = []
-        if t != 1:
-            layers.append(Conv2d1x1Block(
-                inp, self.planes,
-                bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn,
-                activation_fn=activation_fn))
-
-        if stride == 1:
-            layers.append(HalfDepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                             bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
-        else:
-            layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                         bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
-
-        if self.has_se:
-            layers.append(SEBlock(self.planes, self.se_ratio))
-
-        layers.append(Conv2d1x1BN(
-            self.planes, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
-
-        if self.apply_residual and survival_prob:
-            layers.append(DropPath(survival_prob))
-
-        self.branch1 = nn.Sequential(*layers)
-        self.branch2 = nn.Identity() if self.apply_residual else None
-        self.combine = Combine('ADD') if self.apply_residual else None
-
-    def forward(self, x):
-        if self.apply_residual:
-            return self.combine([self.branch2(x), self.branch1(x)])
-        else:
-            return self.branch1(x)
-
-
-class IdentityDepthwiseBlock(nn.Module):
-    def __init__(
-        self,
-        inp,
-        oup,
-        kernel_size: int = 3,
-        stride: int = 1,
-        padding: int = 1,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
-        activation_fn: nn.Module = None,
-        norm_position: str = None
-    ):
-        super().__init__()
-        self.branch1 = nn.Identity()
-
-        self.branch2 = nn.Sequential(
-            DepthwiseConv2d(inp, oup, kernel_size,
-                            stride=stride, padding=padding),
-            *norm_activation(oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum,
-                             normalizer_fn=normalizer_fn, activation_fn=activation_fn,
-                             norm_position=norm_position)
-        )
-        self.concat = Combine('CONCAT')
-
-    def forward(self, x):
-        out = self.concat([self.branch1(x), self.branch2(x)])
-        return out
 
 
 class FusedInvertedResidualBlock(nn.Module):
@@ -1067,9 +860,7 @@ class FusedInvertedResidualBlock(nn.Module):
         se_ratio: float = None,
         se_ind: bool = False,
         survival_prob: float = None,
-        bn_epsilon: float = None,
-        bn_momentum: float = None,
-        normalizer_fn: nn.Module = nn.BatchNorm2d,
+        normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None
     ):
         super().__init__()
@@ -1084,20 +875,20 @@ class FusedInvertedResidualBlock(nn.Module):
             se_ratio / t)
         self.has_se = (self.se_ratio is not None) and (
             self.se_ratio > 0) and (self.se_ratio <= 1)
-        bn_epsilon = bn_epsilon if bn_epsilon else _BN_EPSILON
-        bn_momentum = bn_momentum if bn_momentum else _BN_MOMENTUM
-        activation_fn = activation_fn if activation_fn else _NONLINEAR
+
+        normalizer_fn = normalizer_fn or _NORMALIZER
+        activation_fn = activation_fn or _NONLINEAR
 
         layers = [
             Conv2dBlock(inp, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                        bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn, activation_fn=activation_fn)
+                        normalizer_fn=normalizer_fn, activation_fn=activation_fn)
         ]
 
         if self.has_se:
             layers.append(SEBlock(self.planes, self.se_ratio))
 
         layers.append(Conv2d1x1BN(
-            self.planes, oup, bn_epsilon=bn_epsilon, bn_momentum=bn_momentum, normalizer_fn=normalizer_fn))
+            self.planes, oup, normalizer_fn=normalizer_fn))
 
         if self.apply_residual and survival_prob:
             layers.append(DropPath(survival_prob))
@@ -1258,12 +1049,13 @@ class EncoderBlock(nn.Module):
         mlp_ratio: float = 4.0,
         dropout_rate: float = 0.,
         attn_dropout_rate: float = 0.,
-        drop_path_rate: float = 0.
+        drop_path_rate: float = 0.,
+        normalizer_fn: nn.Module = nn.LayerNorm,
     ):
         super().__init__()
 
         self.msa = nn.Sequential(
-            nn.LayerNorm(embed_dim),
+            normalizer_fn(embed_dim),
             MultiHeadDotProductAttention(
                 embed_dim, num_heads, qkv_bias,
                 attn_dropout_rate=attn_dropout_rate, proj_dropout_rate=dropout_rate),
@@ -1271,7 +1063,7 @@ class EncoderBlock(nn.Module):
         )
 
         self.mlp = nn.Sequential(
-            nn.LayerNorm(embed_dim),
+            normalizer_fn(embed_dim),
             MlpBlock(embed_dim, int(embed_dim * mlp_ratio),
                      dropout_rate=dropout_rate),
             DropPath(1 - drop_path_rate)

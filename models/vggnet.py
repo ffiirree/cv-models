@@ -1,23 +1,8 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any, List, Type, Union
-
-__all__ = ['VGGNet', 'vgg11', 'vgg13', 'vgg16', 'vgg19',
-           'vgg11_bn', 'vgg13_bn', 'vgg16_bn', 'vgg19_bn']
-
-
-model_urls = {
-    'vgg11': None,
-    'vgg13': None,
-    'vgg16': None,
-    'vgg19': None,
-    'vgg11_bn': None,
-    'vgg13_bn': None,
-    'vgg16_bn': None,
-    'vgg19_bn': None
-}
 
 
 class Conv2dReLU(nn.Sequential):
@@ -30,7 +15,6 @@ class Conv2dReLU(nn.Sequential):
 
 
 def _vgg(
-    arch: str,
     layers: List[int],
     block: Type[Union[Conv2dReLU, blocks.Conv2dBlock]] = Conv2dReLU,
     pretrained: bool = False,
@@ -44,46 +28,56 @@ def _vgg(
         if pth is not None:
             state_dict = torch.load(os.path.expanduser(pth))
         else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
             state_dict = torch.hub.load_state_dict_from_url(
-                model_urls[arch],
+                kwargs['url'],
                 progress=progress
             )
         model.load_state_dict(state_dict)
     return model
 
 
+@export
 def vgg11(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vgg('vgg11', [1, 1, 2, 2, 2], Conv2dReLU, pretrained, pth, progress, **kwargs)
+    return _vgg([1, 1, 2, 2, 2], Conv2dReLU, pretrained, pth, progress, **kwargs)
 
 
+@export
 def vgg13(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vgg('vgg13', [2, 2, 2, 2, 2], Conv2dReLU, pretrained, pth, progress, **kwargs)
+    return _vgg([2, 2, 2, 2, 2], Conv2dReLU, pretrained, pth, progress, **kwargs)
 
 
+@export
 def vgg16(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vgg('vgg16', [2, 2, 3, 3, 3], Conv2dReLU, pretrained, pth, progress, **kwargs)
+    return _vgg([2, 2, 3, 3, 3], Conv2dReLU, pretrained, pth, progress, **kwargs)
 
 
+@export
 def vgg19(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vgg('vgg19', [2, 2, 4, 4, 4], Conv2dReLU, pretrained, pth, progress, **kwargs)
+    return _vgg([2, 2, 4, 4, 4], Conv2dReLU, pretrained, pth, progress, **kwargs)
 
 
+@export
 def vgg11_bn(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vgg('vgg11_bn', [1, 1, 2, 2, 2], blocks.Conv2dBlock, pretrained, pth, progress, **kwargs)
+    return _vgg([1, 1, 2, 2, 2], blocks.Conv2dBlock, pretrained, pth, progress, **kwargs)
 
 
+@export
 def vgg13_bn(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vgg('vgg13_bn', [2, 2, 2, 2, 2], blocks.Conv2dBlock, pretrained, pth, progress, **kwargs)
+    return _vgg([2, 2, 2, 2, 2], blocks.Conv2dBlock, pretrained, pth, progress, **kwargs)
 
 
+@export
 def vgg16_bn(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vgg('vgg16_bn', [2, 2, 3, 3, 3], blocks.Conv2dBlock, pretrained, pth, progress, **kwargs)
+    return _vgg([2, 2, 3, 3, 3], blocks.Conv2dBlock, pretrained, pth, progress, **kwargs)
 
 
+@export
 def vgg19_bn(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vgg('vgg19_bn', [2, 2, 4, 4, 4], blocks.Conv2dBlock, pretrained, pth, progress, **kwargs)
+    return _vgg([2, 2, 4, 4, 4], blocks.Conv2dBlock, pretrained, pth, progress, **kwargs)
 
 
+@export
 class VGGNet(nn.Module):
     def __init__(
         self,

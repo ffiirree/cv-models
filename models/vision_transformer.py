@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from .core import blocks, export, config
 from typing import Any
+from functools import partial
 
 
 @export
@@ -24,11 +25,13 @@ class VisionTransformer(nn.Module):
         num_blocks: int = 12,
         num_heads: int = 12,
         mlp_ratio: float = 4.,
+        qkv_bias: bool = True,
         dropout_rate: float = 0.,
         attn_dropout_rate: float = 0.,
         drop_path_rate: float = 0.,
         classifier: str = 'token',
         distilled: bool = False,
+        normalizer_fn: nn.Module = nn.LayerNorm,
         **kwargs: Any
     ):
         super().__init__()
@@ -38,7 +41,8 @@ class VisionTransformer(nn.Module):
         self.distilled = distilled
 
         self.cls_token = nn.Parameter(torch.randn(1, 1, hidden_dim))
-        self.dist_token = nn.Parameter(torch.randn(1, 1, hidden_dim)) if distilled else None
+        self.dist_token = nn.Parameter(torch.randn(
+            1, 1, hidden_dim)) if distilled else None
         self.positions = nn.Parameter(
             torch.randn(num_patches + (1 if not distilled else 2), hidden_dim))
 
@@ -50,12 +54,12 @@ class VisionTransformer(nn.Module):
         # encoder
         self.encoder = nn.Sequential(*[
             blocks.EncoderBlock(
-                hidden_dim, num_heads, mlp_ratio=mlp_ratio,
+                hidden_dim, num_heads, qkv_bias=qkv_bias, mlp_ratio=mlp_ratio,
                 dropout_rate=dropout_rate, attn_dropout_rate=attn_dropout_rate, drop_path_rate=drop_path_rate
             ) for _ in range(num_blocks)
         ])
 
-        self.norm = nn.LayerNorm(hidden_dim)
+        self.norm = normalizer_fn(hidden_dim)
 
         self.head = nn.Linear(hidden_dim, num_classes)
 
@@ -104,7 +108,8 @@ def _vit(
     **kwargs: Any
 ):
     model = VisionTransformer(image_size, patch_size=patch_size, hidden_dim=hidden_dim,
-                              num_blocks=num_blocks, num_heads=num_heads, distilled=distilled, **kwargs)
+                              num_blocks=num_blocks, num_heads=num_heads, distilled=distilled, 
+                              normalizer_fn=partial(nn.LayerNorm, eps=1e-6), **kwargs)
 
     if pretrained:
         if pth is not None:
@@ -150,30 +155,40 @@ def vit_h16_224(pretrained: bool = False, pth: str = None, progress: bool = True
 
 
 @export
-def deit_tiny_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def deit_tiny_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _vit(224, 16, 192, 12, 3, False, pretrained, pth, progress, **kwargs)
 
 
 @export
-def deit_small_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def deit_small_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _vit(224, 16, 384, 12, 6, False, pretrained, pth, progress, **kwargs)
 
 
 @export
-def deit_base_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def deit_base_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _vit(224, 16, 768, 12, 12, False, pretrained, pth, progress, **kwargs)
 
 
 @export
-def deit_tiny_distilled_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def deit_tiny_distilled_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _vit(224, 16, 192, 12, 3, True, pretrained, pth, progress, **kwargs)
 
 
 @export
-def deit_small_distilled_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def deit_small_distilled_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _vit(224, 16, 384, 12, 6, True, pretrained, pth, progress, **kwargs)
 
 
 @export
-def deit_base_distilled_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def deit_base_distilled_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _vit(224, 16, 768, 12, 12, True, pretrained, pth, progress, **kwargs)
+
+
+@export
+def deit_small_distilled_patch16_384(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _vit(384, 16, 384, 12, 6, True, pretrained, pth, progress, **kwargs)
+
+
+@export
+def deit_base_distilled_patch16_384(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _vit(384, 16, 768, 12, 12, True, pretrained, pth, progress, **kwargs)

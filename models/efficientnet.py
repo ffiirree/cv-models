@@ -2,18 +2,15 @@ import os
 import math
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any
-
-__all__ = ['EfficientNet', 'efficientnet_b0', 'efficientnet_b1', 'efficientnet_b2', 'efficientnet_b3',
-           'efficientnet_b4', 'efficientnet_b5', 'efficientnet_b6', 'efficientnet_b7', 'efficientnet_b8',
-           'efficientnet_l2', 'efficientnet_params']
 
 _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
 
 
+@export
 def efficientnet_params(model_name):
     """Get efficientnet params based on model name."""
     params_dict = {
@@ -32,156 +29,7 @@ def efficientnet_params(model_name):
     return params_dict[model_name]
 
 
-def efficientnet_b0(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b0')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_b1(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b1')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_b2(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b2')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_b3(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b3')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_b4(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b4')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_b5(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b5')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_b6(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b6')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_b7(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b7')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_b8(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-b8')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_l2(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    args = efficientnet_params('efficientnet-l2')
-    model = EfficientNet(
-        width_coefficient=args[0],
-        depth_coefficient=args[1],
-        dropout_rate=args[3],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
+@export
 class EfficientNet(nn.Module):
 
     activation_layer = nn.SiLU
@@ -191,7 +39,7 @@ class EfficientNet(nn.Module):
     n = [1, 2, 2, 3, 3, 4, 1]  # repeats
     k = [3, 3, 5, 3, 5, 5, 3]  # kernel_size
 
-    # @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
+    # @blocks.normalizer(partial(nn.BatchNorm2d, momentum=_BN_MOMENTUM, eps=_BN_EPSILON))
     @blocks.nonlinear(nn.SiLU)
     def __init__(
         self,
@@ -200,10 +48,10 @@ class EfficientNet(nn.Module):
         width_coefficient: float = 1,
         depth_coefficient: float = 1,
         dropout_rate: float = 0.2,
-        thumbnail: bool  = False
+        thumbnail: bool = False
     ):
         super().__init__()
-        
+
         FRONT_S = 1 if thumbnail else 2
 
         self.s = [1, FRONT_S, 2, 2, 1, 2, 1]  # stride
@@ -296,3 +144,76 @@ class EfficientNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
+
+
+def _effnet(arch, pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    args = efficientnet_params(arch)
+    model = EfficientNet(
+        width_coefficient=args[0],
+        depth_coefficient=args[1],
+        dropout_rate=args[3],
+        **kwargs
+    )
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+
+    return model
+
+
+@export
+def efficientnet_b0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b1(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b1', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b2(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b2', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b3(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b3', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b4(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b4', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b5', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b6(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b6', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b7(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b7', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b8(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b8', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_l2(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-l2', pretrained, pth, progress, **kwargs)

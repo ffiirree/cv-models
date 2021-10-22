@@ -2,20 +2,8 @@ import os
 import torch
 import torch.nn as nn
 from .core.blocks import MlpBlock, DropPath
+from .core.utils import export
 from typing import Any
-
-__all__ = ['Mixer', 'mixer_s32_224', 'mixer_s16_224', 'mixer_b32_224',
-           'mixer_b16_224', 'mixer_l32_224', 'mixer_l16_224', 'mixer_h14_224']
-
-model_urls = {
-    'mixer_s32_224': None,
-    'mixer_s16_224': None,
-    'mixer_b32_224': None,
-    'mixer_b16_224': None,
-    'mixer_l32_224': None,
-    'mixer_l16_224': None,
-    'mixer_h14_224': None
-}
 
 
 class MixerBlock(nn.Module):
@@ -32,7 +20,7 @@ class MixerBlock(nn.Module):
         self.norm1 = nn.LayerNorm(hidden_dim)
         self.token_mixing = MlpBlock(sequence_len, int(hidden_dim * ratio[0]), dropout_rate=dropout_rate)
         self.drop1 = DropPath(1. - drop_path_rate)
-        
+
         self.norm2 = nn.LayerNorm(hidden_dim)
         self.channel_mixing = MlpBlock(hidden_dim, int(hidden_dim * ratio[1]), dropout_rate=dropout_rate)
         self.drop2 = DropPath(1. - drop_path_rate)
@@ -43,6 +31,7 @@ class MixerBlock(nn.Module):
         return x
 
 
+@export
 class Mixer(nn.Module):
     r'''
     See: https://github.com/google-research/vision_transformer/blob/main/vit_jax/models_mixer.py
@@ -91,7 +80,6 @@ class Mixer(nn.Module):
 
 
 def _mixer(
-    arch: str,
     image_size: int = 224,
     patch_size: int = 32,
     hidden_dim: int = 768,
@@ -108,37 +96,45 @@ def _mixer(
         if pth is not None:
             state_dict = torch.load(os.path.expanduser(pth))
         else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
             state_dict = torch.hub.load_state_dict_from_url(
-                model_urls[arch],
+                kwargs['url'],
                 progress=progress
             )
         model.load_state_dict(state_dict)
     return model
 
 
+@export
 def mixer_s32_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mixer('mixer_s32_224', 224, 32, 512, 8, pretrained, pth, progress, **kwargs)
+    return _mixer(224, 32, 512, 8, pretrained, pth, progress, **kwargs)
 
 
+@export
 def mixer_s16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mixer('mixer_s32_224', 224, 16, 512, 8, pretrained, pth, progress, **kwargs)
+    return _mixer(224, 16, 512, 8, pretrained, pth, progress, **kwargs)
 
 
+@export
 def mixer_b32_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mixer('mixer_s32_224', 224, 32, 768, 12, pretrained, pth, progress, **kwargs)
+    return _mixer(224, 32, 768, 12, pretrained, pth, progress, **kwargs)
 
 
+@export
 def mixer_b16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mixer('mixer_s32_224', 224, 16, 768, 12, pretrained, pth, progress, **kwargs)
+    return _mixer(224, 16, 768, 12, pretrained, pth, progress, **kwargs)
 
 
+@export
 def mixer_l32_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mixer('mixer_s32_224', 224, 32, 1024, 24, pretrained, pth, progress, **kwargs)
+    return _mixer(224, 32, 1024, 24, pretrained, pth, progress, **kwargs)
 
 
+@export
 def mixer_l16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mixer('mixer_s32_224', 224, 16, 1024, 24, pretrained, pth, progress, **kwargs)
+    return _mixer(224, 16, 1024, 24, pretrained, pth, progress, **kwargs)
 
 
+@export
 def mixer_h14_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mixer('mixer_s32_224', 224, 14, 1280, 32, pretrained, pth, progress, **kwargs)
+    return _mixer(224, 14, 1280, 32, pretrained, pth, progress, **kwargs)

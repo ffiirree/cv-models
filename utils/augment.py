@@ -4,9 +4,10 @@ import torch
 import torchvision.transforms.functional as TF
 import numpy as np
 from PIL import Image
+from kornia import morphology as morph
 
 
-__all__ = ['MixUp', 'RandAugment']
+__all__ = ['MixUp', 'RandAugment', 'MorphAugment']
 
 
 class MixUp(object):
@@ -192,8 +193,8 @@ _MAX_LEVEL = 10.
 def augment_list():
     return [
         'AutoContrast', 'Equalize', 'Invert', 'Rotate', 'Posterize',
-        'Solarize', 'Color', 'Contrast', 'Brightness', 'Sharpness',
-        'ShearX', 'ShearY', 'TranslateX', 'TranslateY', 'Cutout', 'SolarizeAdd'
+        'Solarize', 'SolarizeAdd', 'Color', 'Contrast', 'Brightness', 'Sharpness',
+        'ShearX', 'ShearY', 'TranslateX', 'TranslateY', 'Cutout'
     ]
 
 
@@ -278,3 +279,31 @@ class RandAugment:
                     image = func(image, *args, **kwargs)
 
         return image
+
+    def __repr__(self) -> str:
+        return f'RandAugment(N={self.n}, M={self.m})'
+
+
+class MorphAugment:
+    def __init__(self, p):
+        self.r = 1
+        self.p = p
+
+        self.kernel = torch.tensor([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+        self.ops = [
+            morph.dilation,
+            morph.erosion,
+            morph.opening,
+            morph.closing,
+            morph.gradient,
+        ]
+
+    def __call__(self, input):
+
+        if torch.rand([1]).item() > self.p:
+            return input
+
+        kernel = self.kernel.to(input.device)
+        func = np.random.choice(self.ops, 1)
+
+        return func[0](input, kernel)

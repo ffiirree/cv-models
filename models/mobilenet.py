@@ -1,21 +1,8 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export, config
 from typing import Any, Type, Union
-
-__all__ = ['MobileNet',
-           'mobilenet_lineardw', 'mobilenet_v1_x1_0', 'mobilenet_v1_x0_75',
-           'mobilenet_v1_x0_5', 'mobilenet_v1_x0_35']
-
-
-model_urls = {
-    'mobilenet_v1_x1_0': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v1_x1_0-72d57278.pth',
-    'mobilenet_v1_x0_75': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v1_x0_75-82d76756.pth',
-    'mobilenet_v1_x0_5': 'https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v1_x0_5-824260cb.pth',
-    'mobilenet_v1_x0_35': None,
-    'mobilenet_lineardw': None
-}
 
 
 class MobileBlock(nn.Sequential):
@@ -50,49 +37,7 @@ class DepthSepBlock(nn.Sequential):
         )
 
 
-def _mobilenet_v1(
-    arch: str,
-    depth_multiplier: float = 1.0,
-    block: Type[Union[MobileBlock, DepthSepBlock]] = MobileBlock,
-    pretrained: bool = False,
-    pth: str = None,
-    progress: bool = True,
-    **kwargs: Any
-):
-    model = MobileNet(depth_multiplier=depth_multiplier, block=block, **kwargs)
-
-    if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            state_dict = torch.hub.load_state_dict_from_url(
-                model_urls[arch],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
-    return model
-
-
-def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1('mobilenet_v1_x1_0', 1.0, MobileBlock, pretrained, pth, progress, **kwargs)
-
-
-def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1('mobilenet_v1_x0_75', 1.0, MobileBlock, pretrained, pth, progress, **kwargs)
-
-
-def mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1('mobilenet_v1_x0_5', 1.0, MobileBlock, pretrained, pth, progress, **kwargs)
-
-
-def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1('mobilenet_v1_x0_35', 1.0, MobileBlock, pretrained, pth, progress, **kwargs)
-
-
-def mobilenet_lineardw(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
-    return _mobilenet_v1('mobilenet_v1_x1_0', 1.0, DepthSepBlock, pretrained, pth, progress, **kwargs)
-
-
+@export
 class MobileNet(nn.Module):
     '''https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet_v1.py'''
 
@@ -115,9 +60,7 @@ class MobileNet(nn.Module):
         strides = [1, 2, 1, 2, 1, 2,  1,  1,  1,  1,  1,  2,  1]
         factors = [1, FRONT_S, 4, 4, 8, 8, 16, 16, 16, 16, 16, 16, 32, 32]
 
-        layers = [
-            blocks.Conv2dBlock(in_channels, depth(base_width), stride=FRONT_S)
-        ]
+        layers = [blocks.Conv2dBlock(in_channels, depth(base_width), stride=FRONT_S)]
 
         for i, s in enumerate(strides):
             inp = depth(base_width * factors[i])
@@ -138,3 +81,54 @@ class MobileNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
+
+
+def _mobilenet_v1(
+    depth_multiplier: float = 1.0,
+    block: Type[Union[MobileBlock, DepthSepBlock]] = MobileBlock,
+    pretrained: bool = False,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    model = MobileNet(depth_multiplier=depth_multiplier, block=block, **kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+    return model
+
+
+@export
+@config(url='https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v1_x1_0-72d57278.pth')
+def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
+
+
+@export
+@config(url='https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v1_x0_75-82d76756.pth')
+def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
+
+
+@export
+@config(url='https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v1_x0_5-824260cb.pth')
+def mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
+
+
+@export
+def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
+
+
+@export
+def mobilenet_lineardw(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
+    return _mobilenet_v1(1.0, DepthSepBlock, pretrained, pth, progress, **kwargs)

@@ -102,7 +102,7 @@ def threepathnet_x1_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 
 class ThreePathNet10(nn.Module):
-    @blocks.batchnorm(position='after')
+    @blocks.normalizer(position='after')
     def __init__(
         self,
         in_channels: int = 3,
@@ -168,7 +168,7 @@ def threepathnet_x1_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 
 class ThreePathNet(nn.Module):
-    @blocks.batchnorm(position='after')
+    @blocks.normalizer(position='after')
     def __init__(
         self,
         in_channels: int = 3,
@@ -234,7 +234,7 @@ def threepathnet_x2_0(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 
 class ThreePathNetX2_0(nn.Module):
-    @blocks.batchnorm(position='after')
+    @blocks.normalizer(position='after')
     def __init__(
         self,
         in_channels: int = 3,
@@ -303,7 +303,7 @@ def threepathnet_x2_5(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 
 class ThreePathNetX2_5(nn.Module):
-    @blocks.batchnorm(position='after')
+    @blocks.normalizer(position='after')
     def __init__(
         self,
         in_channels: int = 3,
@@ -375,7 +375,7 @@ def threepathnet_v2_x1_0(pretrained: bool = False, pth: str = None, **kwargs: An
 
 
 class ThreePathNetV210(nn.Module):
-    @blocks.batchnorm(position='after')
+    @blocks.normalizer(position='after')
     def __init__(
         self,
         in_channels: int = 3,

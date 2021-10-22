@@ -1,11 +1,9 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any, List
 
-__all__ = ['EfficientNetV2', 'efficientnet_v2_s',
-           'efficientnet_v2_m', 'efficientnet_v2_l', 'efficientnet_v2_xl']
 _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
 _BN_MOMENTUM = 0.01
@@ -41,81 +39,10 @@ efficientnetv2_params = {
 }
 
 
-def efficientnet_v2_s(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = EfficientNetV2(
-        dropout_rate=0.2,
-        block_type=[0, 0, 0, 1, 1, 1],
-        expand_ratio=[1, 4, 4, 4, 6, 6],
-        filters=[24, 24, 48, 64, 128, 160, 256, 1280],
-        layers=[2, 4, 5, 6, 9, 15],
-        strides=[1, 2, 2, 2, 1, 2],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_v2_m(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = EfficientNetV2(
-        dropout_rate=0.3,
-        block_type=[0, 0, 0, 1, 1, 1, 1],
-        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
-        filters=[24, 24, 48, 80, 160, 176, 304, 512, 1280],
-        layers=[3, 5, 5, 7, 14, 18, 5],
-        strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_v2_l(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = EfficientNetV2(
-        dropout_rate=0.3,
-        block_type=[0, 0, 0, 1, 1, 1, 1],
-        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
-        filters=[32, 32, 64, 96, 192, 224, 384, 640, 1280],
-        layers=[4, 7, 7, 10, 19, 25, 7],
-        strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
-def efficientnet_v2_xl(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = EfficientNetV2(
-        dropout_rate=0.4,
-        block_type=[0, 0, 0, 1, 1, 1, 1],
-        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
-        filters=[32, 32, 64, 96, 192, 256, 512, 640, 1280],
-        layers=[4, 8, 8, 16, 24, 32, 8],
-        strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
-        **kwargs
-    )
-
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-
-    return model
-
-
+@export
 class EfficientNetV2(nn.Module):
 
-    # @blocks.batchnorm(momentum=_BN_MOMENTUM, eps=_BN_EPSILON)
+    # @blocks.normalizer(partial(nn.BatchNorm2d, momentum=_BN_MOMENTUM, eps=_BN_EPSILON))
     @blocks.nonlinear(nn.SiLU)
     def __init__(
         self,
@@ -128,7 +55,7 @@ class EfficientNetV2(nn.Module):
         layers: List[int] = [2, 4, 5, 6, 9, 15],
         strides: List[int] = [1, 2, 2, 2, 1, 2],
         se_ratio: List[float] = [0, 0, 0, 0.25, 0.25, 0.25],
-        thumbnail: bool  = False
+        thumbnail: bool = False
     ):
         super().__init__()
 
@@ -196,3 +123,79 @@ class EfficientNetV2(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
+
+
+@export
+def efficientnet_v2_s(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = EfficientNetV2(
+        dropout_rate=0.2,
+        block_type=[0, 0, 0, 1, 1, 1],
+        expand_ratio=[1, 4, 4, 4, 6, 6],
+        filters=[24, 24, 48, 64, 128, 160, 256, 1280],
+        layers=[2, 4, 5, 6, 9, 15],
+        strides=[1, 2, 2, 2, 1, 2],
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25],
+        **kwargs
+    )
+
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
+    return model
+
+
+@export
+def efficientnet_v2_m(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = EfficientNetV2(
+        dropout_rate=0.3,
+        block_type=[0, 0, 0, 1, 1, 1, 1],
+        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
+        filters=[24, 24, 48, 80, 160, 176, 304, 512, 1280],
+        layers=[3, 5, 5, 7, 14, 18, 5],
+        strides=[1, 2, 2, 2, 1, 2, 1],
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        **kwargs
+    )
+
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
+    return model
+
+
+@export
+def efficientnet_v2_l(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = EfficientNetV2(
+        dropout_rate=0.3,
+        block_type=[0, 0, 0, 1, 1, 1, 1],
+        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
+        filters=[32, 32, 64, 96, 192, 224, 384, 640, 1280],
+        layers=[4, 7, 7, 10, 19, 25, 7],
+        strides=[1, 2, 2, 2, 1, 2, 1],
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        **kwargs
+    )
+
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
+    return model
+
+
+@export
+def efficientnet_v2_xl(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    model = EfficientNetV2(
+        dropout_rate=0.4,
+        block_type=[0, 0, 0, 1, 1, 1, 1],
+        expand_ratio=[1, 4, 4, 4, 6, 6, 6],
+        filters=[32, 32, 64, 96, 192, 256, 512, 640, 1280],
+        layers=[4, 8, 8, 16, 24, 32, 8],
+        strides=[1, 2, 2, 2, 1, 2, 1],
+        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        **kwargs
+    )
+
+    if pretrained and pth is not None:
+        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
+    return model
