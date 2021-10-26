@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ['LabelSmoothingCrossEntropyLoss']
+__all__ = ['LabelSmoothingCrossEntropyLoss', 'SoftLabelCrossEntropyLoss']
 
 
 class LabelSmoothingCrossEntropyLoss(nn.Module):
@@ -18,4 +18,14 @@ class LabelSmoothingCrossEntropyLoss(nn.Module):
         smooth_loss = -logprobs.mean(dim=-1)
         loss = self.confidence * nll_loss + self.smoothing * smooth_loss
 
+        return loss.mean()
+
+
+class SoftLabelCrossEntropyLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        logprobs = F.log_softmax(x, dim=-1)
+        loss = -(logprobs * y).sum(dim=-1)
         return loss.mean()

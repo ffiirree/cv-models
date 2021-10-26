@@ -7,8 +7,8 @@ import platform
 import numpy as np
 import random
 
-__all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers',
-           'accuracy', 'AverageMeter', 'module_parameters', 'one_hot', 'group_params']
+__all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers', 'label_smoothing',
+           'accuracy', 'AverageMeter', 'module_parameters', 'group_params']
 
 
 class Benchmark:
@@ -122,6 +122,17 @@ def group_params(model, wd: float, no_bias_decay: bool = False):
         ]
 
 
+def label_smoothing(labels, num_classes, smoothing: float = 0.1, dtype=None):
+    off_value = smoothing / num_classes
+    on_value = 1. - smoothing + off_value
+    return torch.full(
+        (labels.size()[0], num_classes),
+        off_value,
+        device=labels.device,
+        dtype=dtype
+    ).scatter_(1, labels.unsqueeze(1), on_value)
+
+
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
@@ -155,9 +166,3 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-
-
-def one_hot(x, n):
-    y = torch.zeros(x.shape[0], n, device=x.device)
-    y.scatter_(1, x.unsqueeze(1), 1)
-    return y

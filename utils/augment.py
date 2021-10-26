@@ -1,287 +1,189 @@
-import inspect
 import math
 import torch
-import torchvision.transforms.functional as TF
+import torch.nn.functional as F
+from torch import Tensor
 import numpy as np
-from PIL import Image
 from kornia import morphology as morph
 
 
-__all__ = ['MixUp', 'RandAugment', 'MorphAugment']
+__all__ = ['RandomMixup', 'RandomCutmix', 'MorphAugment']
 
 
-class MixUp(object):
-    def __init__(self, alpha):
+class RandomMixup(torch.nn.Module):
+    """Randomly apply Mixup to the provided batch and targets.
+    The class implements the data augmentations as described in the paper
+    `"mixup: Beyond Empirical Risk Minimization" <https://arxiv.org/abs/1710.09412>`_.
+
+    Args:
+        num_classes (int): number of classes used for one-hot encoding.
+        p (float): probability of the batch being transformed. Default value is 0.5.
+        alpha (float): hyperparameter of the Beta distribution used for mixup.
+            Default value is 1.0.
+        inplace (bool): boolean to make this transform inplace. Default set to False.
+    """
+
+    def __init__(self, num_classes: int, p: float = 0.5, alpha: float = 1.0, inplace: bool = False) -> None:
         super().__init__()
+        assert num_classes > 0, "Please provide a valid positive value for the num_classes."
+        assert alpha > 0, "Alpha param can't be zero."
+
+        self.num_classes = num_classes
+        self.p = p
         self.alpha = alpha
-        self.lam = 1
+        self.inplace = inplace
 
-    def mix(self, x: torch.Tensor, y: torch.Tensor):
-        self.lam = np.random.beta(self.alpha, self.alpha)
-        indices = torch.randperm(x.shape[0]).to(x.device)
-        x = self.lam * x + (1 - self.lam) * x[indices, :]
-        y = self.lam * y + (1 - self.lam) * y[indices, :]
-        return x, y
+    def forward(self, batch: Tensor, target: Tensor):
+        """
+        Args:
+            batch (Tensor): Float tensor of size (B, C, H, W)
+            target (Tensor): Integer tensor of size (B, )
+
+        Returns:
+            Tensor: Randomly transformed batch.
+        """
+        if batch.ndim != 4:
+            raise ValueError(
+                "Batch ndim should be 4. Got {}".format(batch.ndim))
+        elif target.ndim != 1:
+            raise ValueError(
+                "Target ndim should be 1. Got {}".format(target.ndim))
+        elif not batch.is_floating_point():
+            raise TypeError(
+                "Batch dtype should be a float tensor. Got {}.".format(batch.dtype))
+        elif target.dtype != torch.int64:
+            raise TypeError(
+                "Target dtype should be torch.int64. Got {}".format(target.dtype))
+
+        if not self.inplace:
+            batch = batch.clone()
+            target = target.clone()
+
+        if target.ndim == 1:
+            target = torch.nn.functional.one_hot(
+                target, num_classes=self.num_classes).to(dtype=batch.dtype)
+
+        if torch.rand(1).item() >= self.p:
+            return batch, target
+
+        # It's faster to roll the batch by one instead of shuffling it to create image pairs
+        batch_rolled = batch.roll(1, 0)
+        target_rolled = target.roll(1, 0)
+
+        # Implemented as on mixup paper, page 3.
+        lambda_param = float(torch._sample_dirichlet(
+            torch.tensor([self.alpha, self.alpha]))[0])
+        batch_rolled.mul_(1.0 - lambda_param)
+        batch.mul_(lambda_param).add_(batch_rolled)
+
+        target_rolled.mul_(1.0 - lambda_param)
+        target.mul_(lambda_param).add_(target_rolled)
+
+        return batch, target
 
     def __repr__(self) -> str:
-        return f'MixUp(alpha={self.alpha})'
+        s = self.__class__.__name__ + "("
+        s += "num_classes={num_classes}"
+        s += ", p={p}"
+        s += ", alpha={alpha}"
+        s += ", inplace={inplace}"
+        s += ")"
+        return s.format(**self.__dict__)
 
 
-def _blend(img1, img2, factor):
-    factor = float(factor)
+class RandomCutmix(torch.nn.Module):
+    """Randomly apply Cutmix to the provided batch and targets.
+    The class implements the data augmentations as described in the paper
+    `"CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features"
+    <https://arxiv.org/abs/1905.04899>`_.
 
-    if factor == 0.0:
-        return img1
-    if factor == 1.0:
-        return img2
+    Args:
+        num_classes (int): number of classes used for one-hot encoding.
+        p (float): probability of the batch being transformed. Default value is 0.5.
+        alpha (float): hyperparameter of the Beta distribution used for cutmix.
+            Default value is 1.0.
+        inplace (bool): boolean to make this transform inplace. Default set to False.
+    """
 
-    bound = 1.0 if img1.is_floating_point() else 255.0
-    return ((1.0 - factor) * img1 + factor * img2).clamp(0, bound).to(img1.dtype)
+    def __init__(self, num_classes: int, p: float = 0.5, alpha: float = 1.0, inplace: bool = False) -> None:
+        super().__init__()
+        assert num_classes > 0, "Please provide a valid positive value for the num_classes."
+        assert alpha > 0, "Alpha param can't be zero."
 
+        self.num_classes = num_classes
+        self.p = p
+        self.alpha = alpha
+        self.inplace = inplace
 
-def _get_image_size(img):
-    if isinstance(img, torch.Tensor):
-        assert img.ndim >= 2, 'Not an image.'
-        return [img.shape[-1], img.shape[-2]]
+    def forward(self, batch: Tensor, target: Tensor):
+        """
+        Args:
+            batch (Tensor): Float tensor of size (B, C, H, W)
+            target (Tensor): Integer tensor of size (B, )
 
-    if isinstance(img, Image.Image):
-        return img.size
+        Returns:
+            Tensor: Randomly transformed batch.
+        """
+        if batch.ndim != 4:
+            raise ValueError(
+                "Batch ndim should be 4. Got {}".format(batch.ndim))
+        elif target.ndim != 1:
+            raise ValueError(
+                "Target ndim should be 1. Got {}".format(target.ndim))
+        elif not batch.is_floating_point():
+            raise TypeError(
+                "Batch dtype should be a float tensor. Got {}.".format(batch.dtype))
+        elif target.dtype != torch.int64:
+            raise TypeError(
+                "Target dtype should be torch.int64. Got {}".format(target.dtype))
 
+        if not self.inplace:
+            batch = batch.clone()
+            target = target.clone()
 
-def _t_solarize_add(img, addition, threshold=128):
-    assert isinstance(img, torch.Tensor), 'img is not a torch tensor.'
+        if target.ndim == 1:
+            target = torch.nn.functional.one_hot(
+                target, num_classes=self.num_classes).to(dtype=batch.dtype)
 
-    bound = 1.0 if img.is_floating_point() else 255.0
-    addition = addition / 255.0 if img.is_floating_point() else addition
-    threshold = threshold / 255.0 if img.is_floating_point() else threshold
+        if torch.rand(1).item() >= self.p:
+            return batch, target
 
-    added_img = (img + addition).clamp(0, bound).to(img.dtype)
-    return torch.where(img < threshold, added_img, img)
+        # It's faster to roll the batch by one instead of shuffling it to create image pairs
+        batch_rolled = batch.roll(1, 0)
+        target_rolled = target.roll(1, 0)
 
+        # Implemented as on cutmix paper, page 12 (with minor corrections on typos).
+        lambda_param = float(torch._sample_dirichlet(
+            torch.tensor([self.alpha, self.alpha]))[0])
+        W, H = F.get_image_size(batch)
 
-def _pil_solarize_add(img, addition, threshold=128):
-    lut = []
-    for i in range(256):
-        if i < threshold:
-            lut.append(min(255, i + addition))
-        else:
-            lut.append(i)
+        r_x = torch.randint(W, (1,))
+        r_y = torch.randint(H, (1,))
 
-    if img.mode in ("L", "RGB"):
-        if img.mode == "RGB" and len(lut) == 256:
-            lut = lut + lut + lut
-        return img.point(lut)
-    else:
-        raise img
+        r = 0.5 * math.sqrt(1.0 - lambda_param)
+        r_w_half = int(r * W)
+        r_h_half = int(r * H)
 
+        x1 = int(torch.clamp(r_x - r_w_half, min=0))
+        y1 = int(torch.clamp(r_y - r_h_half, min=0))
+        x2 = int(torch.clamp(r_x + r_w_half, max=W))
+        y2 = int(torch.clamp(r_y + r_h_half, max=H))
 
-def solarize_add(img, addition, threshold=128):
-    if isinstance(img, torch.Tensor):
-        return _t_solarize_add(img, addition, threshold)
-    else:
-        return _pil_solarize_add(img, addition, threshold)
+        batch[:, :, y1:y2, x1:x2] = batch_rolled[:, :, y1:y2, x1:x2]
+        lambda_param = float(1.0 - (x2 - x1) * (y2 - y1) / (W * H))
 
+        target_rolled.mul_(1.0 - lambda_param)
+        target.mul_(lambda_param).add_(target_rolled)
 
-def color(img: torch.Tensor, factor: float):
-    degenerate = TF.rgb_to_grayscale(img, 3)
-    if isinstance(img, Image.Image):
-        return Image.blend(degenerate, img, factor)
-    else:
-        return _blend(degenerate, img, factor)
-
-
-def shear_x(img: torch.Tensor, level, fill=None):
-    if isinstance(img, Image.Image):
-        return img.transform(img.size, Image.AFFINE, (1, level, 0, 0, 1, 0))
-
-    return TF.affine(
-        img,
-        angle=0,
-        translate=[-img.shape[1] * level / 2, 0],
-        scale=1.0,
-        shear=[math.degrees(math.atan(level)), 0],
-        fill=fill
-    )
-
-
-def shear_y(img: torch.Tensor, level, fill=None):
-    if isinstance(img, Image.Image):
-        return img.transform(img.size, Image.AFFINE, (1, 0, 0, level, 1, 0))
-
-    return TF.affine(
-        img,
-        angle=0,
-        translate=[0, -img.shape[2] * level / 2],
-        scale=1.0,
-        shear=[0, math.degrees(math.atan(level))],
-        fill=fill
-    )
-
-
-def translate_x(img: torch.Tensor, level, fill=None):
-    return TF.affine(
-        img,
-        angle=0,
-        translate=[level, 0],
-        scale=1.0,
-        shear=[0.0, 0.0],
-        fill=fill
-    )
-
-
-def translate_y(img: torch.Tensor, level, fill=None):
-    return TF.affine(
-        img,
-        angle=0,
-        translate=[0, level],
-        scale=1.0,
-        shear=[0.0, 0.0],
-        fill=fill
-    )
-
-
-def _pil_erase(img, l, t, r, b, fill):
-    arr = np.array(img)
-    arr[t:b, l:r, :] = fill
-    return Image.fromarray(arr)
-
-
-def _t_erase(img, l, t, r, b, fill):
-    img[:, t:b, l:r] = fill
-    return img
-
-
-def cutout(img: torch.Tensor, pad_size: int, fill=0):
-    h, w = _get_image_size(img)
-
-    cutout_center_h = torch.randint(0, h, [1]).item()
-    cutout_center_w = torch.randint(0, w, [1]).item()
-
-    t = max(0, cutout_center_h - pad_size)
-    b = min(h, cutout_center_h + pad_size)
-    l = max(0, cutout_center_w - pad_size)
-    r = min(w, cutout_center_w + pad_size)
-
-    if isinstance(img, torch.Tensor):
-        return _t_erase(img, l, t, r, b, fill)
-    else:
-        return _pil_erase(img, l, t, r, b, fill)
-
-
-NAME_TO_FUNC = {
-    'AutoContrast': TF.autocontrast,
-    'Equalize': TF.equalize,    # only torch.uint8
-    'Invert': TF.invert,
-    'Rotate': TF.rotate,
-    'Posterize': TF.posterize,  # only torch.uint8
-    'Solarize': TF.solarize,
-    'SolarizeAdd': solarize_add,
-    'Color': color,
-    'Contrast': TF.adjust_contrast,
-    'Brightness': TF.adjust_brightness,
-    'Sharpness': TF.adjust_sharpness,
-    'ShearX': shear_x,
-    'ShearY': shear_y,
-    'TranslateX': translate_x,
-    'TranslateY': translate_y,
-    'Cutout': cutout,
-}
-
-_MAX_LEVEL = 10.
-
-
-def augment_list():
-    return [
-        'AutoContrast', 'Equalize', 'Invert', 'Rotate', 'Posterize',
-        'Solarize', 'SolarizeAdd', 'Color', 'Contrast', 'Brightness', 'Sharpness',
-        'ShearX', 'ShearY', 'TranslateX', 'TranslateY', 'Cutout'
-    ]
-
-
-def _randomly_negate(tensor):
-    """With 50% prob turn the tensor negative."""
-    return -tensor if torch.rand((1)).item() > 0.5 else tensor
-
-
-def _enhance_level_to_arg(level):
-    return ((level/_MAX_LEVEL) * 1.8 + 0.1,)
-
-
-def _shear_level_to_arg(level):
-    level = (level/_MAX_LEVEL) * 0.3
-    # Flip level to negative with 50% chance.
-    level = _randomly_negate(level)
-    return (level,)
-
-
-def _translate_level_to_arg(level, translate_const):
-    level = (level/_MAX_LEVEL) * float(translate_const)
-    # Flip level to negative with 50% chance.
-    level = _randomly_negate(level)
-    return (level,)
-
-
-def _rotate_level_to_arg(level):
-    level = (level/_MAX_LEVEL) * 30.
-    level = _randomly_negate(level)
-    return (level,)
-
-
-def level_to_arg():
-    return {
-        'AutoContrast': lambda level: (),
-        'Equalize': lambda level: (),
-        'Invert': lambda level: (),
-        'Rotate': _rotate_level_to_arg,
-        'Posterize': lambda level: (int((level/_MAX_LEVEL) * 4),),
-        'Solarize': lambda level: (int((level/_MAX_LEVEL) * 256),),
-        'SolarizeAdd': lambda level: (int((level/_MAX_LEVEL) * 110),),
-        'Color': _enhance_level_to_arg,
-        'Contrast': _enhance_level_to_arg,
-        'Brightness': _enhance_level_to_arg,
-        'Sharpness': _enhance_level_to_arg,
-        'ShearX': _shear_level_to_arg,
-        'ShearY': _shear_level_to_arg,
-        'Cutout': lambda level: (int((level/_MAX_LEVEL) * 40),),
-        # pylint:disable=g-long-lambda
-        'TranslateX': lambda level: _translate_level_to_arg(level, 100),
-        'TranslateY': lambda level: _translate_level_to_arg(level, 100),
-        # pylint:enable=g-long-lambda
-    }
-
-
-class RandAugment:
-    def __init__(self, N, M):
-        self.n = N
-        self.m = M
-
-        self.augment_list = augment_list()
-        self.replace_value = [128] * 3
-
-    def __call__(self, image):
-        for _ in range(self.n):
-            op_to_select = torch.randint(0, len(self.augment_list), [1]).item()
-            random_m = float(self.m)
-
-            for i, op_name in enumerate(self.augment_list):
-                prob = torch.zeros(1).uniform_(0.2, 0.8)
-
-                func = NAME_TO_FUNC[op_name]
-                args = level_to_arg()[op_name](random_m)
-                kwargs = dict()
-
-                if 'prop' in inspect.signature(func).parameters:
-                    kwargs['prop'] = prob
-                if 'fill' in inspect.signature(func).parameters:
-                    kwargs['fill'] = self.replace_value
-
-                if op_to_select == i:
-                    image = func(image, *args, **kwargs)
-
-        return image
+        return batch, target
 
     def __repr__(self) -> str:
-        return f'RandAugment(N={self.n}, M={self.m})'
+        s = self.__class__.__name__ + "("
+        s += "num_classes={num_classes}"
+        s += ", p={p}"
+        s += ", alpha={alpha}"
+        s += ", inplace={inplace}"
+        s += ")"
+        return s.format(**self.__dict__)
 
 
 class MorphAugment:

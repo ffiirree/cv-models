@@ -484,10 +484,11 @@ class DepthwiseConv2d(nn.Conv2d):
         oup,
         kernel_size: int = 3,
         stride: int = 1,
-        padding: int = 1
+        padding: int = 1,
+        bias: bool = False,
     ):
         super().__init__(
-            inp, oup, kernel_size, stride=stride, padding=padding, bias=False, groups=inp
+            inp, oup, kernel_size, stride=stride, padding=padding, bias=bias, groups=inp
         )
 
 
@@ -497,9 +498,10 @@ class PointwiseConv2d(nn.Conv2d):
         inp,
         oup,
         stride: int = 1,
+        bias: bool = False,
         groups: int = 1
     ):
-        super().__init__(inp, oup, 1, stride=stride, padding=0, bias=False, groups=groups)
+        super().__init__(inp, oup, 1, stride=stride, padding=0, bias=bias, groups=groups)
 
 
 class DepthwiseConv2dBN(nn.Sequential):

@@ -1,3 +1,4 @@
+from functools import partial
 import os
 import torch
 import torch.nn as nn
@@ -12,16 +13,17 @@ class MixerBlock(nn.Module):
         hidden_dim,
         sequence_len,
         ratio=(0.5, 4.0),
+        normalizer_fn: nn.Module = partial(nn.LayerNorm, eps=1e-6),
         dropout_rate: float = 0.,
         drop_path_rate: float = 0.
     ):
         super().__init__()
 
-        self.norm1 = nn.LayerNorm(hidden_dim)
+        self.norm1 = normalizer_fn(hidden_dim)
         self.token_mixing = MlpBlock(sequence_len, int(hidden_dim * ratio[0]), dropout_rate=dropout_rate)
         self.drop1 = DropPath(1. - drop_path_rate)
 
-        self.norm2 = nn.LayerNorm(hidden_dim)
+        self.norm2 = normalizer_fn(hidden_dim)
         self.channel_mixing = MlpBlock(hidden_dim, int(hidden_dim * ratio[1]), dropout_rate=dropout_rate)
         self.drop2 = DropPath(1. - drop_path_rate)
 

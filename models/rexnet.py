@@ -136,7 +136,6 @@ def rexnet_x2_0(pretrained: bool = False, pth: str = None, progress: bool = True
     return _rexnet(2.0, pretrained, pth, progress, **kwargs)
 
 
-@export
 class PlainBlock(nn.Sequential):
     def __init__(self, inplanes, planes, stride: int = 1):
         super().__init__(
@@ -149,6 +148,7 @@ class PlainBlock(nn.Sequential):
         )
 
 
+@export
 class ReXNetPlain(nn.Module):
     def __init__(
         self,
