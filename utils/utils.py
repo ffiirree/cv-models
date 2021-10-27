@@ -134,19 +134,22 @@ def label_smoothing(labels, num_classes, smoothing: float = 0.1, dtype=None):
 
 
 def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.inference_mode():
+        maxk = max(topk)
+        batch_size = target.size(0)
+        if target.ndim == 2:
+            target = target.max(dim=1)[1]
 
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target[None])
 
-    res = []
-    for k in topk:
-        correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
+        res = []
+        for k in topk:
+            correct_k = correct[:k].flatten().sum(dtype=torch.float32)
+            res.append(correct_k * (100.0 / batch_size))
+        return res
 
 
 class AverageMeter(object):

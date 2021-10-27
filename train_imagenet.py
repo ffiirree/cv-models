@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import datetime
 import argparse
@@ -9,7 +10,6 @@ from torch.nn.parallel import DistributedDataParallel
 
 from utils import *
 import models
-from models.core import blocks
 
 import nvidia.dali.fn as fn
 import nvidia.dali.types as types
@@ -34,8 +34,9 @@ def parse_args():
                         help='type of model to use. (default: muxnet_v2)')
     parser.add_argument('--dropout-rate', type=float, default=0.)
     parser.add_argument('--drop-path-rate', type=float, default=0.)
-    parser.add_argument('--input-size', type=int, default=224,  metavar='SIZE',
-                        help='size of the input image size. (default: 224)')
+    parser.add_argument('--crop-size', type=int, default=224)
+    parser.add_argument('--val-resize-size', type=int, default=256)
+    parser.add_argument('--val-crop-size', type=int, default=224)
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
     parser.add_argument('--path', type=str, default=None)
@@ -63,6 +64,7 @@ def parse_args():
                         help='weight decay. (default: 1e-4)')
     parser.add_argument('--lr-mode', type=str, default='cosine', choices=['step', 'cosine'],
                         help="learning rate scheduler mode, options are [cosine, step]. (default: cosine)")
+    parser.add_argument('--min-lr', type=float, default=1e-6)
     parser.add_argument('--lr-decay', type=float, default=0.1, metavar='RATE',
                         help='decay rate of learning rate. (default: 0.1)')
     parser.add_argument('--lr-decay-epochs', type=int, default=0, metavar='N',
@@ -74,24 +76,11 @@ def parse_args():
     parser.add_argument('--augment', action='store_true',
                         help='data augmentation. (default: false)')
     parser.add_argument('--augment_m', type=float, default=0.4)
-    parser.add_argument('--morph', action='store_true')
-    parser.add_argument('--morph_p', type=float, default=0.5)
     parser.add_argument('--mixup-alpha', type=float, default=0.2, metavar='V',
                         help='beta distribution parameter for mixup sampling. (default: 0.2)')
-    parser.add_argument('--mixup-off-epoch', type=int, default=0, metavar='N',
-                        help='how many last epochs to train without mixup. (default: 0)')
-    parser.add_argument('--label-smoothing', action='store_true',
-                        help='use label smoothing or not in training. (default: false)')
+    parser.add_argument('--label-smoothing', type=float, default=0.0)
     parser.add_argument('--no-wd', action='store_true',
                         help='whether to remove weight decay on bias, and beta/gamma for batchnorm layers.')
-    parser.add_argument('--bn-momentum', type=float, default=0.1, metavar='M')
-    parser.add_argument('--bn-epsilon', type=float, default=1e-5, metavar='E')
-    parser.add_argument('--bn-position', type=str, default='before', choices=['before', 'after', 'none'],
-                        help='norm layer / activation layer. (default: before)')
-    parser.add_argument('--moving-average-decay',
-                        type=float, default=0.9999, metavar='M')
-    parser.add_argument('--evaluate', action='store_true',
-                        help='evaluate model on validation set. (default: false)')
     parser.add_argument('--print-freq', default=100, type=int, metavar='N',
                         help='print frequency. (default: 10)')
     parser.add_argument('--sync_bn', action='store_true',
@@ -175,17 +164,11 @@ def create_dali_pipeline(data_dir, crop, size, shard_id, num_shards, dali_cpu=Fa
     return images, labels
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, moving_average, epoch, args):
+def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
-    mixup = MixUp(args.mixup_alpha)
-    morph = MorphAugment(args.morph_p)
-
-    use_mixup = args.mixup and args.mixup_off_epoch < (args.epochs - epoch)
-    if args.local_rank == 0 and use_mixup:
-        logger.info(f'mixup: {use_mixup}, {mixup}')
 
     model.train()
 
@@ -194,16 +177,6 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
         input = data[0]["data"]
         target = data[0]["label"].squeeze(-1).long()
         original_target = target
-
-        # MixUP
-        if args.mixup or args.label_smoothing:
-            target = one_hot(target, 1000)
-
-        if use_mixup:
-            input, target = mixup.mix(input, target)
-
-        if args.morph:
-            input = morph(input)
 
         optimizer.zero_grad(set_to_none=True)
 
@@ -215,14 +188,12 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
         scaler.step(optimizer)
         scaler.update()
 
-        # moving_average.update()
-
         scheduler.step()
 
         acc1, acc5 = accuracy(output, original_target, topk=(1, 5))
         losses.update(loss.item(), input.size(0))
-        top1.update(acc1[0], input.size(0))
-        top5.update(acc5[0], input.size(0))
+        top1.update(acc1.item(), input.size(0))
+        top5.update(acc5.item(), input.size(0))
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -235,7 +206,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, moving_average, 
                         f'l={losses.avg:>.3f}')
 
 
-def validate(val_loader, model, criterion, moving_average):
+def validate(val_loader, model, criterion):
     batch_time = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
@@ -248,17 +219,15 @@ def validate(val_loader, model, criterion, moving_average):
         input = data[0]["data"]
         target = data[0]["label"].squeeze(-1).long()
 
-        # compute output
-        with torch.no_grad():  # , moving_average.average_parameters():
+        with torch.inference_mode():
             output = model(input)
             loss = criterion(output, target)
             losses += loss
 
-        # measure accuracy and record loss
         acc1, acc5 = accuracy(output.data, target, topk=(1, 5))
 
-        top1.update(acc1[0], input.size(0))
-        top5.update(acc5[0], input.size(0))
+        top1.update(acc1.item(), input.size(0))
+        top5.update(acc5.item(), input.size(0))
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -284,30 +253,32 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = True
     if args.deterministic:
         manual_seed(args.local_rank)
+        torch.use_deterministic_algorithms(True)
 
     torch.cuda.set_device(args.local_rank)
     dist.init_process_group('nccl')
 
     logger = make_logger(
         f'imagenet_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
-    logger.info(args)
+    if args.local_rank == 0:
+        logger.info(f'Args: \n{json.dumps(vars(args), indent=4)}')
 
-    with blocks.batchnorm(args.bn_momentum, args.bn_epsilon, args.bn_position):
-        if args.torch:
-            model = torchvision.models.__dict__[
-                args.model](pretrained=args.pretrained)
-        else:
-            model = models.__dict__[args.model](
-                pretrained=args.pretrained, 
-                pth=args.path,
-                dropout_rate=args.dropout_rate,
-                drop_path_rate=args.drop_path_rate
-            )
+    if args.torch:
+        model = torchvision.models.__dict__[
+            args.model](pretrained=args.pretrained)
+    else:
+        model = models.__dict__[args.model](
+            pretrained=args.pretrained,
+            pth=args.path,
+            dropout_rate=args.dropout_rate,
+            drop_path_rate=args.drop_path_rate
+        )
+
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
     model = model.cuda()
-    if args.local_rank == 0 and not args.evaluate:
+    if args.local_rank == 0:
         logger.info(f'Model: \n{model}')
 
     model = DistributedDataParallel(model, device_ids=[args.local_rank])
@@ -327,22 +298,16 @@ if __name__ == '__main__':
     else:
         raise ValueError(f'Invalid optimizer name: {args.optim}.')
 
-    if args.label_smoothing or args.mixup:
-        criterion = LabelSmoothingCrossEntropyLoss(0.1).cuda()
-    else:
-        criterion = torch.nn.CrossEntropyLoss().cuda()
 
-    val_criterion = torch.nn.CrossEntropyLoss().cuda()
+    criterion = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smoothing).cuda()
 
-    moving_average = ExponentialMovingAverage(
-        model.parameters(), decay=args.moving_average_decay)
     pipe = create_dali_pipeline(batch_size=args.batch_size,
                                 num_threads=args.workers,
                                 device_id=args.local_rank,
                                 seed=12 + args.local_rank,
                                 data_dir=os.path.join(args.data_dir, 'train'),
-                                crop=args.input_size,
-                                size=256,
+                                crop=args.crop_size,
+                                size=args.val_resize_size,
                                 dali_cpu=args.dali_cpu,
                                 shard_id=args.local_rank,
                                 num_shards=dist.get_world_size(),
@@ -357,8 +322,8 @@ if __name__ == '__main__':
                                 device_id=args.local_rank,
                                 seed=12 + args.local_rank,
                                 data_dir=os.path.join(args.data_dir, 'val'),
-                                crop=args.input_size,
-                                size=256,
+                                crop=args.val_crop_size,
+                                size=args.val_resize_size,
                                 dali_cpu=args.dali_cpu,
                                 shard_id=args.local_rank,
                                 num_shards=dist.get_world_size(),
@@ -371,38 +336,37 @@ if __name__ == '__main__':
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
 
     benchmark = Benchmark()
-    if args.evaluate:
-        validate(val_loader, model, val_criterion, moving_average)
+
+    if args.lr_mode == 'step':
+        scheduler = lr.WarmUpStepLR(
+            optimizer,
+            warmup_steps=args.warmup_epochs * len(train_loader),
+            step_size=args.lr_decay_epochs * len(train_loader),
+            gamma=args.lr_decay
+        )
     else:
-        if args.lr_mode == 'step':
-            scheduler = lr.WarmUpStepLR(
-                optimizer,
-                warmup_steps=args.warmup_epochs * len(train_loader),
-                step_size=args.lr_decay_epochs * len(train_loader),
-                gamma=args.lr_decay
-            )
-        else:
-            scheduler = lr.WarmUpCosineLR(
-                optimizer,
-                warmup_steps=args.warmup_epochs * len(train_loader),
-                steps=args.epochs * len(train_loader),
-                min_lr=0
-            )
+        scheduler = lr.WarmUpCosineLR(
+            optimizer,
+            warmup_steps=args.warmup_epochs * len(train_loader),
+            steps=args.epochs * len(train_loader),
+            min_lr=args.min_lr
+        )
 
-        if args.local_rank == 0:
-            logger.info(scheduler)
-            logger.info(f'step:{len(train_loader)}')
+    if args.local_rank == 0:
+        logger.info(f'Optimizer: \n{optimizer}')
+        logger.info(f'Criterion: {criterion}')
+        logger.info(f'Scheduler: {scheduler}')
+        logger.info(f'Steps/Epoch: {len(train_loader)}')
 
-        for epoch in range(0, args.epochs):
-            train(train_loader, model, criterion,
-                  optimizer, scheduler, moving_average, epoch, args)
-            validate(val_loader, model, val_criterion, moving_average)
-            train_loader.reset()
-            val_loader.reset()
+    for epoch in range(0, args.epochs):
+        train(train_loader, model, criterion, optimizer,
+              scheduler, epoch, args)
+        validate(val_loader, model, criterion)
+        train_loader.reset()
+        val_loader.reset()
 
-            if args.local_rank == 0 and epoch > (args.epochs - 10):
-                model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
-                # with moving_average.average_parameters():
-                torch.save(model.module.state_dict(), model_name)
-                logger.info(f'Saved: {model_name}!')
+        if args.local_rank == 0 and epoch > (args.epochs - 10):
+            model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
+            torch.save(model.module.state_dict(), model_name)
+            logger.info(f'Saved: {model_name}!')
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

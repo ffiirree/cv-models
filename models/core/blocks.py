@@ -960,7 +960,8 @@ class SharedDepthwiseConv2d(nn.Module):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
-        t: int = 2
+        t: int = 2,
+        bias: bool = False
     ):
         super().__init__()
 
@@ -968,7 +969,7 @@ class SharedDepthwiseConv2d(nn.Module):
         self.t = t
 
         self.dw = DepthwiseConv2d(
-            self.channels, self.channels, kernel_size, stride, padding)
+            self.channels, self.channels, kernel_size, stride, padding, bias=bias)
 
     def forward(self, x):
         x = torch.chunk(x, self.t, dim=1)

@@ -1,7 +1,7 @@
 import math
 import torch
-import torch.nn.functional as F
 from torch import Tensor
+from torchvision.transforms import functional as F
 import numpy as np
 from kornia import morphology as morph
 
