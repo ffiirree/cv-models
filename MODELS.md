@@ -38,6 +38,7 @@
 - [ ] `HardCoRe-NAS` - [HardCoRe-NAS: Hard Constrained diffeRentiable Neural Architecture Search](https://arxiv.org/abs/2102.11646), 2021
 - [ ] `NFNet` - [High-Performance Large-Scale Image Recognition Without Normalization](https://arxiv.org/abs/2102.06171), 2021
 - [ ] `NF-ResNets` - [Characterizing signal propagation to close the performance gap in unnormalized ResNets](https://arxiv.org/abs/2101.08692), 2021
+- [x] `ConvMixer` - [Patches are all you need?](https://openreview.net/forum?id=TVHS5Y4dNvM), ICLR, 2021
 
 ## Transformer
 

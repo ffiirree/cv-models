@@ -17,6 +17,7 @@ from .mlp_mixer import *
 from .aaai22 import *
 from .rexnet import *
 from .vision_transformer import *
+from .convmixer import *
 
 from .onenet import *
 from .micronet import *
