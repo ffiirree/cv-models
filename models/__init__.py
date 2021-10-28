@@ -14,6 +14,7 @@ from .mnasnet import *
 from .efficientnet import *
 from .efficientnetv2 import *
 from .mlp_mixer import *
+from .resmlp import *
 from .aaai22 import *
 from .rexnet import *
 from .vision_transformer import *

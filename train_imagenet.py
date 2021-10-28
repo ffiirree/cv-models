@@ -71,13 +71,9 @@ def parse_args():
                         help='interval for periodic learning rate decays. (default: 0)')
     parser.add_argument('--warmup-epochs', type=int, default=0, metavar='N',
                         help='number of warmup epochs. (default: 0)')
-    parser.add_argument('--mixup', action='store_true',
-                        help='whether train the model with mix-up. (default: false)')
     parser.add_argument('--augment', action='store_true',
                         help='data augmentation. (default: false)')
     parser.add_argument('--augment_m', type=float, default=0.4)
-    parser.add_argument('--mixup-alpha', type=float, default=0.2, metavar='V',
-                        help='beta distribution parameter for mixup sampling. (default: 0.2)')
     parser.add_argument('--label-smoothing', type=float, default=0.0)
     parser.add_argument('--no-wd', action='store_true',
                         help='whether to remove weight decay on bias, and beta/gamma for batchnorm layers.')
