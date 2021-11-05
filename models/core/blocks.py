@@ -78,18 +78,24 @@ def norm_activation(
     normalizer_fn = normalizer_fn or _NORMALIZER
     activation_fn = activation_fn or _NONLINEAR
 
-    layers = [
-        normalizer_fn(channels),
-        activation_fn()
-    ]
+    if normalizer_fn == None and activation_fn == None:
+        return []
 
-    if norm_position == 'before':
-        return layers
-    elif norm_position == 'after':
-        layers.reverse()
-        return layers
+    if normalizer_fn == None:
+        return [activation_fn()]
 
-    return [activation_fn()]
+    if activation_fn == None:
+        return [normalizer_fn()]
+
+    if norm_position == 'after':
+        return [activation_fn(), normalizer_fn(channels)]
+
+    return [normalizer_fn(channels), activation_fn()]
+
+
+class Stage(nn.Sequential):
+    def __init__(self, *args):
+        super().__init__(*args)
 
 
 class Conv2d3x3(nn.Conv2d):
@@ -139,9 +145,10 @@ class Conv2d3x3BN(nn.Sequential):
 
         super().__init__(
             Conv2d3x3(in_channels, out_channels, stride=stride,
-                      padding=padding, bias=bias, groups=groups),
-            normalizer_fn(out_channels)
+                      padding=padding, bias=bias, groups=groups)
         )
+        if normalizer_fn:
+            self.add_module(str(self.__len__()), normalizer_fn(out_channels))
 
 
 class Conv2d1x1BN(nn.Sequential):
@@ -159,9 +166,10 @@ class Conv2d1x1BN(nn.Sequential):
 
         super().__init__(
             Conv2d1x1(in_channels, out_channels, stride=stride,
-                      padding=padding, bias=bias, groups=groups),
-            normalizer_fn(out_channels)
+                      padding=padding, bias=bias, groups=groups)
         )
+        if normalizer_fn:
+            self.add_module(str(self.__len__()), normalizer_fn(out_channels))
 
 
 class Conv2d1x1Block(nn.Sequential):
@@ -533,10 +541,9 @@ class PointwiseConv2dBN(nn.Sequential):
     ):
         normalizer_fn = normalizer_fn or _NORMALIZER
 
-        super().__init__(
-            PointwiseConv2d(inp, oup, stride=stride),
-            normalizer_fn(oup)
-        )
+        super().__init__(PointwiseConv2d(inp, oup, stride=stride))
+        if normalizer_fn:
+            self.add_module(str(self.__len__()), normalizer_fn(oup))
 
 
 class DepthwiseBlock(nn.Sequential):
@@ -677,55 +684,6 @@ class DropPath(nn.Module):
 
     def extra_repr(self):
         return f'survival_prob={self.p}'
-
-
-class OrthogonalBasisConv2d(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        stride: int = 1,
-        dilation: int = 1
-    ):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.out_channels = self.in_channels * 9
-        self.kernel_size = (3, 3)
-        self.padding = (1, 1)
-        self.stride = (stride, stride)
-        self.dilation = (dilation, dilation)
-        self.groups = in_channels
-        self.padding_mode = 'zeros'
-
-        basis: torch.Tensor = torch.zeros([9, 1, *self.kernel_size])
-        for i in range(self.kernel_size[0]):
-            for j in range(self.kernel_size[1]):
-                basis[i * self.kernel_size[0] + j, 0, i, j] = 1
-
-        self.weight = nn.Parameter(basis.repeat(
-            self.in_channels, 1, 1, 1), False)
-        self.register_parameter('bias', None)
-
-        self.weight.requires_grad_(False)
-
-    def forward(self, x):
-        return F.conv2d(x, self.weight, self.bias, self.stride, self.padding,
-                        self.dilation, self.groups)
-
-    def extra_repr(self):
-        s = ('{in_channels}, {out_channels}, kernel_size={kernel_size}'
-             ', stride={stride}')
-        if self.padding != (0,) * len(self.padding):
-            s += ', padding={padding}'
-        if self.dilation != (1,) * len(self.dilation):
-            s += ', dilation={dilation}'
-        if self.groups != 1:
-            s += ', groups={groups}'
-        if self.bias is None:
-            s += ', bias=False'
-        if self.padding_mode != 'zeros':
-            s += ', padding_mode={padding_mode}'
-        return s.format(**self.__dict__)
 
 
 class GaussianFilter(nn.Module):

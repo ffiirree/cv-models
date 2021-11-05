@@ -1,10 +1,10 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any
 
-__all__ = ['GoogLeNet', 'googlenet', 'inception_v1']
+__all__ = ['inception_v1']
 
 
 class InceptionBlock(nn.Module):
@@ -61,23 +61,34 @@ class InceptionAux(nn.Sequential):
         )
 
 
-def googlenet(pretrained: bool = False, pth: str = None, **kwargs: Any):
+@export
+def googlenet(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = GoogLeNet(**kwargs)
 
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
     return model
 
 
 inception_v1 = googlenet
 
 
+@export
 class GoogLeNet(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -133,11 +144,11 @@ class GoogLeNet(nn.Module):
         x = self.maxpool3(x)
 
         x = self.inception_4a(x)
-        aux1 = self.aux1(x) if self.training else None 
+        aux1 = self.aux1(x) if self.training else None
         x = self.inception_4b(x)
         x = self.inception_4c(x)
         x = self.inception_4d(x)
-        aux2 = self.aux2(x) if self.training else None 
+        aux2 = self.aux2(x) if self.training else None
         x = self.inception_4e(x)
 
         x = self.maxpool4(x)

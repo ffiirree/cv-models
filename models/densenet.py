@@ -59,7 +59,8 @@ class DenseNet(nn.Module):
         num_classes: int = 1000,
         layers: List[int] = [2, 2, 2, 2],
         channels: List[int] = [64, 128, 256, 512],
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 

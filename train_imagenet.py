@@ -257,7 +257,7 @@ if __name__ == '__main__':
     logger = make_logger(
         f'imagenet_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
     if args.local_rank == 0:
-        logger.info(f'Args: \n{json.dumps(vars(args), indent=4)}')
+        logger.info(f'Args: \n{json.dumps(vars(args), indent=4, sort_keys=True)}')
 
     if args.torch:
         model = torchvision.models.__dict__[

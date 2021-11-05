@@ -1,17 +1,8 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import OrderedDict, Any
-
-__all__ = ['Xception', 'xception']
-
-
-def xception(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = Xception(**kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
 
 
 class SeparableConv2d(nn.Sequential):
@@ -64,12 +55,14 @@ class XceptionBlock(nn.Module):
         return self.combine([self.branch1(x), self.branch2(x)])
 
 
+@export
 class Xception(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -103,3 +96,20 @@ class Xception(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
+
+
+@export
+def xception(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    model = Xception(**kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+    return model

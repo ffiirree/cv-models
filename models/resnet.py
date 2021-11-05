@@ -33,7 +33,8 @@ class ResNet(nn.Module):
         thumbnail: bool = False,
         replace_stem_max_pool: bool = False,
         use_resnetc_stem: bool = False,
-        use_resnetd_shortcut: bool = False
+        use_resnetd_shortcut: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -73,11 +74,11 @@ class ResNet(nn.Module):
         elif not thumbnail:
             features.append(nn.MaxPool2d(3, stride=2, padding=1))
 
-        features.extend(self.make_layers(
+        features.append(self.make_layers(
             64 // block.expansion, 64, 1, layers[0], 2))
-        features.extend(self.make_layers(64, 128, 2, layers[1], 3))
-        features.extend(self.make_layers(128, 256, 2, layers[2], 4))
-        features.extend(self.make_layers(256, 512, 2, layers[3], 5))
+        features.append(self.make_layers(64, 128, 2, layers[1], 3))
+        features.append(self.make_layers(128, 256, 2, layers[2], 4))
+        features.append(self.make_layers(256, 512, 2, layers[3], 5))
 
         if self.version == 2:
             features.extend(blocks.norm_activation(512 * self.block.expansion))
@@ -104,23 +105,14 @@ class ResNet(nn.Module):
             return None
 
     def make_layers(self, inp, oup, stride, n, block_num):
-        layers = [
-            self.block(
-                inp * self.block.expansion,
-                oup,
-                stride=stride,
-                groups=self.groups,
-                width_per_group=self.width_per_group,
-                se_ratio=self.ratio,
-                drop_path_rate=self.get_drop_path_rate(block_num),
-                use_resnetd_shortcut=self.use_resnetd_shortcut
-            )
-        ]
-        for _ in range(n - 1):
+        layers = []
+        inp = inp * self.block.expansion
+        for _ in range(n):
             layers.append(
                 self.block(
-                    oup * self.block.expansion,
+                    inp,
                     oup,
+                    stride=stride,
                     groups=self.groups,
                     width_per_group=self.width_per_group,
                     se_ratio=self.ratio,
@@ -128,7 +120,9 @@ class ResNet(nn.Module):
                     use_resnetd_shortcut=self.use_resnetd_shortcut
                 )
             )
-        return layers
+            inp = oup * self.block.expansion
+            stride = 1
+        return blocks.Stage(*layers)
 
 
 def _resnet(

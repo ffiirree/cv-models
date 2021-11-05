@@ -1,17 +1,8 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks
+from .core import blocks, export
 from typing import Any
-
-__all__ = ['SqueezeNet', 'squeezenet']
-
-
-def squeezenet(pretrained: bool = False, pth: str = None, **kwargs: Any):
-    model = SqueezeNet(**kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
-    return model
 
 
 class FireBlock(nn.Module):
@@ -35,13 +26,15 @@ class FireBlock(nn.Module):
         return x
 
 
+@export
 class SqueezeNet(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
         dropout_rate: float = 0.5,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -79,3 +72,24 @@ class SqueezeNet(nn.Module):
         x = self.features(x)
         x = self.classifier(x)
         return x
+
+
+def squeezenet(
+    pretrained: bool = False,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    model = SqueezeNet(**kwargs)
+
+    if pretrained:
+        if pth is not None:
+            state_dict = torch.load(os.path.expanduser(pth))
+        else:
+            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
+            state_dict = torch.hub.load_state_dict_from_url(
+                kwargs['url'],
+                progress=progress
+            )
+        model.load_state_dict(state_dict)
+    return model

@@ -49,7 +49,8 @@ class MobileNet(nn.Module):
         block: Type[Union[MobileBlock, DepthSepBlock]] = MobileBlock,
         depth_multiplier: float = 1.0,
         dropout_rate: float = 0.2,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -57,8 +58,11 @@ class MobileNet(nn.Module):
 
         FRONT_S = 1 if thumbnail else 2
 
-        strides = [1, 2, 1, 2, 1, 2,  1,  1,  1,  1,  1,  2,  1]
-        factors = [1, FRONT_S, 4, 4, 8, 8, 16, 16, 16, 16, 16, 16, 32, 32]
+        strides = [1, FRONT_S, 1, 2, 1, 2,  1,  1,  1,  1,  1,  2,  1]
+        factors = [1, 2, 4, 4, 8, 8, 16, 16, 16, 16, 16, 16, 32, 32]
+
+        base_width = 9
+        factors = [1, 3, 3, 9, 9, 27, 27, 27, 27, 27, 27, 81, 81, 81]
 
         layers = [blocks.Conv2dBlock(in_channels, depth(base_width), stride=FRONT_S)]
 
@@ -72,7 +76,7 @@ class MobileNet(nn.Module):
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate, inplace=True),
-            nn.Linear(depth(base_width * 32), num_classes)
+            nn.Linear(depth(base_width * factors[-1]), num_classes)
         )
 
     def forward(self, x):
@@ -115,18 +119,18 @@ def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool 
 @export
 @config(url='https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v1_x0_75-82d76756.pth')
 def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
+    return _mobilenet_v1(0.75, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export
 @config(url='https://github.com/ffiirree/models/releases/download/v0.0.1/mobilenet_v1_x0_5-824260cb.pth')
 def mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
+    return _mobilenet_v1(0.5, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export
 def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
+    return _mobilenet_v1(0.35, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export

@@ -57,7 +57,8 @@ class ShuffleNetV2(nn.Module):
         num_classes: int = 1000,
         repeats: List[int] = [4, 8, 4],
         channels: List[int] = [24, 48, 96, 192, 1024],
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 

@@ -50,5 +50,5 @@
 ## MLP
 
 - [x] `MLP-Mixer` - [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601), 2021
-- [ ] `ResMLP` - [ResMLP: Feedforward networks for image classification with data-efficient training](https://arxiv.org/abs/2105.03404)
+- [x] `ResMLP` - [ResMLP: Feedforward networks for image classification with data-efficient training](https://arxiv.org/abs/2105.03404)
 - [ ] `gMLP` - [Pay Attention to MLPs](https://arxiv.org/abs/2105.08050), 2021

@@ -48,6 +48,7 @@ class EfficientNet(nn.Module):
         width_coefficient: float = 1,
         depth_coefficient: float = 1,
         dropout_rate: float = 0.2,
+        drop_path_rate: float = 0.2,
         thumbnail: bool = False
     ):
         super().__init__()
@@ -56,7 +57,7 @@ class EfficientNet(nn.Module):
 
         self.s = [1, FRONT_S, 2, 2, 1, 2, 1]  # stride
 
-        self.survival_prob = 0.8
+        self.survival_prob = 1 - drop_path_rate
         self.width_coefficient = width_coefficient
         self.depth_coefficient = depth_coefficient
         self.dropout_rate = dropout_rate
@@ -68,7 +69,7 @@ class EfficientNet(nn.Module):
         self.block_idx = 0
 
         # first conv3x3
-        features = [blocks.Conv2dBlock(in_channels, self.c[0], 3, stride=FRONT_S)]
+        features = [blocks.Conv2dBlock(in_channels, self.c[0], stride=FRONT_S)]
 
         # blocks
         for i in range(len(self.t)):

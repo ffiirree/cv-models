@@ -41,7 +41,6 @@ efficientnetv2_params = {
 
 @export
 class EfficientNetV2(nn.Module):
-
     # @blocks.normalizer(partial(nn.BatchNorm2d, momentum=_BN_MOMENTUM, eps=_BN_EPSILON))
     @blocks.nonlinear(nn.SiLU)
     def __init__(
@@ -49,6 +48,7 @@ class EfficientNetV2(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         dropout_rate: float = 0.2,
+        drop_path_rate: float = 0.2,
         block_type: List[int] = [0, 0, 0, 1, 1, 1],
         expand_ratio: List[int] = [1, 4, 4, 4, 6, 6],
         filters: List[int] = [24, 24, 48, 64, 128, 160, 256, 1280],
@@ -62,7 +62,7 @@ class EfficientNetV2(nn.Module):
         FRONT_S = 1 if thumbnail else 2
         strides[1] = FRONT_S
 
-        self.survival_prob = 0.8
+        self.survival_prob = 1 - drop_path_rate
         self.dropout_rate = dropout_rate
         self.blocks = sum(layers)
         self.block_idx = 0

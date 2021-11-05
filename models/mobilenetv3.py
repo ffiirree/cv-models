@@ -39,7 +39,8 @@ class MobileNetV3Small(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         dropout_rate: float = 0.2,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -105,7 +106,8 @@ class MobileNetV3Large(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         dropout_rate: float = 0.2,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs:Any
     ):
         super().__init__()
 

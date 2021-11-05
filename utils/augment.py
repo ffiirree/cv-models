@@ -1,12 +1,13 @@
 import math
 import torch
+import torch.nn as nn
 from torch import Tensor
 from torchvision.transforms import functional as F
 import numpy as np
 from kornia import morphology as morph
 
 
-__all__ = ['RandomMixup', 'RandomCutmix', 'MorphAugment']
+__all__ = ['RandomMixup', 'RandomCutmix', 'RandomMorph']
 
 
 class RandomMixup(torch.nn.Module):
@@ -186,8 +187,10 @@ class RandomCutmix(torch.nn.Module):
         return s.format(**self.__dict__)
 
 
-class MorphAugment:
+class RandomMorph(nn.Module):
     def __init__(self, p):
+        super().__init__()
+
         self.r = 1
         self.p = p
 
@@ -200,7 +203,7 @@ class MorphAugment:
             morph.gradient,
         ]
 
-    def __call__(self, input):
+    def forward(self, input):
 
         if torch.rand([1]).item() > self.p:
             return input
@@ -209,3 +212,6 @@ class MorphAugment:
         func = np.random.choice(self.ops, 1)
 
         return func[0](input, kernel)
+
+    def extra_repr(self) -> str:
+        return f'p={self.p}'

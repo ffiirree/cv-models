@@ -1,18 +1,19 @@
 import os
 import torch
 import torch.nn as nn
+from .core import export
 from typing import Any
 
-__all__ = ['AlexNet', 'alexnet']
 
-
+@export
 class AlexNet(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
         dropout_rate: float = 0.5,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -62,6 +63,7 @@ class AlexNet(nn.Module):
         return x
 
 
+@export
 def alexnet(pretrained: bool = False, pth: str = None, progress: bool = False, **kwargs: Any):
     model = AlexNet(**kwargs)
 
