@@ -61,9 +61,6 @@ class MobileNet(nn.Module):
         strides = [1, FRONT_S, 1, 2, 1, 2,  1,  1,  1,  1,  1,  2,  1]
         factors = [1, 2, 4, 4, 8, 8, 16, 16, 16, 16, 16, 16, 32, 32]
 
-        base_width = 9
-        factors = [1, 3, 3, 9, 9, 27, 27, 27, 27, 27, 27, 81, 81, 81]
-
         layers = [blocks.Conv2dBlock(in_channels, depth(base_width), stride=FRONT_S)]
 
         for i, s in enumerate(strides):
