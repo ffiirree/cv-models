@@ -8,6 +8,7 @@ from .densenet import *
 from .mobilenet import *
 from .mobilenetv2 import *
 from .mobilenetv3 import *
+from .ghostnet import *
 from .shufflenet import *
 from .shufflenetv2 import *
 from .mnasnet import *
