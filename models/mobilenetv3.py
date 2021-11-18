@@ -67,7 +67,7 @@ class MobileNetV3Small(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(576, 1024),
             hardswish(),
-            nn.Dropout(dropout_rate),
+            nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(1024, num_classes)
         )
 
@@ -137,7 +137,7 @@ class MobileNetV3Large(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(960, 1280),
             hardswish(),
-            nn.Dropout(dropout_rate),
+            nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(1280, num_classes)
         )
 

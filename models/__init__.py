@@ -18,6 +18,7 @@ from .mlp_mixer import *
 from .resmlp import *
 from .aaai22 import *
 from .rexnet import *
+from .regnet import *
 from .vision_transformer import *
 from .convmixer import *
 

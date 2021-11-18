@@ -9,6 +9,7 @@ from .functional import *
 _NORM_POSIITON: str = 'before'
 _NORMALIZER: nn.Module = nn.BatchNorm2d
 _NONLINEAR: nn.Module = partial(nn.ReLU, inplace=True)
+_SE_INNER_NONLINEAR: nn.Module = partial(nn.ReLU, inplace=True)
 _SE_GATING_FN: nn.Module = nn.Sigmoid
 _SE_DIVISOR: int = 8
 _SE_USE_NORM: bool = False
@@ -46,24 +47,37 @@ def nonlinear(layer: nn.Module):
 
 @contextmanager
 def se(
+    inner_nonlinear: nn.Module = _SE_INNER_NONLINEAR,
     gating_fn: nn.Module = _SE_GATING_FN,
     divisor: int = _SE_DIVISOR,
     use_norm: bool = _SE_USE_NORM
 ):
+    global _SE_INNER_NONLINEAR
     global _SE_GATING_FN
     global _SE_DIVISOR
     global _SE_USE_NORM
 
+    _pre_inner_fn = _SE_INNER_NONLINEAR
     _pre_fn = _SE_GATING_FN
     _pre_divisor = _SE_DIVISOR
     _pre_use_norm = _SE_USE_NORM
+    _SE_INNER_NONLINEAR = inner_nonlinear
     _SE_GATING_FN = gating_fn
     _SE_DIVISOR = divisor
     _SE_USE_NORM = use_norm
     yield
+    _SE_INNER_NONLINEAR = _pre_inner_fn
     _SE_GATING_FN = _pre_fn
     _SE_DIVISOR = _pre_divisor
     _SE_USE_NORM = _pre_use_norm
+
+
+def normalizer_fn(channels):
+    return _NORMALIZER(channels)
+
+
+def activation_fn():
+    return _NONLINEAR()
 
 
 def norm_activation(
@@ -85,7 +99,7 @@ def norm_activation(
         return [activation_fn()]
 
     if activation_fn == None:
-        return [normalizer_fn()]
+        return [normalizer_fn(channels)]
 
     if norm_position == 'after':
         return [activation_fn(), normalizer_fn(channels)]
