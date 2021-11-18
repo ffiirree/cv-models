@@ -272,6 +272,9 @@ class ResBasicBlockV1(nn.Module):
         self.combine = Combine('ADD')
         self.relu = activation_fn()
 
+    def zero_init_last_bn(self):
+        nn.init.zeros_(self.branch1.norm2.weight)
+
     def forward(self, x):
         x = self.combine([self.branch1(x), self.branch2(x)])
         x = self.relu(x)
@@ -340,6 +343,9 @@ class BottleneckV1(nn.Module):
         self.combine = Combine('ADD')
         self.relu = activation_fn()
 
+    def zero_init_last_bn(self):
+        nn.init.zeros_(self.branch1.norm3.weight)
+
     def forward(self, x):
         x = self.combine([self.branch1(x), self.branch2(x)])
         x = self.relu(x)
@@ -401,6 +407,9 @@ class ResBasicBlockV2(nn.Module):
             self.branch2.add_module('conv', Conv2d1x1(inp, oup, stride))
 
         self.combine = Combine('ADD')
+
+    def zero_init_last_bn(self):
+        nn.init.zeros_(self.branch1.norm2.weight)
 
     def forward(self, x):
         x = self.combine([self.branch1(x), self.branch2(x)])
@@ -466,6 +475,9 @@ class BottleneckV2(nn.Module):
                 inp, oup * self.expansion, stride))
 
         self.combine = Combine('ADD')
+
+    def zero_init_last_bn(self):
+        nn.init.zeros_(self.branch1.norm3.weight)
 
     def forward(self, x):
         x = self.combine([self.branch1(x), self.branch2(x)])

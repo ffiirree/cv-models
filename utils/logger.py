@@ -17,7 +17,7 @@ def make_logger(run_name, log_dir='logs', rank: int = 0):
     log_dir = dirname(abspath(log_filepath))
     if not exists(log_dir) and rank == 0:
         os.makedirs(log_dir)
-        dist.barrier()
+    dist.barrier()
 
     if not logger.handlers:  # execute only if logger doesn't already exist
         file_handler = logging.FileHandler(

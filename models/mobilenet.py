@@ -120,16 +120,19 @@ def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None, progress: bool
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_5-824260cb.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_5-0fbeb3fb.pth')
 def mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(0.5, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_35-16b60798.pth')
 def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(0.35, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export
-def mobilenet_lineardw(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x1_0_wo_dwrelubn-9cd9f96e.pth')
+@blocks.normalizer(position='after')
+def mobilenet_v1_x1_0_wo_dwrelubn(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
     return _mobilenet_v1(1.0, DepthSepBlock, pretrained, pth, progress, **kwargs)

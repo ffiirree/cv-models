@@ -34,6 +34,7 @@ class ResNet(nn.Module):
         replace_stem_max_pool: bool = False,
         use_resnetc_stem: bool = False,
         use_resnetd_shortcut: bool = False,
+        zero_init_last_bn: bool = True,
         **kwargs: Any
     ):
         super().__init__()
@@ -74,8 +75,7 @@ class ResNet(nn.Module):
         elif not thumbnail:
             features.append(nn.MaxPool2d(3, stride=2, padding=1))
 
-        features.append(self.make_layers(
-            64 // block.expansion, 64, 1, layers[0], 2))
+        features.append(self.make_layers(64 // block.expansion, 64, 1, layers[0], 2))
         features.append(self.make_layers(64, 128, 2, layers[1], 3))
         features.append(self.make_layers(128, 256, 2, layers[2], 4))
         features.append(self.make_layers(256, 512, 2, layers[3], 5))
@@ -88,8 +88,27 @@ class ResNet(nn.Module):
         self.classifier = nn.Sequential()
         if dropout_rate is not None:
             self.classifier.add_module('do', nn.Dropout(dropout_rate))
-        self.classifier.add_module('fc', nn.Linear(
-            512 * block.expansion, num_classes))
+        self.classifier.add_module('fc', nn.Linear(512 * block.expansion, num_classes))
+
+        self.reset_parameters(zero_init_last_bn=zero_init_last_bn)
+
+    def reset_parameters(self, zero_init_last_bn: bool = True) -> None:
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
+
+        # Zero-initialize the last BN in each residual branch,
+        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
+        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
+        if zero_init_last_bn:
+            for m in self.modules():
+                if hasattr(m, 'zero_init_last_bn'):
+                    m.zero_init_last_bn()
 
     def forward(self, x):
         x = self.features(x)
