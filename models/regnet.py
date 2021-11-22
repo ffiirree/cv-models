@@ -17,7 +17,7 @@ import os
 import math
 import torch
 import torch.nn as nn
-from .core import blocks, export, make_divisible
+from .core import blocks, export, make_divisible, config
 from typing import Any
 
 
@@ -215,6 +215,7 @@ def _regnet(
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1-regnets/regnet_x_400mf-903d111f.pth')
 def regnet_x_400mf(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
     return _regnet(22, 24, 24.48, 2.54, 1.0, 16, None, pretrained, pth, progress, **kwargs)
 

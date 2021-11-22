@@ -24,13 +24,13 @@
 - [x] `ShuffleNet` - [ShuffleNet: An Extremely Efficient Convolutional Neural Network for Mobile Devices](https://arxiv.org/abs/1707.01083), 2017
 - [x] `ShuffleNet V2` - [ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design](https://arxiv.org/abs/1807.11164), 2018
 - [x] `MnasNet` - [MnasNet: Platform-Aware Neural Architecture Search for Mobile](https://arxiv.org/abs/1807.11626), 2018
-- [ ] `GhostNet` - [GhostNet: More Features from Cheap Operations](https://arxiv.org/abs/1911.11907), 2019
+- [x] `GhostNet` - [GhostNet: More Features from Cheap Operations](https://arxiv.org/abs/1911.11907), 2019
 - [ ] `SKNets` - [Selective Kernel Networks](https://arxiv.org/abs/1903.06586), CVPR, 2019
 - [ ] `HRNet` - [Deep High-Resolution Representation Learning for Visual Recognition](https://arxiv.org/abs/1908.07919), 2019
 - [ ] `CSPNet` - [CSPNet: A New Backbone that can Enhance Learning Capability of CNN](https://arxiv.org/abs/1911.11929), 2019
 - [x] `EfficientNet` - [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946), 2019
 - [x] `EfficientNetV2` - [EfficientNetV2: Smaller Models and Faster Training](https://arxiv.org/abs/2104.00298), 2021
-- [ ] `RegNet` - [Designing Network Design Spaces](https://arxiv.org/abs/2003.13678), 2020
+- [x] `RegNet` - [Designing Network Design Spaces](https://arxiv.org/abs/2003.13678), 2020
 - [ ] `GPU-EfficientNets` - [Neural Architecture Design for GPU-Efficient Networks](https://arxiv.org/abs/2006.14090), 2020
 - [ ] `HaloNets` - [Scaling Local Self-Attention for Parameter Efficient Visual Backbones](https://arxiv.org/abs/2103.12731), 2021
 - [ ] `LambdaNetworks` - [LambdaNetworks: Modeling Long-Range Interactions Without Attention](https://arxiv.org/abs/2102.08602), 2021
