@@ -108,7 +108,7 @@ def _mobilenet_v1(
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x1_0-72d57278.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x1_0-b6e1e34f.pth')
 def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
 

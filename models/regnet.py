@@ -215,6 +215,11 @@ def _regnet(
 
 
 @export
+def regnet_x_200mf(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
+    return _regnet(13, 24, 36.44, 2.49, 1.0, 8, None, pretrained, pth, progress, **kwargs)
+
+
+@export
 @config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1-regnets/regnet_x_400mf-903d111f.pth')
 def regnet_x_400mf(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
     return _regnet(22, 24, 24.48, 2.54, 1.0, 16, None, pretrained, pth, progress, **kwargs)
@@ -248,6 +253,11 @@ def regnet_x_16gf(pretrained: bool = False, pth: str = None, progress: bool = Tr
 @export
 def regnet_x_32gf(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
     return _regnet(23, 320, 69.86, 2.0, 1.0, 168, None, pretrained, pth, progress, **kwargs)
+
+
+@export
+def regnet_y_200mf(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
+    return _regnet(13, 24, 36,44, 2.49, 1.0, 8, 0.25, pretrained, pth, progress, **kwargs)
 
 
 @export

@@ -952,12 +952,12 @@ class SharedDepthwiseConv2d(nn.Module):
         self.channels = channels // t
         self.t = t
 
-        self.dw = DepthwiseConv2d(
+        self.mux = DepthwiseConv2d(
             self.channels, self.channels, kernel_size, stride, padding, bias=bias)
 
     def forward(self, x):
         x = torch.chunk(x, self.t, dim=1)
-        x = [self.dw(xi) for xi in x]
+        x = [self.mux(xi) for xi in x]
         return torch.cat(x, dim=1)
 
 
