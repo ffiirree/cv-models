@@ -4,12 +4,12 @@ import time
 import datetime
 import argparse
 import torch
-import torchvision
+import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
-from utils import *
-import models
+import cvm
+from cvm.utils import *
 
 import nvidia.dali.fn as fn
 import nvidia.dali.types as types
@@ -18,19 +18,12 @@ from nvidia.dali.plugin.pytorch import DALIClassificationIterator, LastBatchPoli
 
 
 def parse_args():
-    model_names = sorted(name for name in models.__dict__
-                         if name.islower() and not name.startswith("__")
-                         and callable(models.__dict__[name]))
-    model_names += sorted(name for name in torchvision.models.__dict__
-                          if name.islower() and not name.startswith("__")
-                          and callable(torchvision.models.__dict__[name]))
-
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
     parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
                         help='path to the ImageNet dataset.')
     parser.add_argument('--torch', action='store_true',
                         help='use torchvision models. (default: false)')
-    parser.add_argument('--model', type=str, default='muxnet_v2', choices=model_names,
+    parser.add_argument('--model', type=str, default='muxnet_v2', choices=list_models() + list_models(True),
                         help='type of model to use. (default: muxnet_v2)')
     parser.add_argument('--dropout-rate', type=float, default=0.)
     parser.add_argument('--drop-path-rate', type=float, default=0.)
@@ -242,8 +235,8 @@ if __name__ == '__main__':
     assert torch.cuda.is_available(), 'CUDA IS NOT AVAILABLE!!'
 
     args = parse_args()
-    args.batch_size = int(args.batch_size / torch.cuda.device_count())
 
+    args.batch_size = int(args.batch_size / torch.cuda.device_count())
     args.local_rank = int(os.environ['LOCAL_RANK'])
 
     torch.backends.cudnn.benchmark = True
@@ -255,20 +248,20 @@ if __name__ == '__main__':
     dist.init_process_group('nccl')
 
     logger = make_logger(
-        f'imagenet_{args.model}', f'{args.output_dir}/{args.model}', rank=args.local_rank)
+        f'imagenet_{args.model}', f'{args.output_dir}/{args.model}',
+        rank=args.local_rank
+    )
     if args.local_rank == 0:
         logger.info(f'Args: \n{json.dumps(vars(args), indent=4, sort_keys=True)}')
 
-    if args.torch:
-        model = torchvision.models.__dict__[
-            args.model](pretrained=args.pretrained)
-    else:
-        model = models.__dict__[args.model](
-            pretrained=args.pretrained,
-            pth=args.path,
-            dropout_rate=args.dropout_rate,
-            drop_path_rate=args.drop_path_rate
-        )
+    model = create_model(
+        args.model,
+        pretrained=args.pretrained,
+        troch=args.torch,
+        pth=args.path,
+        dropout_rate=args.dropout_rate,
+        drop_path_rate=args.drop_path_rate
+    )
 
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -294,9 +287,7 @@ if __name__ == '__main__':
     else:
         raise ValueError(f'Invalid optimizer name: {args.optim}.')
 
-
-    criterion = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smoothing).cuda()
-
+    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
     pipe = create_dali_pipeline(batch_size=args.batch_size,
                                 num_threads=args.workers,
                                 device_id=args.local_rank,
@@ -334,14 +325,14 @@ if __name__ == '__main__':
     benchmark = Benchmark()
 
     if args.lr_mode == 'step':
-        scheduler = lr.WarmUpStepLR(
+        scheduler = cvm.scheduler.WarmUpStepLR(
             optimizer,
             warmup_steps=args.warmup_epochs * len(train_loader),
             step_size=args.lr_decay_epochs * len(train_loader),
             gamma=args.lr_decay
         )
     else:
-        scheduler = lr.WarmUpCosineLR(
+        scheduler = cvm.scheduler.WarmUpCosineLR(
             optimizer,
             warmup_steps=args.warmup_epochs * len(train_loader),
             steps=args.epochs * len(train_loader),

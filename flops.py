@@ -1,10 +1,7 @@
-#!/usr/bin/python3
+import json
 import argparse
 import torch
-import torchvision
-
-import models
-from utils import *
+from cvm.utils import list_models, create_model
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count_table
 
 
@@ -30,23 +27,15 @@ if __name__ == '__main__':
 
     thumbnail = True if args.image_size < 100 else False
 
-    if args.torch:
-        if args.models:
-            print(sorted(name for name in torchvision.models.__dict__
-                         if name.islower() and not name.startswith("__")
-                         and callable(torchvision.models.__dict__[name])))
-        else:
-            print_model(torchvision.models.__dict__[args.model](), args.table)
+    if args.models:
+        print(json.dumps(list_models(args.torch), indent=4))
     else:
-        if args.models:
-            print(sorted(name for name in models.__dict__
-                         if name.islower() and not name.startswith("__")
-                         and callable(models.__dict__[name])))
-        else:
-            print_model(
-                models.__dict__[args.model](
-                    thumbnail=thumbnail,
-                    num_classes=args.num_classes
-                ),
-                args.table
-            )
+        print_model(
+            create_model(
+                args.model,
+                thumbnail=thumbnail,
+                torch=args.torch,
+                num_classes=args.num_classes
+            ),
+            args.table
+        )

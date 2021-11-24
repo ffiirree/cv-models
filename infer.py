@@ -1,10 +1,7 @@
 import argparse
 import torch
 import time
-import torchvision
-
-import models
-from utils import *
+from cvm.utils import create_model
 
 
 class InferenceBenchmarkRunner():
@@ -42,10 +39,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
 
-    if args.torch:
-        model = torchvision.models.__dict__[args.model]()
-    else:
-        model = models.__dict__[args.model]()
+    model = create_model(args.model, torch=args.torch)
 
     input = torch.randn(args.batch_size, 3, 224, 224)
 

@@ -1,14 +1,20 @@
 import time
-from json import dumps
+import random
 import torch
 from torch import nn
 import torchvision
 import platform
 import numpy as np
-import random
+from json import dumps
+from cvm import models
 
-__all__ = ['Benchmark', 'env_info', 'manual_seed', 'named_layers', 'label_smoothing',
-           'accuracy', 'AverageMeter', 'module_parameters', 'group_params']
+
+__all__ = [
+    'Benchmark', 'env_info', 'manual_seed',
+    'named_layers', 'accuracy', 'AverageMeter',
+    'module_parameters', 'group_params', 'list_models',
+    'create_model'
+]
 
 
 class Benchmark:
@@ -122,17 +128,6 @@ def group_params(model, wd: float, no_bias_decay: bool = False):
         ]
 
 
-def label_smoothing(labels, num_classes, smoothing: float = 0.1, dtype=None):
-    off_value = smoothing / num_classes
-    on_value = 1. - smoothing + off_value
-    return torch.full(
-        (labels.size()[0], num_classes),
-        off_value,
-        device=labels.device,
-        dtype=dtype
-    ).scatter_(1, labels.unsqueeze(1), on_value)
-
-
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.inference_mode():
@@ -169,3 +164,20 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+
+def list_models(torch: bool = False):
+    if torch:
+        return sorted(name for name in torchvision.models.__dict__
+                      if name.islower() and not name.startswith("__")
+                      and callable(torchvision.models.__dict__[name]))
+
+    return sorted(name for name in models.__dict__
+                  if name.islower() and not name.startswith("__")
+                  and callable(models.__dict__[name]))
+
+
+def create_model(name: str, pretrained: bool = False, torch: bool = False, **kwargs):
+    if torch:
+        return torchvision.models.__dict__[name](pretrained=pretrained)
+    return models.__dict__[name](pretrained=pretrained, **kwargs)

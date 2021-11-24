@@ -1,58 +1,64 @@
-# Models
+# Computer Vision Models
 
-| Network           |Year  | From        | Acc@1    | Acc@5  | Params(M)| MACs(M) |
-| --                |--    | --          | --:      | --:    | --:    | --:       |
-|AlexNet            | 2012 | torchvision | 56.522 | 79.066 |  61.100 |   714.692 |
-|VGG-11             | 2014 | torchvision | 69.020 | 88.628 | 132.863 |  7616.566 |
-|VGG-11(BN)         | 2014 | torchvision | 70.370 | 89.810 | 132.868 |  7631.418 |
-|VGG-13             | 2014 | torchvision | 69.928 | 89.246 | 133.047 | 11320.759 |
-|VGG-13(BN)         | 2014 | torchvision | 71.586 | 90.374 | 133.053 | 11345.245 |
-|VGG-16             | 2014 | torchvision | 71.592 | 90.382 | 138.357 | 15483.862 |
-|VGG-16(BN)         | 2014 | torchvision | 73.360 | 91.516 | 138.366 | 15510.957 |
-|VGG-19             | 2014 | torchvision | 72.376 | 90.876 | 143.667 | 19646.965 |
-|VGG-19(BN)         | 2014 | torchvision | 74.218 | 91.842 | 143.678 | 19676.669 |
-|GoogleNet          | 2014 | torchvision | 69.778 | 89.530 |   6.624 |  1504.880 |
-|ResNet-18          | 2015 | torchvision | 69.758 | 89.078 |  11.689 |  1819.066 |
-|ResNet-34          | 2015 | torchvision | 73.314 | 91.420 |  21.797 |  3671.263 |
-|ResNet-50          | 2015 | torchvision | 76.130 | 92.862 |  25.557 |  4111.515 |
-|ResNet-101         | 2015 | torchvision | 77.374 | 93.546 |  44.549 |  7833.972 |
-|ResNet-152         | 2015 | torchvision | 78.312 | 94.046 |  60.192 | 11558.837 |
-|ResNeXt-50-32x4d   | 2016 | torchvision | 77.618 | 93.698 |  25.028 |  4259.383 |
-|ResNeXt-101-32x8d  | 2016 | torchvision | 79.312 | 94.526 |  88.791 | 16476.537 |
-|Wide ResNet-50-2   | 2016 | torchvision | 78.468 | 94.086 |  68.883 | 11426.925 |
-|Wide ResNet-101-2  | 2016 | torchvision | 78.848 | 94.284 | 126.886 | 22795.602 |
-|SqueezeNet 1.0     | 2016 | torchvision | 58.092 | 80.420 |   1.248 |   823.441 |
-|SqueezeNet 1.1     | 2016 | torchvision | 58.178 | 80.624 |   1.235 |   351.911 |
-|Densenet-121       | 2017 | torchvision | 74.434 | 91.972 |   7.978 |  2865.672 |
-|Densenet-169       | 2017 | torchvision | 75.600 | 92.806 |  14.149 |  3398.071 |
-|Densenet-201       | 2017 | torchvision | 76.896 | 93.370 |  20.013 |  4340.971 |
-|Densenet-161       | 2017 | torchvision | 77.138 | 93.560 |  28.681 |  7787.013 |
-|Inception v3       | 2017 | torchvision | 77.294 | 93.450 |  23.834 |  2847.271 |
-|MobileNet          | 2017 | Paper       | 70.600 |        |   4.200 |   569.000 |
-|ShuffleNet 0.5x g=3| 2017 | Paper       | 56.800 |        |         |           |
-|ShuffleNet 0.5x g=8| 2017 | Paper       | 57.700 |        |         |           |
-|ShuffleNet 1.0x g=3| 2017 | Paper       | 67.400 |        |   4.323 |  1924.415 |
-|ShuffleNet 1.0x g=8| 2017 | Paper       | 67.600 |        |   4.841 |  1912.766 |
-|MobileNet V2       | 2018 | torchvision | 71.878 | 90.286 |   3.504 |   314.130 |
-|ShuffleNet V2 x0.5 | 2018 | torchvision | 60.552 | 81.746 |   1.366 |    42.524 |
-|ShuffleNet V2 x1.0 | 2018 | torchvision | 69.362 | 88.316 |   2.278 |   148.808 |
-|ShuffleNet V2 x1.5 | 2018 | Paper       | 72.600 |        |   3.503 |   301.294 |
-|ShuffleNet V2 x2.0 | 2018 | Paper       | 74.900 |        |   7.394 |   590.741 |
-|MNASNet 0.5        | 2018 | torchvision | 67.734 | 87.490 |   2.219 |   110.587 |
-|MNASNet 1.0        | 2018 | torchvision | 73.456 | 91.510 |   4.383 |   325.329 |
-|MobileNet V3 Small | 2019 | torchvision | 67.668 | 87.402 |   2.542 |    59.368 |
-|MobileNet V3 Large | 2019 | paper       | 75.2   |        |   5.400 |   219.000 |
-|EfficientNet-B0    | 2019 | Paper       | 77.300 | 93.500 |   5.288 |   401.679 |
-|EfficientNet-B1    | 2019 | Paper       | 79.200 | 94.500 |   7.794 |   591.948 |
-|EfficientNet-B2    | 2019 | Paper       | 80.300 | 95.000 |   9.110 |   682.357 |
-|EfficientNet-B3    | 2019 | Paper       | 81.700 | 95.600 |  12.233 |   993.680 |
-|EfficientNet-B4    | 2019 | Paper       | 83.000 | 96.300 |  19.341 |  1544.606 |
-|EfficientNet-B5    | 2019 | Paper       | 83.700 | 96.700 |  30.389 |  2413.021 |
-|EfficientNet-B6    | 2019 | Paper       | 84.200 | 96.800 |  43.040 |  3432.558 |
-|EfficientNet-B7    | 2019 | Paper       | 84.400 |        |  66.348 |  5267.130 |
-|EfficientNetV2-S   | 2021 | Paper       | 83.900 |        |  21.624 |  3061.000 |
-|EfficientNetV2-M   | 2021 | Paper       | 85.100 |        |  54.525 |  5493.000 |
-|EfficientNetV2-L   | 2021 | Paper       | 85.700 |        | 119.000 | 12473.000 |
-|EfficientNetV2-XL  | 2021 |             |        |        | 208.000 | 18213.000 |
+## Classification
 
-> **MACs** : Multiply-Accumulate Operations
+- [x] `AlexNet` - [ImageNet Classification with Deep Convolutional Neural Networks](https://papers.nips.cc/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf), 2012
+- [x] `VGGNets` - [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556), 2014
+- [x] `GoogLeNet` - [Going Deeper with Convolutions](https://arxiv.org/abs/1409.4842), 2014
+- [ ] `Inception-V3` - [Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567), 2015
+- [ ] `Inception-V4 and Inception-ResNet` - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261), 2016
+- [x] `ResNet` - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385), 2015
+- [x] `SqueezeNet` - [SqueezeNet: AlexNet-level accuracy with 50x fewer parameters and <0.5MB model size](https://arxiv.org/abs/1602.07360), 2016
+- [x] `ResNeXt` - [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431), 2016
+- [ ] `Res2Net` - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169), 2019
+- [x] `ReXNet` - [Rethinking Channel Dimensions for Efficient Model Design](https://arxiv.org/abs/2007.00992), 2020
+- [x] `Xception` - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357), 2016
+- [x] `DenseNet` - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993), 2016
+- [ ] `DLA` - [Deep Layer Aggregation](https://arxiv.org/abs/1707.06484), CVPR, 2017
+- [ ] `DPN` - [Dual Path Networks](https://arxiv.org/abs/1707.01629), 2017
+- [ ] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
+- [ ] `NASNet-A` - [Learning Transferable Architectures for Scalable Image Recognition](https://arxiv.org/abs/1707.07012), 2017
+- [ ] `PNasNet` - [Progressive Neural Architecture Search](https://arxiv.org/abs/1712.00559), 2017
+- [x] `MobileNets` - [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861), 2017
+- [x] `MobileNetV2` - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381), 2018
+- [x] `MobileNetV3` - [Searching for MobileNetV3](https://arxiv.org/abs/1905.02244), 2019
+- [x] `ShuffleNet` - [ShuffleNet: An Extremely Efficient Convolutional Neural Network for Mobile Devices](https://arxiv.org/abs/1707.01083), 2017
+- [x] `ShuffleNet V2` - [ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design](https://arxiv.org/abs/1807.11164), 2018
+- [x] `MnasNet` - [MnasNet: Platform-Aware Neural Architecture Search for Mobile](https://arxiv.org/abs/1807.11626), 2018
+- [x] `GhostNet` - [GhostNet: More Features from Cheap Operations](https://arxiv.org/abs/1911.11907), CVPR, 2019
+- [ ] `SKNets` - [Selective Kernel Networks](https://arxiv.org/abs/1903.06586), CVPR, 2019
+- [ ] `ResNeSt` - [ResNeSt: Split-Attention Networks](https://arxiv.org/abs/2004.08955), 2020
+- [ ] `HRNet` - [Deep High-Resolution Representation Learning for Visual Recognition](https://arxiv.org/abs/1908.07919), 2019
+- [ ] `CSPNet` - [CSPNet: A New Backbone that can Enhance Learning Capability of CNN](https://arxiv.org/abs/1911.11929), 2019
+- [x] `EfficientNet` - [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946), 2019
+- [x] `EfficientNetV2` - [EfficientNetV2: Smaller Models and Faster Training](https://arxiv.org/abs/2104.00298), 2021
+- [x] `RegNet` - [Designing Network Design Spaces](https://arxiv.org/abs/2003.13678), 2020
+- [ ] `GPU-EfficientNets` - [Neural Architecture Design for GPU-Efficient Networks](https://arxiv.org/abs/2006.14090), 2020
+- [ ] `HaloNets` - [Scaling Local Self-Attention for Parameter Efficient Visual Backbones](https://arxiv.org/abs/2103.12731), 2021
+- [ ] `LambdaNetworks` - [LambdaNetworks: Modeling Long-Range Interactions Without Attention](https://arxiv.org/abs/2102.08602), 2021
+- [ ] `RepVGG` - [RepVGG: Making VGG-style ConvNets Great Again](https://arxiv.org/abs/2101.03697), 2021
+- [ ] `HardCoRe-NAS` - [HardCoRe-NAS: Hard Constrained diffeRentiable Neural Architecture Search](https://arxiv.org/abs/2102.11646), 2021
+- [ ] `NFNet` - [High-Performance Large-Scale Image Recognition Without Normalization](https://arxiv.org/abs/2102.06171), 2021
+- [ ] `NF-ResNets` - [Characterizing signal propagation to close the performance gap in unnormalized ResNets](https://arxiv.org/abs/2101.08692), 2021
+- [x] `ConvMixer` - [Patches are all you need?](https://openreview.net/forum?id=TVHS5Y4dNvM), ICLR, 2021
+
+### Transformer
+
+- [x] `ViT` - [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929), ICLR, 2020
+- [x] `DeiT` - [Training data-efficient image transformers & distillation through attention](https://arxiv.org/abs/2012.12877), 2020
+- [ ] `Swin Transformer` - [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030), ICCV, 2021
+- [ ] `Twins` - [Twins: Revisiting the Design of Spatial Attention in Vision Transformers](https://arxiv.org/abs/2104.13840), 2021
+
+### MLP
+
+- [x] `MLP-Mixer` - [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601), 2021
+- [x] `ResMLP` - [ResMLP: Feedforward networks for image classification with data-efficient training](https://arxiv.org/abs/2105.03404)
+- [ ] `gMLP` - [Pay Attention to MLPs](https://arxiv.org/abs/2105.08050), 2021
+
+## Object Detection
+
+## Generative Models
+
+### GANs
+
+### VAEs

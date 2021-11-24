@@ -1,8 +1,6 @@
 import argparse
-import torch
-import torchvision
 from torchinfo import summary
-import models
+from cvm.utils import create_model
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -11,10 +9,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.torch:
-        model = torchvision.models.__dict__[args.model]()
-    else:
-        model = models.__dict__[args.model]()
+    model = create_model(args.model, torch=args.torch)   
 
     summary(
         model,
