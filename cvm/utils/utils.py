@@ -3,6 +3,7 @@ import random
 import torch
 from torch import nn
 import torchvision
+from torchvision import datasets
 import platform
 import numpy as np
 from json import dumps
@@ -13,7 +14,7 @@ __all__ = [
     'Benchmark', 'env_info', 'manual_seed',
     'named_layers', 'accuracy', 'AverageMeter',
     'module_parameters', 'group_params', 'list_models',
-    'create_model'
+    'list_datasets'
 ]
 
 
@@ -102,7 +103,7 @@ def module_parameters(model):
             yield module, k, v
 
 
-def group_params(model, wd: float, no_bias_decay: bool = False):
+def group_params(model, wd: float, no_bias_bn_decay: bool = False):
     '''As pointed out by Jia et al. 
     Highly scalable deep learning training system with mixed-precision: Training imagenet in four minutes, 
     however, it’s recommended to only apply the regularization
@@ -112,7 +113,7 @@ def group_params(model, wd: float, no_bias_decay: bool = False):
     layers. Other parameters, including the biases 
     and $\alpha$ and $\beta$  in BN layers, are left unregularized.
     .'''
-    if not no_bias_decay:
+    if not no_bias_bn_decay:
         return [{'params': model.parameters(), 'weight_decay': wd}]
     else:
         wd_params = []
@@ -177,7 +178,12 @@ def list_models(torch: bool = False):
                   and callable(models.__dict__[name]))
 
 
-def create_model(name: str, pretrained: bool = False, torch: bool = False, **kwargs):
-    if torch:
-        return torchvision.models.__dict__[name](pretrained=pretrained)
-    return models.__dict__[name](pretrained=pretrained, **kwargs)
+def list_datasets():
+    _datasets = sorted(
+        name for name in datasets.__dict__
+        if callable(datasets.__dict__[name])
+    )
+    _datasets.remove('ImageNet')
+    _datasets.remove('ImageFolder')
+    _datasets.remove('DatasetFolder')
+    return _datasets

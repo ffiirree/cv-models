@@ -17,11 +17,14 @@ _SE_USE_NORM: bool = False
 
 @contextmanager
 def normalizer(
-    fn: nn.Module = _NORMALIZER,
-    position: str = _NORM_POSIITON
+    fn: nn.Module = None,
+    position: str = None
 ):
 
     global _NORMALIZER, _NORM_POSIITON
+    
+    fn = fn or _NORMALIZER
+    position = position or _NORM_POSIITON
 
     _pre_normalizer = _NORMALIZER
     _pre_position = _NORM_POSIITON
