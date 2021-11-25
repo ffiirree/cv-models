@@ -268,11 +268,16 @@ if __name__ == '__main__':
 
     benchmark = Benchmark()
     for epoch in range(0, args.epochs):
+        if not args.dali:
+            train_loader.sampler.set_epoch(epoch)
+        
         train(train_loader, model, criterion, optimizer,
               scheduler, epoch, args)
         validate(val_loader, model, criterion)
-        train_loader.reset()
-        val_loader.reset()
+        
+        if args.dali:
+            train_loader.reset()
+            val_loader.reset()
 
         if args.local_rank == 0 and epoch > (args.epochs - 10):
             model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'

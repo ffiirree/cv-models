@@ -1,4 +1,6 @@
-logs
-__pycache__
+logs/
+__pycache__/
 .vscode
 test.py
+build/
+*.egg-info/
