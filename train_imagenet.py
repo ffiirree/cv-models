@@ -114,7 +114,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
+def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -270,11 +270,24 @@ if __name__ == '__main__':
     for epoch in range(0, args.epochs):
         if not args.dali:
             train_loader.sampler.set_epoch(epoch)
-        
-        train(train_loader, model, criterion, optimizer,
-              scheduler, epoch, args)
-        validate(val_loader, model, criterion)
-        
+
+        train(
+            train_loader,
+            model,
+            criterion,
+            optimizer,
+            scheduler,
+            scaler,
+            epoch,
+            args
+        )
+
+        validate(
+            val_loader,
+            model,
+            criterion
+        )
+
         if args.dali:
             train_loader.reset()
             val_loader.reset()
