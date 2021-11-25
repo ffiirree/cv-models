@@ -1,7 +1,8 @@
-import os
+from os import path
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.distributed as dist
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torchvision
@@ -12,25 +13,143 @@ from .utils import group_params, list_datasets
 from cvm.dataset.constants import *
 from functools import partial
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+import nvidia.dali.fn as fn
+import nvidia.dali.types as types
+from nvidia.dali.pipeline import pipeline_def
+from nvidia.dali.plugin.pytorch import DALIClassificationIterator, LastBatchPolicy
+
 __all__ = [
     'create_model', 'create_optimizer', 'create_scheduler',
     'create_transforms', 'create_dataset', 'create_loader'
 ]
 
 
+@pipeline_def
+def create_dali_pipeline(
+    data_dir,
+    crop,
+    size,
+    shard_id,
+    num_shards,
+    dali_cpu=False,
+    is_training=True,
+    hflip=0.5,
+    color_jitter=0.0
+):
+    images, labels = fn.readers.file(
+        file_root=data_dir,
+        shard_id=shard_id,
+        num_shards=num_shards,
+        random_shuffle=is_training,
+        pad_last_batch=True,
+        name="Reader"
+    )
+
+    dali_device = 'cpu' if dali_cpu else 'gpu'
+    decoder_device = 'cpu' if dali_cpu else 'mixed'
+    # ask nvJPEG to preallocate memory for the biggest sample in ImageNet for CPU and GPU to avoid reallocations in runtime
+    device_memory_padding = 211025920 if decoder_device == 'mixed' else 0
+    host_memory_padding = 140544512 if decoder_device == 'mixed' else 0
+    # ask HW NVJPEG to allocate memory ahead for the biggest image in the data set to avoid reallocations in runtime
+    preallocate_width_hint = 5980 if decoder_device == 'mixed' else 0
+    preallocate_height_hint = 6430 if decoder_device == 'mixed' else 0
+
+    if is_training:
+        images = fn.decoders.image_random_crop(
+            images,
+            device=decoder_device,
+            output_type=types.RGB,
+            device_memory_padding=device_memory_padding,
+            host_memory_padding=host_memory_padding,
+            preallocate_width_hint=preallocate_width_hint,
+            preallocate_height_hint=preallocate_height_hint,
+            random_aspect_ratio=[3/4, 4/3],
+            random_area=[0.08, 1.0],
+            num_attempts=100
+        )
+
+        images = fn.resize(
+            images,
+            device=dali_device,
+            resize_x=crop,
+            resize_y=crop,
+            interp_type=types.INTERP_TRIANGULAR
+        )
+
+        if color_jitter > 0.0:
+            images = fn.color_twist(
+                images,
+                device=dali_device,
+                brightness=fn.random.uniform(
+                    range=[1 - color_jitter, 1.0 + color_jitter]),
+                contrast=fn.random.uniform(
+                    range=[1 - color_jitter, 1.0 + color_jitter]),
+                saturation=fn.random.uniform(
+                    range=[1 - color_jitter, 1.0 + color_jitter])
+            )
+
+        mirror = fn.random.coin_flip(probability=hflip) if hflip > 0. else None
+
+    else:
+        images = fn.decoders.image(
+            images,
+            device=decoder_device,
+            output_type=types.RGB
+        )
+
+        images = fn.resize(
+            images,
+            device=dali_device,
+            size=size,
+            mode="not_smaller",
+            interp_type=types.INTERP_TRIANGULAR
+        )
+
+        mirror = False
+
+    images = fn.crop_mirror_normalize(
+        images.gpu(),
+        dtype=types.FLOAT,
+        output_layout="CHW",
+        crop=(crop, crop),
+        mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
+        std=[0.229 * 255, 0.224 * 255, 0.225 * 255],
+        mirror=mirror
+    )
+
+    labels = labels.gpu()
+    return images, labels
+
+
 def create_model(
     name: str,
     pretrained: bool = False,
     torch: bool = False,
+    cuda: bool = True,
+    sync_bn: bool = False,
+    distributed: bool = False,
+    local_rank: int = 0,
     **kwargs
 ):
     if torch:
-        return torchvision.models.__dict__[name](pretrained=pretrained)
+        model = torchvision.models.__dict__[name](pretrained=pretrained)
 
     if 'bn_eps' in kwargs and kwargs['bn_eps'] and 'bn_momentum' in kwargs and kwargs['bn_momentum']:
         with cvm.models.core.blocks.normalizer(partial(nn.BatchNorm2d, eps=kwargs['bn_eps'], momentum=kwargs['bn_momentum'])):
-            return cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
-    return cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+            model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+    model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+
+    if cuda:
+        model.cuda()
+
+    if sync_bn:
+        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+
+    if distributed:
+        model = DDP(model, device_ids=[local_rank])
+    return model
 
 
 def create_optimizer(name: str = 'sgd', params: nn.Module = None, lr: float = 0.1,  **kwargs):
@@ -98,7 +217,7 @@ def _get_dataset_image_size(name):
 
     if name.startswith('CIFAR'):
         return CIFAR_IMAGE_SIZE
-    if name.contains('MNIST'):
+    if 'MNIST' in name:
         return MNIST_IMAGE_SIZE
     return 0
 
@@ -131,7 +250,7 @@ def create_transforms(
     crop_size=224,
     padding: int = 0,
     random_crop: bool = False,
-    train=True,
+    is_training=True,
     mean=IMAGE_MEAN,
     std=IMAGE_STD,
     hflip=0.5,
@@ -145,9 +264,9 @@ def create_transforms(
     dataset_image_size=0
 ):
     ops = []
-    if not train:
-        if dataset_image_size != crop_size:
-            ops.append(T.Resize(crop_size))
+    if not is_training:
+        if dataset_image_size != resize_size:
+            ops.append(T.Resize(resize_size))
         if resize_size != crop_size:
             ops.append(T.CenterCrop(crop_size))
     else:
@@ -184,19 +303,19 @@ def create_transforms(
 def create_dataset(
     name: str,
     root: str = '',
-    train: bool = True,
+    is_training: bool = True,
     download: bool = False,
     **kwargs
 ):
     if name in list_datasets():
         return datasets.__dict__[name](
-            os.path.expanduser(root),
-            train=train,
+            path.expanduser(root),
+            train=is_training,
             download=download
         )
     elif name == 'ImageNet':
         return datasets.ImageFolder(
-            os.path.join(os.path.expanduser(root), 'train' if train else 'val')
+            path.join(path.expanduser(root), 'train' if is_training else 'val')
         )
     else:
         ValueError(f'Unknown dataset: {name}.')
@@ -204,51 +323,83 @@ def create_dataset(
 
 def create_loader(
     dataset,
-    train,
-    batch_size,
-    workers,
-    pin_memory=True,
+    is_training: bool = True,
+    batch_size: int = 256,
+    workers: int = 4,
+    pin_memory: bool = True,
     crop_padding: int = 4,
-    val_resize_size=256,
-    val_crop_size=224,
-    crop_size=224,
-    hflip=0.5,
-    vflip=0.0,
-    color_jitter=0.0,
+    val_resize_size: int = 256,
+    val_crop_size: int = 224,
+    crop_size: int = 224,
+    hflip: float = 0.5,
+    vflip: float = 0.0,
+    color_jitter: float = 0.0,
+    dali: bool = False,
+    dali_cpu: bool = True,
     augment: str = None,
     randaugment_n=2,
     randaugment_m=5,
+    local_rank: int = 0,
+    root: str = None,
     **kwargs
 ):
-    if isinstance(dataset, str):
-        dataset = create_dataset(
-            dataset,
-            train=train,
-            **kwargs
+    if dali:
+        assert _get_name(dataset).lower() == 'imagenet', ''
+
+        pipe = create_dali_pipeline(
+            batch_size=batch_size,
+            num_threads=workers,
+            device_id=local_rank,
+            seed=12 + local_rank,
+            data_dir=path.join(
+                path.expanduser(root), 'train' if is_training else 'val'
+            ),
+            crop=crop_size if is_training else val_crop_size,
+            size=val_resize_size,
+            dali_cpu=dali_cpu,
+            shard_id=local_rank,
+            num_shards=dist.get_world_size(),
+            is_training=is_training,
+            hflip=hflip,
+            color_jitter=color_jitter
+        )
+        pipe.build()
+        return DALIClassificationIterator(
+            pipe,
+            reader_name="Reader",
+            last_batch_policy=LastBatchPolicy.PARTIAL
+        )
+    else:
+        if isinstance(dataset, str):
+            dataset = create_dataset(
+                dataset,
+                root=root,
+                train=is_training,
+                **kwargs
+            )
+
+        dataset.transform = create_transforms(
+            is_training=is_training,
+            hflip=hflip,
+            vflip=vflip,
+            color_jitter=color_jitter,
+            augment=augment,
+            randaugment_n=randaugment_n,
+            randaugment_m=randaugment_m,
+            autoaugment_policy=_get_autoaugment_policy(dataset),
+            mean=_get_dataset_mean_or_std(dataset, 'mean'),
+            std=_get_dataset_mean_or_std(dataset, 'std'),
+            random_crop=crop_size <= 128,
+            resize_size=val_resize_size,
+            crop_size=crop_size if is_training else val_crop_size,
+            padding=crop_padding,
+            dataset_image_size=_get_dataset_image_size(dataset),
         )
 
-    dataset.transform = create_transforms(
-        train=train,
-        hflip=hflip,
-        vflip=vflip,
-        color_jitter=color_jitter,
-        augment=augment,
-        randaugment_n=randaugment_n,
-        randaugment_m=randaugment_m,
-        autoaugment_policy=_get_autoaugment_policy(dataset),
-        mean=_get_dataset_mean_or_std(dataset, 'mean'),
-        std=_get_dataset_mean_or_std(dataset, 'std'),
-        random_crop=crop_size <= 128,
-        resize_size=val_resize_size,
-        crop_size=crop_size if train else val_crop_size,
-        padding=crop_padding,
-        dataset_image_size=_get_dataset_image_size(dataset),
-    )
-
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        num_workers=workers,
-        pin_memory=pin_memory,
-        sampler=DistributedSampler(dataset, shuffle=train)
-    )
+        return DataLoader(
+            dataset,
+            batch_size=batch_size,
+            num_workers=workers,
+            pin_memory=pin_memory,
+            sampler=DistributedSampler(dataset, shuffle=is_training)
+        )
