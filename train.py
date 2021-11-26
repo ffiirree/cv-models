@@ -256,11 +256,13 @@ if __name__ == '__main__':
     mixupcutmix_fn = None
     mixup_transforms = []
     if args.mixup_alpha > 0.0:
-        mixup_transforms.append(RandomMixup(
-            args.num_classes, p=1.0, alpha=args.mixup_alpha))
+        mixup_transforms.append(
+            RandomMixup(args.num_classes, p=1.0, alpha=args.mixup_alpha)
+        )
     if args.cutmix_alpha > 0.0:
-        mixup_transforms.append(RandomCutmix(
-            args.num_classes, p=1.0, alpha=args.cutmix_alpha))
+        mixup_transforms.append(
+            RandomCutmix(args.num_classes, p=1.0, alpha=args.cutmix_alpha)
+        )
     if mixup_transforms:
         mixupcutmix_fn = T.RandomChoice(mixup_transforms)
 
