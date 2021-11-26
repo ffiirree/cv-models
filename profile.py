@@ -14,7 +14,6 @@ if __name__ == '__main__':
 
     model = create_model(args.model, torch=args.torch)
     model.eval()
-    model = model.cuda()
 
     images = torch.randn([args.batch_size, 3, 224, 224]).cuda()
 

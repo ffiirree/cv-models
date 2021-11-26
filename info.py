@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    model = create_model(args.model, torch=args.torch)   
+    model = create_model(args.model, torch=args.torch, cuda=False)
 
     summary(
         model,

@@ -1,39 +1,33 @@
 import argparse
-import os
 import json
 import torch
-import torchvision
-import torchvision.transforms as T
 from tqdm import tqdm
-import cvm
-from cvm.utils import accuracy, AverageMeter
+from cvm.utils import accuracy, AverageMeter, create_loader, create_model, list_models, list_datasets
 
 
 def parse_args():
-    model_names = sorted(name for name in cvm.models.__dict__
-                         if name.islower() and not name.startswith("__")
-                         and callable(cvm.models.__dict__[name]))
-    model_names += sorted(name for name in torchvision.models.__dict__
-                          if name.islower() and not name.startswith("__")
-                          and callable(torchvision.models.__dict__[name]))
-
-    parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+    parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
+    parser.add_argument('--dataset', type=str, default='ImageNet', choices=list_datasets() + ['ImageNet'],
+                        help='path to the ImageNet dataset.')
     parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
                         help='path to the ImageNet dataset.')
-    parser.add_argument('--val-dir', type=str, default='val')
+    parser.add_argument('--model', type=str, default='mobilenet_v1_x1_0', choices=list_models() + list_models(True),
+                        help='type of model to use. (default: mobilenet_v1_x1_0)')
     parser.add_argument('--torch', action='store_true',
                         help='use torchvision models. (default: false)')
-    parser.add_argument('--model', type=str, default='muxnet_v2', choices=model_names,
-                        help='type of model to use. (default: muxnet_v2)')
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
-    parser.add_argument('--path', type=str, default=None)
+    parser.add_argument('--model-path', type=str, default=None)
     parser.add_argument('--workers', '-j', type=int, default=8, metavar='N',
                         help='number of data loading workers pre GPU. (default: 4)')
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
     parser.add_argument('--crop-size', type=int, default=224)
     parser.add_argument('--resize-size', type=int, default=256)
+    parser.add_argument('--dali', action='store_true',
+                        help='use nvidia dali.')
+    parser.add_argument('--dali-cpu', action='store_true',
+                        help='runs CPU based version of DALI pipeline. (default: false)')
     return parser.parse_args()
 
 
@@ -41,11 +35,14 @@ def validate(val_loader, model, args):
     top1 = AverageMeter()
     top5 = AverageMeter()
 
-    model = model.cuda()
     model.eval()
-    for images, target in tqdm(val_loader, desc='validating', unit='batch'):
-        images = images.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
+    for data in tqdm(val_loader, desc='validating', unit='batch'):
+        if args.dali:
+            images = data[0]["data"]
+            target = data[0]["label"].squeeze(-1).long()
+        else:
+            images = data[0].cuda(non_blocking=True)
+            target = data[1].cuda(non_blocking=True)
 
         with torch.inference_mode():
             output = model(images)
@@ -63,33 +60,25 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = True
 
     args = parse_args()
-    print(json.dumps(vars(args), indent=4, sort_keys=True))
+    print(json.dumps(vars(args), indent=4))
 
-    if args.torch:
-        model = torchvision.models.__dict__[args.model](
-            pretrained=args.pretrained
-        )
-    else:
-        model = cvm.models.__dict__[args.model](
-            pretrained=args.pretrained,
-            pth=args.path
-        )
+    model = create_model(
+        args.model,
+        pretrained=args.pretrained,
+        torch=args.torch,
+        pth=args.model_path
+    )
 
-    val_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.ImageFolder(
-            os.path.join(args.data_dir, args.val_dir),
-            T.Compose([
-                T.Resize(args.resize_size),
-                T.CenterCrop(args.crop_size),
-                T.PILToTensor(),
-                T.ConvertImageDtype(torch.float),
-                T.Normalize((0.485, 0.456, 0.406),
-                            (0.229, 0.224, 0.225)),
-            ])
-        ),
+    val_loader = create_loader(
+        args.dataset,
+        root=args.data_dir,
+        is_training=False,
         batch_size=args.batch_size,
-        num_workers=args.workers,
-        pin_memory=True
+        val_resize_size=args.resize_size,
+        val_crop_size=args.crop_size,
+        workers=args.workers,
+        dali=args.dali,
+        dali_cpu=args.dali_cpu
     )
 
     validate(val_loader, model, args)

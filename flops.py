@@ -35,7 +35,8 @@ if __name__ == '__main__':
                 args.model,
                 thumbnail=thumbnail,
                 torch=args.torch,
-                num_classes=args.num_classes
+                num_classes=args.num_classes,
+                cuda=False,
             ),
             args.table
         )

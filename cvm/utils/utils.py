@@ -8,13 +8,13 @@ import platform
 import numpy as np
 from json import dumps
 from cvm import models
-
+import torch.distributed as dist
 
 __all__ = [
     'Benchmark', 'env_info', 'manual_seed',
     'named_layers', 'accuracy', 'AverageMeter',
     'module_parameters', 'group_params', 'list_models',
-    'list_datasets'
+    'list_datasets', 'is_dist_avail_and_initialized', 'get_world_size'
 ]
 
 
@@ -187,3 +187,17 @@ def list_datasets():
     _datasets.remove('ImageFolder')
     _datasets.remove('DatasetFolder')
     return _datasets
+
+
+def is_dist_avail_and_initialized():
+    if not dist.is_available():
+        return False
+    if not dist.is_initialized():
+        return False
+    return True
+
+
+def get_world_size():
+    if not is_dist_avail_and_initialized():
+        return 1
+    return dist.get_world_size()

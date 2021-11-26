@@ -2,14 +2,13 @@ from os import path
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.distributed as dist
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torchvision
 from torchvision import datasets
 import torchvision.transforms as T
 import cvm
-from .utils import group_params, list_datasets
+from .utils import group_params, list_datasets, get_world_size
 from cvm.dataset.constants import *
 from functools import partial
 
@@ -29,8 +28,8 @@ __all__ = [
 @pipeline_def
 def create_dali_pipeline(
     data_dir,
-    crop,
-    size,
+    crop_size,
+    resize_size,
     shard_id,
     num_shards,
     dali_cpu=False,
@@ -73,8 +72,8 @@ def create_dali_pipeline(
         images = fn.resize(
             images,
             device=dali_device,
-            resize_x=crop,
-            resize_y=crop,
+            resize_x=crop_size,
+            resize_y=crop_size,
             interp_type=types.INTERP_TRIANGULAR
         )
 
@@ -102,7 +101,7 @@ def create_dali_pipeline(
         images = fn.resize(
             images,
             device=dali_device,
-            size=size,
+            size=resize_size,
             mode="not_smaller",
             interp_type=types.INTERP_TRIANGULAR
         )
@@ -113,7 +112,7 @@ def create_dali_pipeline(
         images.gpu(),
         dtype=types.FLOAT,
         output_layout="CHW",
-        crop=(crop, crop),
+        crop=(crop_size, crop_size),
         mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
         std=[0.229 * 255, 0.224 * 255, 0.225 * 255],
         mirror=mirror
@@ -135,11 +134,11 @@ def create_model(
 ):
     if torch:
         model = torchvision.models.__dict__[name](pretrained=pretrained)
-
-    if 'bn_eps' in kwargs and kwargs['bn_eps'] and 'bn_momentum' in kwargs and kwargs['bn_momentum']:
-        with cvm.models.core.blocks.normalizer(partial(nn.BatchNorm2d, eps=kwargs['bn_eps'], momentum=kwargs['bn_momentum'])):
-            model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
-    model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+    else:
+        if 'bn_eps' in kwargs and kwargs['bn_eps'] and 'bn_momentum' in kwargs and kwargs['bn_momentum']:
+            with cvm.models.core.blocks.normalizer(partial(nn.BatchNorm2d, eps=kwargs['bn_eps'], momentum=kwargs['bn_momentum'])):
+                model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+        model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
 
     if cuda:
         model.cuda()
@@ -229,7 +228,7 @@ def _get_dataset_mean_or_std(name, attr):
         return CIFAR_MEAN if attr == 'mean' else CIFAR_STD
     if name.lower() == 'imagenet':
         return IMAGE_MEAN if attr == 'mean' else IMAGE_STD
-    return (0.5,)
+    return IMAGE_MEAN if attr == 'mean' else IMAGE_STD
 
 
 def _get_autoaugment_policy(name):
@@ -341,6 +340,7 @@ def create_loader(
     randaugment_m=5,
     local_rank: int = 0,
     root: str = None,
+    distributed: bool = False,
     **kwargs
 ):
     if dali:
@@ -354,11 +354,11 @@ def create_loader(
             data_dir=path.join(
                 path.expanduser(root), 'train' if is_training else 'val'
             ),
-            crop=crop_size if is_training else val_crop_size,
-            size=val_resize_size,
+            crop_size=crop_size if is_training else val_crop_size,
+            resize_size=val_resize_size,
             dali_cpu=dali_cpu,
             shard_id=local_rank,
-            num_shards=dist.get_world_size(),
+            num_shards=get_world_size(),
             is_training=is_training,
             hflip=hflip,
             color_jitter=color_jitter
@@ -401,5 +401,8 @@ def create_loader(
             batch_size=batch_size,
             num_workers=workers,
             pin_memory=pin_memory,
-            sampler=DistributedSampler(dataset, shuffle=is_training)
+            sampler=DistributedSampler(
+                dataset, shuffle=is_training
+            ) if distributed else None,
+            shuffle=((not distributed) and is_training)
         )

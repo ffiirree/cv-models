@@ -239,11 +239,13 @@ if __name__ == '__main__':
     train_loader = create_loader(
         root=args.data_dir,
         is_training=True,
+        distributed=True,
         **(dict(vars(args)))
     )
     val_loader = create_loader(
         root=args.data_dir,
         is_training=False,
+        distributed=True,
         **(dict(vars(args)))
     )
 
