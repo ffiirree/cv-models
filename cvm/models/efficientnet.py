@@ -1,8 +1,7 @@
-import os
 import math
 import torch
 import torch.nn as nn
-from .core import blocks, export
+from .core import blocks, export, load_from_local_or_url
 from typing import Any
 
 _BN_EPSILON = 1e-3
@@ -157,16 +156,7 @@ def _effnet(arch, pretrained: bool = False, pth: str = None, progress: bool = Tr
     )
 
     if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
-            state_dict = torch.hub.load_state_dict_from_url(
-                kwargs['url'],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
-
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
 
 

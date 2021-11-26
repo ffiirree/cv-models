@@ -5,10 +5,9 @@ Papers:
 Others:
     https://github.com/google-research/vision_transformer
 '''
-import os
 import torch
 import torch.nn as nn
-from .core import blocks, export, config
+from .core import blocks, export, load_from_local_or_url
 from typing import Any
 from functools import partial
 
@@ -112,15 +111,7 @@ def _vit(
                               normalizer_fn=partial(nn.LayerNorm, eps=1e-6), **kwargs)
 
     if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
-            state_dict = torch.hub.load_state_dict_from_url(
-                kwargs['url'],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
 
 

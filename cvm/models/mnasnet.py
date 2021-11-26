@@ -1,8 +1,7 @@
 from functools import partial
-import os
 import torch
 import torch.nn as nn
-from .core import blocks, export
+from .core import blocks, export, load_from_local_or_url
 from typing import Any
 
 
@@ -11,10 +10,11 @@ _BN_MOMENTUM = 0.01
 
 
 @export
-def mnasnet_a1(pretrained: bool = False, pth: str = None, **kwargs: Any):
+def mnasnet_a1(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = MnasNet(**kwargs)
-    if pretrained and pth is not None:
-        model.load_state_dict(torch.load(os.path.expanduser(pth)))
+
+    if pretrained:
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
 
 

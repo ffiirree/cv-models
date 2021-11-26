@@ -1,7 +1,6 @@
-import os
 import torch
 import torch.nn as nn
-from .core import blocks, export
+from .core import blocks, export, load_from_local_or_url
 from typing import Any
 
 __all__ = ['inception_v1']
@@ -66,15 +65,7 @@ def googlenet(pretrained: bool = False, pth: str = None, progress: bool = True, 
     model = GoogLeNet(**kwargs)
 
     if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
-            state_dict = torch.hub.load_state_dict_from_url(
-                kwargs['url'],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
 
 

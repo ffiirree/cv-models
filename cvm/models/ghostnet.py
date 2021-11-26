@@ -1,9 +1,8 @@
 """https://github.com/huawei-noah/CV-Backbones/blob/master/ghostnet_pytorch/ghostnet.py"""
-import os
 import math
 import torch
 import torch.nn as nn
-from .core import blocks, export, make_divisible
+from .core import blocks, export, make_divisible, load_from_local_or_url
 from typing import Any, List
 
 
@@ -198,15 +197,7 @@ def _ghostnet(
     model = GhostNet(multiplier=multiplier, cfgs=cfgs, **kwargs)
 
     if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
-            state_dict = torch.hub.load_state_dict_from_url(
-                kwargs['url'],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
 
 

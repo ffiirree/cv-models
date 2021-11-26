@@ -1,12 +1,15 @@
+import os
 import sys
 import functools
+import torch
 
-__all__ = ['export', 'config']
+__all__ = ['export', 'config', 'load_from_local_or_url']
 
 
 def export(obj):
     if hasattr(sys.modules[obj.__module__], '__all__'):
-        assert obj.__name__ not in sys.modules[obj.__module__].__all__, f'Duplicate name: {obj.__name__}'
+        assert obj.__name__ not in sys.modules[
+            obj.__module__].__all__, f'Duplicate name: {obj.__name__}'
 
         sys.modules[obj.__module__].__all__.append(obj.__name__)
     else:
@@ -24,3 +27,13 @@ def config(url='', **settings):
         return wrapper
 
     return decorator
+
+
+def load_from_local_or_url(model, pth=None, url=None, progress=True):
+    assert pth is not None or url is not None, 'The "pth" and "url" can not both be None.'
+
+    if pth is not None:
+        state_dict = torch.load(os.path.expanduser(pth))
+    else:
+        state_dict = torch.hub.load_state_dict_from_url(url, progress=progress)
+        model.load_state_dict(state_dict)

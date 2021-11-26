@@ -13,11 +13,10 @@ Notice:
     3. Swish outperforms ReLU at low flops, but ReLU is better at high flops. 
         Interestingly, if g is restricted to be 1 (depthwiseconv), Swish performs much better than ReLU.
 '''
-import os
 import math
 import torch
 import torch.nn as nn
-from .core import blocks, export, make_divisible, config
+from .core import blocks, export, make_divisible, config, load_from_local_or_url
 from typing import Any
 
 
@@ -202,15 +201,7 @@ def _regnet(
     model = RegNet(d=d, w0=w0, wa=wa, wm=wm, b=b, g=g, se_ratio=se_ratio, **kwargs)
 
     if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
-            state_dict = torch.hub.load_state_dict_from_url(
-                kwargs['url'],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
 
 

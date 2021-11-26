@@ -1,7 +1,6 @@
-import os
 import torch
 import torch.nn as nn
-from .core import blocks, export, config
+from .core import blocks, export, config, load_from_local_or_url
 from typing import Any, Type, Union
 
 
@@ -95,15 +94,7 @@ def _mobilenet_v1(
     model = MobileNet(depth_multiplier=depth_multiplier, block=block, **kwargs)
 
     if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
-            state_dict = torch.hub.load_state_dict_from_url(
-                kwargs['url'],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
 
 
@@ -114,7 +105,7 @@ def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool 
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_75-82d76756.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_75-05a53ab9.pth')
 def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(0.75, MobileBlock, pretrained, pth, progress, **kwargs)
 
