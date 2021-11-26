@@ -374,7 +374,7 @@ def create_loader(
             dataset = create_dataset(
                 dataset,
                 root=root,
-                train=is_training,
+                is_training=is_training,
                 **kwargs
             )
 
