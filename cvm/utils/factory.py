@@ -35,7 +35,8 @@ def create_dali_pipeline(
     dali_cpu=False,
     is_training=True,
     hflip=0.5,
-    color_jitter=0.0
+    color_jitter=0.0,
+    random_erasing=0.0,
 ):
     images, labels = fn.readers.file(
         file_root=data_dir,
@@ -333,6 +334,7 @@ def create_loader(
     hflip: float = 0.5,
     vflip: float = 0.0,
     color_jitter: float = 0.0,
+    random_erasing: float = 0.0,
     dali: bool = False,
     dali_cpu: bool = True,
     augment: str = None,
@@ -343,6 +345,7 @@ def create_loader(
     distributed: bool = False,
     **kwargs
 ):
+    # Nvidia/DALI
     if dali:
         assert _get_name(dataset).lower() == 'imagenet', ''
 
@@ -361,7 +364,8 @@ def create_loader(
             num_shards=get_world_size(),
             is_training=is_training,
             hflip=hflip,
-            color_jitter=color_jitter
+            color_jitter=color_jitter,
+            random_erasing=random_erasing
         )
         pipe.build()
         return DALIClassificationIterator(
@@ -369,6 +373,7 @@ def create_loader(
             reader_name="Reader",
             last_batch_policy=LastBatchPolicy.PARTIAL
         )
+    # Pytorch/Vision
     else:
         if isinstance(dataset, str):
             dataset = create_dataset(
@@ -383,6 +388,7 @@ def create_loader(
             hflip=hflip,
             vflip=vflip,
             color_jitter=color_jitter,
+            random_erasing=random_erasing,
             augment=augment,
             randaugment_n=randaugment_n,
             randaugment_m=randaugment_m,

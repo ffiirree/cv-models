@@ -6,6 +6,7 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.distributed as dist
+import torchvision.transforms as T
 
 from cvm.utils import *
 
@@ -114,7 +115,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args):
+def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args, mixupcutmix_fn=None):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -130,6 +131,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
         else:
             input = data[0].cuda(non_blocking=True)
             target = data[1].cuda(non_blocking=True)
+
+        if mixupcutmix_fn is not None:
+            input, target = mixupcutmix_fn(input, target)
 
         optimizer.zero_grad(set_to_none=True)
         with torch.cuda.amp.autocast(enabled=args.amp):
@@ -249,6 +253,17 @@ if __name__ == '__main__':
         **(dict(vars(args)))
     )
 
+    mixupcutmix_fn = None
+    mixup_transforms = []
+    if args.mixup_alpha > 0.0:
+        mixup_transforms.append(RandomMixup(
+            args.num_classes, p=1.0, alpha=args.mixup_alpha))
+    if args.cutmix_alpha > 0.0:
+        mixup_transforms.append(RandomCutmix(
+            args.num_classes, p=1.0, alpha=args.cutmix_alpha))
+    if mixup_transforms:
+        mixupcutmix_fn = T.RandomChoice(mixup_transforms)
+
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
 
     scheduler = create_scheduler(
@@ -263,6 +278,7 @@ if __name__ == '__main__':
         if not args.dali:
             logger.info(f'Training: \n{train_loader.dataset.transform}')
             logger.info(f'Validation: \n{val_loader.dataset.transform}')
+        logger.info(f'Mixup/CutMix: \n{mixupcutmix_fn}')
         logger.info(f'Optimizer: \n{optimizer}')
         logger.info(f'Criterion: {criterion}')
         logger.info(f'Scheduler: {scheduler}')
@@ -270,9 +286,6 @@ if __name__ == '__main__':
 
     benchmark = Benchmark()
     for epoch in range(0, args.epochs):
-        if not args.dali:
-            train_loader.sampler.set_epoch(epoch)
-
         train(
             train_loader,
             model,
@@ -281,18 +294,17 @@ if __name__ == '__main__':
             scheduler,
             scaler,
             epoch,
-            args
+            args,
+            mixupcutmix_fn
         )
 
-        validate(
-            val_loader,
-            model,
-            criterion
-        )
+        validate(val_loader, model, criterion)
 
         if args.dali:
             train_loader.reset()
             val_loader.reset()
+        else:
+            train_loader.sampler.set_epoch(epoch + 1)
 
         if args.local_rank == 0 and epoch > (args.epochs - 10):
             model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
