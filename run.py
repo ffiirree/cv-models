@@ -10,7 +10,7 @@ def run_script(script: str, args: str = ''):
 
 
 if __name__ == '__main__':
-    cmd = '--standalone --nnodes=1 --nproc_per_node=2 train_imagenet.py '\
+    cmd = '--standalone --nnodes=1 --nproc_per_node=2 train.py '\
         '--data-dir "/datasets/ILSVRC2012" '\
         '--workers 16 '\
         '--amp '\

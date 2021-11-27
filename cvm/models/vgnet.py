@@ -43,11 +43,14 @@ class DownsamplingBlock(nn.Module):
 
         super().__init__()
 
-        self.downsample = blocks.GaussianFilter(inp, stride=stride)
-        if method == 'dwconv':
+        if method == 'dwconv' or stride == 1:
             self.downsample = blocks.DepthwiseConv2d(inp, inp, 3, stride)
         elif method == 'maxpool':
             self.downsample = nn.MaxPool2d(kernel_size=3, stride=stride)
+        elif method == 'blur':
+            self.downsample = blocks.GaussianFilter(inp, stride=stride)
+        else:
+            ValueError(f'Unknown downsampling method: {method}.')
 
         split_chs = 0 if inp > oup else min(oup // 2, inp)
 
@@ -162,7 +165,84 @@ def _vgnet(
 
 @export
 def vgnet_g_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    kwargs['channels'] = [32, 64, 128, 256, 360]
+    kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
-    kwargs['layers'] = [3, 4, 11, 2]
+    kwargs['layers'] = [4, 7, 13, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [28, 56, 112, 224, 368]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [4, 7, 13, 2]
+    kwargs['se_ratio'] = 0.25
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 64, 128, 256, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 7, 14, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 64, 128, 256, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 7, 14, 2]
+    kwargs['se_ratio'] = 0.25
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 72, 168, 376, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 6, 13, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 72, 168, 376, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 6, 13, 2]
+    kwargs['se_ratio'] = 0.25
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 72, 184, 392, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 7, 16, 3]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 72, 184, 392, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 7, 16, 3]
+    kwargs['se_ratio'] = 0.25
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_5_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 88, 216, 456, 856]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [4, 7, 15, 5]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnet_g_5_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 88, 216, 456, 856]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [4, 7, 15, 5]
+    kwargs['se_ratio'] = 0.25
     return _vgnet(pretrained, pth, progress, **kwargs)
