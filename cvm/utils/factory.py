@@ -291,12 +291,13 @@ def create_transforms(
         elif augment == 'autoaugment':
             ops.append(T.AutoAugment(autoaugment_policy))
 
-        if random_erasing > 0.0:
-            ops.append(T.RandomErasing(random_erasing))
-
     ops.append(T.PILToTensor())
     ops.append(T.ConvertImageDtype(torch.float))
     ops.append(T.Normalize(mean, std))
+
+    if is_training and random_erasing > 0.0:
+        ops.append(T.RandomErasing(random_erasing))
+
     return T.Compose(ops)
 
 
