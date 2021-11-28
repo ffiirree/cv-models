@@ -45,7 +45,7 @@ class MobileNetV2(nn.Module):
 
     @staticmethod
     def make_layers(inp: int, t: int, oup: int, n: int, stride: int):
-        layers = [blocks.InvertedResidualBlock(inp, oup, t, stride)]
+        layers = [blocks.InvertedResidualBlock(inp, oup, t, stride=stride)]
 
         for _ in range(n - 1):
             layers.append(blocks.InvertedResidualBlock(oup, oup, t))
@@ -53,7 +53,6 @@ class MobileNetV2(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-
         x = self.features(x)
         x = self.avg(x)
         x = torch.flatten(x, 1)
