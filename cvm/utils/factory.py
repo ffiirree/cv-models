@@ -19,6 +19,12 @@ import nvidia.dali.types as types
 from nvidia.dali.pipeline import pipeline_def
 from nvidia.dali.plugin.pytorch import DALIClassificationIterator, LastBatchPolicy
 
+try:
+    import timm
+    has_timm = True
+except ImportError:
+    has_timm = False
+
 __all__ = [
     'create_model', 'create_optimizer', 'create_scheduler',
     'create_transforms', 'create_dataset', 'create_loader'
@@ -126,19 +132,35 @@ def create_dali_pipeline(
 def create_model(
     name: str,
     pretrained: bool = False,
-    torch: bool = False,
     cuda: bool = True,
     sync_bn: bool = False,
     distributed: bool = False,
     local_rank: int = 0,
     **kwargs
 ):
-    if torch:
+    if name.startswith('torch/'):
+        name = name.replace('torch/', '')
         model = torchvision.models.__dict__[name](pretrained=pretrained)
+    elif name.startswith('timm/'):
+        assert has_timm, 'Please install timm first.'
+        name = name.replace('timm/', '')
+        model = timm.create_model(
+            name,
+            pretrained=pretrained,
+            num_classes=kwargs.get('num_classes', 1000),
+            drop_rate=kwargs.get('dropout_rate', 0.0),
+            drop_path_rate=kwargs.get('drop_path_rate', None),
+            drop_block_rate=kwargs.get('drop_block', None),
+            bn_momentum=kwargs.get('bn_momentum', None),
+            bn_eps=kwargs.get('bn_eps', None),
+            scriptable=kwargs.get('scriptable', False),
+            checkpoint_path=kwargs.get('initial_checkpoint', None),
+        )
     else:
         if 'bn_eps' in kwargs and kwargs['bn_eps'] and 'bn_momentum' in kwargs and kwargs['bn_momentum']:
             with cvm.models.core.blocks.normalizer(partial(nn.BatchNorm2d, eps=kwargs['bn_eps'], momentum=kwargs['bn_momentum'])):
-                model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+                model = cvm.models.__dict__[name](
+                    pretrained=pretrained, **kwargs)
         model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
 
     if cuda:

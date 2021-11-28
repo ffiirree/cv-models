@@ -10,6 +10,12 @@ from json import dumps
 from cvm import models
 import torch.distributed as dist
 
+try:
+    import timm
+    has_timm = True
+except ImportError:
+    has_timm = False
+
 __all__ = [
     'Benchmark', 'env_info', 'manual_seed',
     'named_layers', 'accuracy', 'AverageMeter',
@@ -167,15 +173,36 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def list_models(torch: bool = False):
-    if torch:
-        return sorted(name for name in torchvision.models.__dict__
-                      if name.islower() and not name.startswith("__")
-                      and callable(torchvision.models.__dict__[name]))
+def _filter_models(name_list, prefix='', sort=False):
+    models = [prefix + name for name in name_list
+              if name.islower() and not name.startswith("__")
+              and callable(name_list[name])]
+    return models if not sort else sorted(models)
 
-    return sorted(name for name in models.__dict__
-                  if name.islower() and not name.startswith("__")
-                  and callable(models.__dict__[name]))
+
+def list_models(lib: str = 'all'):
+    assert lib in ['all', 'cvm', 'torch', 'timm'], f'Unknown library {lib}.'
+
+    if lib == 'all':
+        cvm_models = _filter_models(torchvision.models.__dict__, sort=True)
+        torch_models = _filter_models(models.__dict__, 'torch/', True)
+
+        timm_models = [
+            'timm/' + name for name in timm.list_models()
+        ] if has_timm else []
+        return cvm_models + torch_models + timm_models
+
+    elif lib == 'torch':
+        return _filter_models(
+            torchvision.models.__dict__,
+            prefix='torch/',
+            sort=True
+        )
+    elif lib == 'timm':
+        assert has_timm, 'Please install timm first.'
+        return ['timm/' + name for name in timm.list_models()]
+    else:
+        return _filter_models(models.__dict__, sort=True)
 
 
 def list_datasets():

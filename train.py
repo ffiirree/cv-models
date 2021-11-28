@@ -28,10 +28,8 @@ def parse_args():
     parser.add_argument('--val-crop-size', type=int, default=224)
 
     # model
-    parser.add_argument('--model', type=str, default='muxnet_v2', choices=list_models() + list_models(True),
-                        help='type of model to use. (default: muxnet_v2)')
-    parser.add_argument('--torch', action='store_true',
-                        help='use torchvision models. (default: false)')
+    parser.add_argument('--model', type=str, default='resnet18_v1', choices=list_models(),
+                        help='type of model to use. (default: resnet18_v1)')
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
     parser.add_argument('--model-path', type=str, default=None)
@@ -223,7 +221,6 @@ if __name__ == '__main__':
 
     model = create_model(
         args.model,
-        torch=args.torch,
         num_classes=args.num_classes,
         dropout_rate=args.dropout_rate,
         drop_path_rate=args.drop_path_rate,

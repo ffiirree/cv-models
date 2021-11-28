@@ -11,10 +11,8 @@ def parse_args():
                         help='path to the ImageNet dataset.')
     parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
                         help='path to the ImageNet dataset.')
-    parser.add_argument('--model', type=str, default='mobilenet_v1_x1_0', choices=list_models() + list_models(True),
+    parser.add_argument('--model', type=str, default='mobilenet_v1_x1_0', choices=list_models(),
                         help='type of model to use. (default: mobilenet_v1_x1_0)')
-    parser.add_argument('--torch', action='store_true',
-                        help='use torchvision models. (default: false)')
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
     parser.add_argument('--model-path', type=str, default=None)
@@ -65,7 +63,6 @@ if __name__ == '__main__':
     model = create_model(
         args.model,
         pretrained=args.pretrained,
-        torch=args.torch,
         pth=args.model_path
     )
 

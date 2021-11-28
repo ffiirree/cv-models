@@ -5,11 +5,10 @@ from cvm.utils import create_model
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
     parser.add_argument('--model', '-m', type=str)
-    parser.add_argument('--torch', action='store_true')
 
     args = parser.parse_args()
 
-    model = create_model(args.model, torch=args.torch, cuda=False)
+    model = create_model(args.model, cuda=False)
 
     summary(
         model,
