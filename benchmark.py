@@ -32,14 +32,13 @@ class InferenceBenchmarkRunner():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
     parser.add_argument('--model', '-m', type=str)
-    parser.add_argument('--torch', action='store_true')
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--amp', action='store_true')
 
     args = parser.parse_args()
     print(args)
 
-    model = create_model(args.model, torch=args.torch)
+    model = create_model(args.model)
 
     input = torch.randn(args.batch_size, 3, 224, 224)
 

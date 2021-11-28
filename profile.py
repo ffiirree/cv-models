@@ -9,10 +9,9 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default='micronet_b1_0')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N')
     parser.add_argument('--amp', action='store_true')
-    parser.add_argument('--torch', action='store_true')
     args = parser.parse_args()
 
-    model = create_model(args.model, torch=args.torch)
+    model = create_model(args.model)
     model.eval()
 
     images = torch.randn([args.batch_size, 3, 224, 224]).cuda()

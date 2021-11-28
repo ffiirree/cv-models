@@ -15,9 +15,8 @@ def print_model(model, table: bool = False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
     parser.add_argument('--model', '-m', type=str)
-    parser.add_argument('--torch', action='store_true')
     parser.add_argument('--table', action='store_true')
-    parser.add_argument('--models', action='store_true')
+    parser.add_argument('--list-models', type=str, default=None)
     parser.add_argument('--num-classes', type=int, default=1000)
     parser.add_argument('--image-size', type=int, default=224)
 
@@ -27,14 +26,13 @@ if __name__ == '__main__':
 
     thumbnail = True if args.image_size < 100 else False
 
-    if args.models:
-        print(json.dumps(list_models(args.torch), indent=4))
+    if args.list_models:
+        print(json.dumps(list_models(args.list_models), indent=4))
     else:
         print_model(
             create_model(
                 args.model,
                 thumbnail=thumbnail,
-                torch=args.torch,
                 num_classes=args.num_classes,
                 cuda=False,
             ),
