@@ -184,8 +184,8 @@ def list_models(lib: str = 'all'):
     assert lib in ['all', 'cvm', 'torch', 'timm'], f'Unknown library {lib}.'
 
     if lib == 'all':
-        cvm_models = _filter_models(torchvision.models.__dict__, sort=True)
-        torch_models = _filter_models(models.__dict__, 'torch/', True)
+        cvm_models = _filter_models(models.__dict__, sort=True)
+        torch_models = _filter_models(torchvision.models.__dict__, 'torch/', sort=True)
 
         timm_models = [
             'timm/' + name for name in timm.list_models()
