@@ -1,7 +1,7 @@
 import os
 import torch
 import torch.nn as nn
-from .core import blocks, export
+from .core import blocks, export, config
 from typing import Any, List
 
 
@@ -164,6 +164,7 @@ def _vgnet(
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_0mp-baec6e1c.pth')
 def vgnet_g_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
