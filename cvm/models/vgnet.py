@@ -183,6 +183,7 @@ def vgnet_g_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool =
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_5mp-1eab7052.pth')
 def vgnet_g_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']

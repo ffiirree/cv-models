@@ -289,7 +289,7 @@ def create_transforms(
     if not is_training:
         if dataset_image_size != resize_size:
             ops.append(T.Resize(resize_size))
-        if resize_size != crop_size:
+        if dataset_image_size != crop_size:
             ops.append(T.CenterCrop(crop_size))
     else:
         if random_crop:
