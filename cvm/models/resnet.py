@@ -11,7 +11,7 @@ Tsung-Yi Lin, Jonathon Shlens, Barret Zoph
 """
 import torch
 import torch.nn as nn
-from .core import blocks, export, load_from_local_or_url
+from .core import blocks, export, load_from_local_or_url, config
 from typing import Any, List
 
 
@@ -159,6 +159,7 @@ def _resnet(
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-resnets/resnet18_v1-cd762dac.pth')
 def resnet18_v1(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _resnet([2, 2, 2, 2], blocks.ResBasicBlockV1, None, pretrained, pth, progress, **kwargs)
 
