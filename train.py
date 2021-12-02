@@ -53,7 +53,7 @@ def parse_args():
                         help='momentum of SGD. (default: 0.9)')
     parser.add_argument('--nesterov', action='store_true',
                         help='nesterov of SGD. (default: false)')
-    parser.add_argument('--adam-betas', type=list,
+    parser.add_argument('--adam-betas', type=float,
                         nargs='+', default=[0.9, 0.999])
 
     # learning rate

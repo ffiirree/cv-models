@@ -174,11 +174,18 @@ def create_model(
     return model
 
 
-def create_optimizer(name: str = 'sgd', params: nn.Module = None, lr: float = 0.1,  **kwargs):
+def create_optimizer(
+    name: str = 'sgd',
+    params: nn.Module = None,
+    lr: float = 0.1,
+    weight_decay: float = 0.0,
+    no_bias_bn_wd: bool = False,
+    **kwargs
+):
     params = group_params(
         params,
-        kwargs['weight_decay'],
-        kwargs['no_bias_bn_wd']
+        weight_decay,
+        no_bias_bn_wd
     )
 
     if name == 'sgd':
@@ -251,6 +258,8 @@ def _get_dataset_mean_or_std(name, attr):
         return CIFAR_MEAN if attr == 'mean' else CIFAR_STD
     if name.lower() == 'imagenet':
         return IMAGE_MEAN if attr == 'mean' else IMAGE_STD
+    if name.lower() == 'mnist':
+        return MNIST_MEAN if attr == 'mean' else MNIST_STD
     return IMAGE_MEAN if attr == 'mean' else IMAGE_STD
 
 
@@ -293,7 +302,8 @@ def create_transforms(
             ops.append(T.CenterCrop(crop_size))
     else:
         if random_crop:
-            ops.append(T.RandomCrop(crop_size, padding))
+            if padding != 0 or dataset_image_size != crop_size:
+                ops.append(T.RandomCrop(crop_size, padding))
         else:
             ops.append(T.RandomResizedCrop(
                 crop_size,

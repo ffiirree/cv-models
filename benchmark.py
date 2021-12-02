@@ -45,7 +45,7 @@ if __name__ == '__main__':
     runner = InferenceBenchmarkRunner(model, input, 'cuda', args.amp)
 
     with torch.no_grad():
-        for _ in range(75):
+        for _ in range(50):
             runner.infer()
 
         total_step = 0
