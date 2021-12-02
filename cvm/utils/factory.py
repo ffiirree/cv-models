@@ -233,7 +233,7 @@ def create_scheduler(
             steps=kwargs['epochs'] * step_per_epoch,
             min_lr=kwargs['min_lr']
         )
-        
+
     return None
 
 
@@ -428,8 +428,8 @@ def create_loader(
             randaugment_n=randaugment_n,
             randaugment_m=randaugment_m,
             autoaugment_policy=_get_autoaugment_policy(dataset),
-            mean=_get_dataset_mean_or_std(dataset, 'mean'),
-            std=_get_dataset_mean_or_std(dataset, 'std'),
+            mean=kwargs.get('mean', _get_dataset_mean_or_std(dataset, 'mean')),
+            std=kwargs.get('std', _get_dataset_mean_or_std(dataset, 'std')),
             random_crop=crop_size <= 128,
             resize_size=val_resize_size,
             crop_size=crop_size if is_training else val_crop_size,

@@ -1,3 +1,4 @@
+# classification
 from .alexnet import *
 from .vggnet import *
 from .resnet import *
@@ -21,3 +22,9 @@ from .regnet import *
 from .vision_transformer import *
 from .convmixer import *
 from .vgnet import *
+
+# GANs
+from .gan import *
+
+# VAEs
+from .vae import *
