@@ -226,13 +226,15 @@ def create_scheduler(
             step_size=kwargs['lr_decay_epochs'] * step_per_epoch,
             gamma=kwargs['lr_decay_rate']
         )
-    else:
+    elif name == 'cosine':
         return cvm.scheduler.WarmUpCosineLR(
             optimizer,
             warmup_steps=kwargs['warmup_epochs'] * step_per_epoch,
             steps=kwargs['epochs'] * step_per_epoch,
             min_lr=kwargs['min_lr']
         )
+        
+    return None
 
 
 def _get_name(name):

@@ -59,7 +59,7 @@ def parse_args():
     # learning rate
     parser.add_argument('--lr', type=float, default=0.1,
                         help='initial learning rate. (default: 0.1)')
-    parser.add_argument('--lr-sched', type=str, default='cosine', choices=['step', 'cosine'],
+    parser.add_argument('--lr-sched', type=str, default=None, choices=['step', 'cosine'],
                         help="learning rate scheduler mode, options are [cosine, step]. (default: cosine)")
     parser.add_argument('--min-lr', type=float, default=1e-6)
     parser.add_argument('--lr-decay-rate', type=float, default=0.1, metavar='RATE',
@@ -142,7 +142,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
         scaler.step(optimizer)
         scaler.update()
 
-        scheduler.step()
+        if scheduler:
+            scheduler.step()
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), input.size(0))
