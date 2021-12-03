@@ -304,7 +304,9 @@ def create_transforms(
             ops.append(T.CenterCrop(crop_size))
     else:
         if random_crop:
-            if padding != 0 or dataset_image_size != crop_size:
+            if dataset_image_size < crop_size:
+                ops.append(T.Resize(crop_size))
+            if padding != 0 or dataset_image_size > crop_size:
                 ops.append(T.RandomCrop(crop_size, padding))
         else:
             ops.append(T.RandomResizedCrop(

@@ -4,6 +4,7 @@ import datetime
 import argparse
 import torch
 import torch.nn as nn
+from torchvision.utils import save_image
 import torch.distributed as dist
 import torchvision
 
@@ -32,11 +33,12 @@ def parse_args():
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
     parser.add_argument('--model-path', type=str, default=None)
+    parser.add_argument('--in-channels', type=int, default=3, metavar='N')
     parser.add_argument('--num-classes', type=int, default=1000, metavar='N',
                         help='number of label classes')
     parser.add_argument('--bn-eps', type=float, default=None)
     parser.add_argument('--bn-momentum', type=float, default=None)
-    parser.add_argument('--nz', type=int, default=100)
+    parser.add_argument('--hidden-dim', type=int, default=100)
     parser.add_argument('--dropout-rate', type=float, default=0., metavar='P',
                         help='dropout rate. (default: 0.0)')
     parser.add_argument('--drop-path-rate', type=float, default=0., metavar='P',
@@ -119,7 +121,8 @@ if __name__ == '__main__':
 
     model = create_model(
         args.model,
-        image_size=args.crop_size,
+        hidden_dim=args.hidden_dim,
+        in_channels=args.in_channels,
         num_classes=args.num_classes,
         dropout_rate=args.dropout_rate,
         drop_path_rate=args.drop_path_rate,
@@ -171,11 +174,11 @@ if __name__ == '__main__':
             real_labels = torch.ones(batch_size, 1).cuda()
             fake_labels = torch.zeros(batch_size, 1).cuda()
             
-            z = torch.randn(batch_size, args.nz).cuda()
+            z = torch.randn(batch_size, args.hidden_dim, 1, 1).cuda()
 
             optimizer_d.zero_grad(set_to_none=True)
             with torch.cuda.amp.autocast(enabled=args.amp):
-                output = discriminator(real_data.flatten(1))
+                output = discriminator(real_data)
                 d_real_loss = criterion(output, real_labels)
   
                 fake_data = generator(z)
@@ -195,11 +198,11 @@ if __name__ == '__main__':
             scaler.scale(g_loss).backward()
             scaler.step(optimizer_g)
             scaler.update()
+            
+            if i % 10 == 0:
+                save_image(fake_data.detach(), f'{args.output_dir}/fake.png', normalize=True)
 
         train_loader.sampler.set_epoch(epoch + 1)
-
-        torchvision.utils.save_image(fake_data.detach().reshape(
-            batch_size, 1, 28, 28), f'{args.output_dir}/fake.png', normalize=True)
 
         logger.info(f'#{epoch:>3}/{args.epochs}] gloss={g_loss.item():.3f}, dloss={(d_fake_loss + d_real_loss).item():.3f}')
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

@@ -24,7 +24,7 @@ from .convmixer import *
 from .vgnet import *
 
 # GANs
-from .gan import *
+from .dcgan import *
 
 # VAEs
 from .vae import *
