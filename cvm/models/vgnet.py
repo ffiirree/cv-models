@@ -202,6 +202,7 @@ def vgnet_g_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool =
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_2_0mp-a4296c51.pth')
 def vgnet_g_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 72, 168, 376, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -210,6 +211,7 @@ def vgnet_g_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_2_0mp_se-0f8cf6d5.pth')
 def vgnet_g_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 72, 168, 376, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
