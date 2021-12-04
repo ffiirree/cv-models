@@ -61,4 +61,10 @@
 
 ### GANs
 
+- [x] `GAN` - [Generative Adversarial Networks](https://arxiv.org/abs/1406.2661), 2014
+- [x] `DCGAN` - [Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks](https://arxiv.org/abs/1511.06434), ICLR, 2016
+
 ### VAEs
+
+- [x] `VAE` - [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114), 2013
+- [ ] $\beta$-`VAE` - [beta-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework](https://openreview.net/forum?id=Sy2fzU9gl), ICLR, 2017
