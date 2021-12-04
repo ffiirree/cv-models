@@ -55,7 +55,24 @@
 - [x] `ResMLP` - [ResMLP: Feedforward networks for image classification with data-efficient training](https://arxiv.org/abs/2105.03404)
 - [ ] `gMLP` - [Pay Attention to MLPs](https://arxiv.org/abs/2105.08050), 2021
 
+### Self-supervised
+
+- [ ] `MAE` - [Masked Autoencoders Are Scalable Vision Learners](https://arxiv.org/abs/2111.06377), 2021
+
 ## Object Detection
+
+- [ ] `R-CNN` - [Rich feature hierarchies for accurate object detection and semantic segmentation](https://arxiv.org/abs/1311.2524), CVPR, 2013
+- [ ] `Fast R-CNN` - [Fast R-CNN](https://arxiv.org/abs/1504.08083), ICCV, 2015
+- [ ] `Faster R-CNN` - [Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks](https://arxiv.org/abs/1506.01497), 2015
+- [ ] `YOLOv1` - [You Only Look Once: Unified, Real-Time Object Detection](https://arxiv.org/abs/1506.02640), 2015
+- [ ] `SSD` - [SSD: Single Shot MultiBox Detector](https://arxiv.org/abs/1512.02325), ECCV, 2015
+
+## Semantic Segmentation
+
+- [ ] `FCN` - [Fully Convolutional Networks for Semantic Segmentation](https://arxiv.org/abs/1411.4038), CVPR, 2014
+- [ ] `FPN` - [Feature Pyramid Networks for Object Detection](https://arxiv.org/abs/1612.03144), 2016
+- [ ] `Mask R-CNN` - [Mask R-CNN](https://arxiv.org/abs/1703.06870), 2017
+- [ ] `UNet` - [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597), MICCAI, 2015
 
 ## Generative Models
 
@@ -63,8 +80,11 @@
 
 - [x] `GAN` - [Generative Adversarial Networks](https://arxiv.org/abs/1406.2661), 2014
 - [x] `DCGAN` - [Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks](https://arxiv.org/abs/1511.06434), ICLR, 2016
+- [ ] `WGAN` - [Wasserstein GAN](https://arxiv.org/abs/1701.07875), 2017
 
 ### VAEs
 
 - [x] `VAE` - [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114), 2013
-- [ ] $\beta$-`VAE` - [beta-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework](https://openreview.net/forum?id=Sy2fzU9gl), ICLR, 2017
+- [ ] `β-VAE` - [beta-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework](https://openreview.net/forum?id=Sy2fzU9gl), ICLR, 2017
+
+### Flow-based
