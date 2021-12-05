@@ -12,7 +12,7 @@ def parse_args():
                         help='path to the ImageNet dataset.')
     parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
                         help='path to the ImageNet dataset.')
-    parser.add_argument('--model', type=str, default='mobilenet_v1_x1_0', choices=list_models(),
+    parser.add_argument('--model', '-m', type=str, default='mobilenet_v1_x1_0', choices=list_models(),
                         help='type of model to use. (default: mobilenet_v1_x1_0)')
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
