@@ -28,3 +28,5 @@ from .dcgan import *
 
 # VAEs
 from .vae import *
+
+from .unet import *
