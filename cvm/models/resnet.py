@@ -12,7 +12,7 @@ Tsung-Yi Lin, Jonathon Shlens, Barret Zoph
 import torch
 import torch.nn as nn
 from .core import blocks, export, load_from_local_or_url, config
-from typing import Any, List
+from typing import Any, List, OrderedDict
 
 
 @export
@@ -25,7 +25,7 @@ class ResNet(nn.Module):
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
-        dropout_rate: float = None,
+        dropout_rate: float = 0.0,
         drop_path_rate: float = None,
         block: nn.Module = blocks.ResBasicBlockV1,
         thumbnail: bool = False,
@@ -51,7 +51,7 @@ class ResNet(nn.Module):
             self.version = 2
 
         if use_resnetc_stem:
-            features = [
+            stem = [
                 blocks.Conv2d3x3(in_channels, 64, stride=FRONT_S),
                 *blocks.norm_activation(64),
                 blocks.Conv2d3x3(64, 64),
@@ -59,34 +59,42 @@ class ResNet(nn.Module):
                 blocks.Conv2d3x3(64, 64)
             ]
         else:
-            features = [
+            stem = [
                 nn.Conv2d(in_channels, 64, 7, FRONT_S, padding=3, bias=False)
             ]
 
         if self.version == 1 or replace_stem_max_pool:
-            features.extend(blocks.norm_activation(64))
-
+            stem.extend(blocks.norm_activation(64))
+            
+        stage1 =[]
         if replace_stem_max_pool:
-            features.append(blocks.Conv2d3x3(64, 64, stride=FRONT_S))
+            stage1.append(blocks.Conv2d3x3(64, 64, stride=FRONT_S))
             if self.version == 1:
-                features.extend(blocks.norm_activation(64))
+                stage1.extend(blocks.norm_activation(64))
         elif not thumbnail:
-            features.append(nn.MaxPool2d(3, stride=2, padding=1))
+            stage1.append(nn.MaxPool2d(3, stride=2, padding=1))
 
-        features.append(self.make_layers(64 // block.expansion, 64, 1, layers[0], 2))
-        features.append(self.make_layers(64, 128, 2, layers[1], 3))
-        features.append(self.make_layers(128, 256, 2, layers[2], 4))
-        features.append(self.make_layers(256, 512, 2, layers[3], 5))
+        stage1.extend(self.make_layers(64 // block.expansion, 64, 1, layers[0], 2))
+        stage2 = self.make_layers(64, 128, 2, layers[1], 3)
+        stage3 = self.make_layers(128, 256, 2, layers[2], 4)
+        stage4 = self.make_layers(256, 512, 2, layers[3], 5)
 
         if self.version == 2:
-            features.extend(blocks.norm_activation(512 * self.block.expansion))
+            stage4.extend(blocks.norm_activation(512 * self.block.expansion))
 
-        self.features = nn.Sequential(*features)
+        self.features = nn.Sequential(OrderedDict([
+            ('stem', blocks.Stage(*stem)),
+            ('stage1', blocks.Stage(*stage1)),
+            ('stage2', blocks.Stage(*stage2)),
+            ('stage3', blocks.Stage(*stage3)),
+            ('stage4', blocks.Stage(*stage4)),
+        ]))
+
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.classifier = nn.Sequential()
-        if dropout_rate is not None:
-            self.classifier.add_module('do', nn.Dropout(dropout_rate))
-        self.classifier.add_module('fc', nn.Linear(512 * block.expansion, num_classes))
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout_rate, inplace=True),
+            nn.Linear(512 * block.expansion, num_classes)
+        )
 
         self.reset_parameters(zero_init_last_bn=zero_init_last_bn)
 
@@ -139,7 +147,7 @@ class ResNet(nn.Module):
             )
             inp = oup * self.block.expansion
             stride = 1
-        return blocks.Stage(*layers)
+        return layers
 
 
 def _resnet(

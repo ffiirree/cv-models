@@ -121,7 +121,8 @@ class GhostNet(nn.Module):
         multiplier: float = 1.0,
         dropout_rate: float = 0.2,
         cfgs: List[list] = [],
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ) -> None:
         super().__init__()
 

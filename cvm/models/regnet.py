@@ -99,7 +99,7 @@ class RegStage(nn.Sequential):
 
         for i in range(depth):
             self.add_module(
-                f'block{stage_index}-{i}',
+                f'stage{stage_index}-{i}',
                 ResBottleneckBlock(
                     in_width if i == 0 else out_width,
                     out_width,
@@ -158,7 +158,7 @@ class RegNet(nn.Module):
 
         for i in range(num_stages):
             self.features.add_module(
-                f'stage{i}',
+                f'stage{i+1}',
                 RegStage(
                     stage_widths[i],
                     stage_widths[i+1],
@@ -211,7 +211,6 @@ def regnet_x_200mf(pretrained: bool = False, pth: str = None, progress: bool = T
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1-regnets/regnet_x_400mf-903d111f.pth')
 def regnet_x_400mf(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
     return _regnet(22, 24, 24.48, 2.54, 1.0, 16, None, pretrained, pth, progress, **kwargs)
 
