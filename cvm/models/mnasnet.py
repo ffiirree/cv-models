@@ -1,4 +1,3 @@
-from functools import partial
 import torch
 import torch.nn as nn
 from .core import blocks, export, load_from_local_or_url
@@ -10,22 +9,14 @@ _BN_MOMENTUM = 0.01
 
 
 @export
-def mnasnet_a1(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    model = MnasNet(**kwargs)
-
-    if pretrained:
-        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
-    return model
-
-
-@export
 class MnasNet(nn.Module):
-    @blocks.normalizer(fn=partial(nn.BatchNorm2d, momentum=_BN_MOMENTUM))
     def __init__(
         self,
         in_channels: int = 3,
         num_classes: int = 1000,
-        thumbnail: bool = False
+        dropout_rate: float = 0.2,
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -38,7 +29,7 @@ class MnasNet(nn.Module):
         k = [3, 3, 5, 3, 3, 5, 3]
         se = [0, 0, 0.25, 0, 0.25, 0.25, 0]
 
-        features = [blocks.Conv2dBlock(in_channels, c[0], kernel_size=3, stride=FRONT_S)]
+        features = [blocks.Conv2dBlock(in_channels, c[0], 3, stride=FRONT_S)]
 
         for i in range(len(t)):
             features.append(
@@ -51,7 +42,7 @@ class MnasNet(nn.Module):
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Sequential(
-            nn.Dropout(0.2),
+            nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(c[-1], num_classes)
         )
 
@@ -69,7 +60,8 @@ class MnasNet(nn.Module):
 
         for _ in range(n - 1):
             layers.append(blocks.InvertedResidualBlock(oup, oup, t, kernel_size, se_ratio=se_ratio))
-        return nn.Sequential(*layers)
+
+        return blocks.Stage(*layers)
 
     def forward(self, x):
         x = self.features(x)
@@ -77,3 +69,12 @@ class MnasNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
+
+
+@export
+def mnasnet_a1(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    model = MnasNet(**kwargs)
+
+    if pretrained:
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
+    return model

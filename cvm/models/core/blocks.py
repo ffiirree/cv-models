@@ -15,15 +15,20 @@ _SE_DIVISOR: int = 8
 _SE_USE_NORM: bool = False
 
 
+class Nil:
+    ...
+
+
 @contextmanager
 def normalizer(
-    fn: nn.Module = None,
+    # _NORMALIZER can be None, Nil: _NORMALIZER->_NORMALIZER, None: _NORMALIZER->None
+    fn: nn.Module = Nil,
     position: str = None
 ):
 
     global _NORMALIZER, _NORM_POSIITON
-    
-    fn = fn or _NORMALIZER
+
+    fn = _NORMALIZER if fn == Nil else fn
     position = position or _NORM_POSIITON
 
     _pre_normalizer = _NORMALIZER
@@ -893,53 +898,6 @@ class FusedInvertedResidualBlock(nn.Module):
             return self.branch1(x)
 
 
-class SplitIdentityDepthWiseConv2dLayer(nn.Module):
-    def __init__(self, channels):
-        super().__init__()
-
-        self.channels = channels // 2
-
-        self.split = ChannelChunk(2)
-        self.branch1 = nn.Identity()
-        self.branch2 = DepthwiseConv2d(self.channels, self.channels)
-        self.combine = Combine('CONCAT')
-
-    def forward(self, x):
-        x1, x2 = self.split(x)
-        out = self.combine([self.branch1(x1), self.branch2(x2)])
-        return out
-
-
-class MuxDepthwiseConv2d(nn.Module):
-    def __init__(
-        self,
-        channels,
-        kernel_size: int = 3,
-        stride: int = 1,
-        padding: int = 1,
-        mux_layer: nn.Module = None
-    ):
-        super().__init__()
-
-        self.channels = channels
-        self.mux_layer = mux_layer
-
-        if self.mux_layer is not None:
-            self.channels = channels // 2
-
-        self.layer = DepthwiseConv2d(
-            self.channels, self.channels, kernel_size, stride, padding)
-
-    def forward(self, x):
-        if self.mux_layer is not None:
-            x1, x2 = torch.chunk(x, 2, dim=1)
-            x1 = self.layer(x1)
-            x2 = self.mux_layer(x2)
-            return torch.cat([x1, x2], dim=1)
-        else:
-            return self.layer(x)
-
-
 class SharedDepthwiseConv2d(nn.Module):
     def __init__(
         self,
@@ -1063,3 +1021,200 @@ class EncoderBlock(nn.Module):
         x = x + self.msa(x)
         x = x + self.mlp(x)
         return x
+
+
+class Filters32(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        stride: int = 1,
+        dilation: int = 1
+    ):
+        super().__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = in_channels
+        self.kernel_size = (3, 3)
+        self.padding = (1, 1)
+        self.stride = (stride, stride)
+        self.dilation = (dilation, dilation)
+        self.groups = in_channels
+        self.padding_mode = 'zeros'
+
+        sharpness = torch.tensor(
+            [[[
+                [-1, -1, -1],
+                [-1,  9, -1],
+                [-1, -1, -1]
+            ]], [[
+                [0, -1, 0],
+                [-1, 5, -1],
+                [0, -1, 0]
+            ]], [[
+                [-1, 0, -1],
+                [0, 5, 0],
+                [-1, 0, -1]
+            ]]], dtype=torch.float32
+        )
+
+        edge = torch.tensor(
+            [[[
+                [-1, -1, -1],
+                [0,  0,  0],
+                [1,  1,  1]
+            ]], [[
+                [-1, 0, 1],
+                [-1, 0, 1],
+                [-1, 0, 1]
+            ]], [[
+                [-1/2, -2/2, -1/2],
+                [0, 0, 0],
+                [1/2, 2/2, 1/2]
+            ]], [[
+                [-1/2, 0, 1/2],
+                [-2/2, 0, 2/2],
+                [-1/2, 0, 1/2]
+            ]], [[
+                [-1/2, 0, 0],
+                [0, 2/2, 0],
+                [0, 0, -1/2]
+            ]], [[
+                [0, 0, -1/2],
+                [0, 2/2, 0],
+                [-1/2, 0, 0]
+            ]], [[
+                [0, -1/2, 0],
+                [0,  2/2, 0],
+                [0, -1/2, 0]
+            ]], [[
+                [0, 0, 0],
+                [-1/2,  2/2, -1/2],
+                [0, 0, 0]
+            ]], [[
+                [0, -1/2, 0],
+                [0, -1/2, 0],
+                [0, 2/2, 0]
+            ]], [[
+                [0, 2/2, 0],
+                [0, -1/2, 0],
+                [0, -1/2, 0]
+            ]], [[
+                [0, 0, 0],
+                [-1/2, -1/2, 2/2],
+                [0, 0, 0]
+            ]], [[
+                [0, 0, 0],
+                [2/2, -1/2, -1/2],
+                [0, 0, 0]
+            ]], [[
+                [-1/8, -1/8, -1/8],
+                [-1/8, 8/8, -1/8],
+                [-1/8, -1/8, -1/8]
+            ]], [[
+                [-1, 0, 1],
+                [0,  0,  0],
+                [1,  0,  -1]
+            ]]], dtype=torch.float32
+        )
+
+        embossing = torch.tensor(
+            [[[
+                [-1, -1, 0],
+                [-1, 0, 1],
+                [0, 1, 1]
+            ]], [[
+                [0, 1, 1],
+                [-1, 0, 1],
+                [-1, -1, 0]
+            ]], [[
+                [-3/3, -2/3, -1/3],
+                [-2/3, 0, 2/3],
+                [1/3, 2/3, 3/3]
+            ]], [[
+                [-1/3, -2/3, -3/3],
+                [2/3, 0, -2/3],
+                [3/3, 2/3, 1/3]
+            ]], [[
+                [0, -1, 0],
+                [-1, 0, 1],
+                [0, 1, 0]
+            ]], [[
+                [0, -1, 0],
+                [1, 0, -1],
+                [0, 1, 0]
+            ]]], dtype=torch.float32
+        )
+
+        box = torch.tensor(
+            [[[
+                [1/9, 1/9, 1/9],
+                [1/9, 1/9, 1/9],
+                [1/9, 1/9, 1/9]
+            ]], [[
+                [.0, 1/5, .0],
+                [1/5, 1/5, 1/5],
+                [.0, 1/5, .0]
+            ]], [[
+                [1/5, 0, 1/5],
+                [0, 1/5, 0],
+                [1/5, 0, 1/5]
+            ]]], dtype=torch.float32
+        )
+
+        gaussian = torch.tensor([[[
+            [0.0811, 0.1226, 0.0811],
+            [0.1226, 0.1853, 0.1226],
+            [0.0811, 0.1226, 0.0811]
+        ]], [[
+            [0.0571, 0.1248, 0.0571],
+            [0.1248, 0.2725, 0.1248],
+            [0.0571, 0.1248, 0.0571]
+        ]], [[
+            [0.0439, 0.1217, 0.0439],
+            [0.1217, 0.3377, 0.1217],
+            [0.0439, 0.1217, 0.0439]
+        ]], [[
+            [0.0277, 0.1110, 0.0277],
+            [0.1110, 0.4452, 0.1110],
+            [0.0277, 0.1110, 0.0277]
+        ]]], dtype=torch.float32)
+
+        motion = torch.tensor(
+            [[[
+                [1/3, 0, 0],
+                [0, 1/3, 0],
+                [0, 0, 1/3]
+            ]], [[
+                [0, 0, 1/3],
+                [0, 1/3, 0],
+                [1/3, 0, 0]
+            ]]], dtype=torch.float32
+        )
+
+        kernels = torch.cat(
+            [sharpness, edge, embossing, box, gaussian, motion], dim=0)
+
+        self.weight = nn.Parameter(kernels.repeat(
+            self.in_channels // 32, 1, 1, 1), False)
+        self.register_parameter('bias', None)
+
+        self.weight.requires_grad_(False)
+
+    def forward(self, x):
+        return F.conv2d(x, self.weight, self.bias, self.stride, self.padding,
+                        self.dilation, self.groups)
+
+    def extra_repr(self):
+        s = ('{in_channels}, {out_channels}, kernel_size={kernel_size}'
+             ', stride={stride}')
+        if self.padding != (0,) * len(self.padding):
+            s += ', padding={padding}'
+        if self.dilation != (1,) * len(self.dilation):
+            s += ', dilation={dilation}'
+        if self.groups != 1:
+            s += ', groups={groups}'
+        if self.bias is None:
+            s += ', bias=False'
+        if self.padding_mode != 'zeros':
+            s += ', padding_mode={padding_mode}'
+        return s.format(**self.__dict__)

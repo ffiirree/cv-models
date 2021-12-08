@@ -38,7 +38,6 @@ class EfficientNet(nn.Module):
     n = [1, 2, 2, 3, 3, 4, 1]  # repeats
     k = [3, 3, 5, 3, 5, 5, 3]  # kernel_size
 
-    # @blocks.normalizer(partial(nn.BatchNorm2d, momentum=_BN_MOMENTUM, eps=_BN_EPSILON))
     @blocks.nonlinear(nn.SiLU)
     def __init__(
         self,

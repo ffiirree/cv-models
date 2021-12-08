@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from .core import blocks, export, load_from_local_or_url
-from typing import Any, List
+from typing import Any, List, OrderedDict
 
 
 @export
@@ -20,18 +20,28 @@ class VGGNet(nn.Module):
         maxpool1 = nn.Identity() if thumbnail else nn.MaxPool2d(2, stride=2)
         maxpool2 = nn.Identity() if thumbnail else nn.MaxPool2d(2, stride=2)
 
-        self.features = nn.Sequential(
-            *self.make_layers(in_channels, 64, layers[0]),
-            maxpool1,
-            *self.make_layers(64, 128, layers[1]),
-            maxpool2,
-            *self.make_layers(128, 256, layers[2]),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            *self.make_layers(256, 512, layers[3]),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            *self.make_layers(512, 512, layers[4]),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
+        self.features = nn.Sequential(OrderedDict([
+            ('stem', blocks.Stage(
+                *self.make_layers(in_channels, 64, layers[0]),
+                maxpool1
+            )),
+            ('stage1', blocks.Stage(
+                *self.make_layers(64, 128, layers[1]),
+                maxpool2
+            )),
+            ('stage2', blocks.Stage(
+                *self.make_layers(128, 256, layers[2]),
+                nn.MaxPool2d(kernel_size=2, stride=2)
+            )),
+            ('stage3', blocks.Stage(
+                *self.make_layers(256, 512, layers[3]),
+                nn.MaxPool2d(kernel_size=2, stride=2)
+            )),
+            ('stage4', blocks.Stage(
+                *self.make_layers(512, 512, layers[4]),
+                nn.MaxPool2d(kernel_size=2, stride=2)
+            ))
+        ]))
 
         self.avg = nn.AdaptiveAvgPool2d((7, 7))
 

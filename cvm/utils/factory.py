@@ -10,6 +10,7 @@ import torchvision.transforms as T
 import cvm
 from .utils import group_params, list_datasets, get_world_size
 from cvm.dataset.constants import *
+from cvm.models.core import blocks
 from functools import partial
 
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -158,10 +159,10 @@ def create_model(
         )
     else:
         if 'bn_eps' in kwargs and kwargs['bn_eps'] and 'bn_momentum' in kwargs and kwargs['bn_momentum']:
-            with cvm.models.core.blocks.normalizer(partial(nn.BatchNorm2d, eps=kwargs['bn_eps'], momentum=kwargs['bn_momentum'])):
-                model = cvm.models.__dict__[name](
-                    pretrained=pretrained, **kwargs)
-        model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+            with blocks.normalizer(partial(nn.BatchNorm2d, eps=kwargs['bn_eps'], momentum=kwargs['bn_momentum'])):
+                model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+        else:
+            model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
 
     if cuda:
         model.cuda()

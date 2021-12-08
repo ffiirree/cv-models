@@ -20,16 +20,14 @@ class ShuffleBlockV2(nn.Module):
         self.branch1 = nn.Identity()
         if self.stride != 1:
             self.branch1 = nn.Sequential(OrderedDict([
-                ('dwconv', blocks.DepthwiseConv2dBN(
-                    self.inp, self.inp, stride=self.stride)),
-                ('conv1x1', blocks.Conv2d1x1Block(self.inp, self.oup))
+                ('dwconv', blocks.DepthwiseConv2dBN(self.inp, self.inp, stride=self.stride)),
+                ('1x1', blocks.Conv2d1x1Block(self.inp, self.oup))
             ]))
 
         self.branch2 = nn.Sequential(OrderedDict([
-            ('conv1x1#1', blocks.Conv2d1x1Block(self.inp, self.oup)),
-            ('dwconv', blocks.DepthwiseConv2dBN(
-                self.oup, self.oup, stride=self.stride)),
-            ('conv1x1#2', blocks.Conv2d1x1Block(self.oup, self.oup))
+            ('1x1-1', blocks.Conv2d1x1Block(self.inp, self.oup)),
+            ('dwconv', blocks.DepthwiseConv2dBN(self.oup, self.oup, stride=self.stride)),
+            ('1x1-2', blocks.Conv2d1x1Block(self.oup, self.oup))
         ]))
 
         self.combine = blocks.Combine('CONCAT')
@@ -63,19 +61,21 @@ class ShuffleNetV2(nn.Module):
 
         FRONT_S = 1 if thumbnail else 2
 
-        self.conv1 = blocks.Conv2dBlock(in_channels, channels[0], 3, FRONT_S)
-        self.down1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        if thumbnail:
-            self.down1 = nn.Identity()
+        self.features = nn.Sequential(OrderedDict([
+            ('stem', blocks.Conv2dBlock(in_channels, channels[0], 3, FRONT_S)),
+            ('stage1', nn.MaxPool2d(3, stride=2, padding=1) if not thumbnail else nn.Identity()),
+            ('stage2', self.make_layers(repeats[0], channels[0], channels[1])),
+            ('stage3', self.make_layers(repeats[1], channels[1], channels[2])),
+            ('stage4', self.make_layers(repeats[2], channels[2], channels[3])),
+        ]))
 
-        self.stage2 = self.make_layers(repeats[0], channels[0], channels[1])
-        self.stage3 = self.make_layers(repeats[1], channels[1], channels[2])
-        self.stage4 = self.make_layers(repeats[2], channels[2], channels[3])
-
-        self.conv5 = blocks.Conv2d1x1Block(channels[3], channels[4])
+        self.features.stage4.add_module(
+            str(len(self.features.stage4)), 
+            blocks.Conv2d1x1Block(channels[3], channels[4])
+        )
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(channels[4], num_classes)
+        self.classifier = nn.Linear(channels[4], num_classes)
 
     @staticmethod
     def make_layers(repeat, inp, oup):
@@ -83,18 +83,13 @@ class ShuffleNetV2(nn.Module):
         for _ in range(repeat - 1):
             layers.append(ShuffleBlockV2(oup, oup))
 
-        return nn.Sequential(*layers)
+        return blocks.Stage(*layers)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.down1(x)
-        x = self.stage2(x)
-        x = self.stage3(x)
-        x = self.stage4(x)
-        x = self.conv5(x)
+        x = self.features(x)
         x = self.avg(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x
 
 
