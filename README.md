@@ -69,10 +69,10 @@
 
 ## Semantic Segmentation
 
-- [ ] `FCN` - [Fully Convolutional Networks for Semantic Segmentation](https://arxiv.org/abs/1411.4038), CVPR, 2014
+- [x] `FCN` - [Fully Convolutional Networks for Semantic Segmentation](https://arxiv.org/abs/1411.4038), CVPR, 2014
 - [ ] `FPN` - [Feature Pyramid Networks for Object Detection](https://arxiv.org/abs/1612.03144), 2016
 - [ ] `Mask R-CNN` - [Mask R-CNN](https://arxiv.org/abs/1703.06870), 2017
-- [ ] `UNet` - [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597), MICCAI, 2015
+- [x] `UNet` - [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597), MICCAI, 2015
 
 ## Generative Models
 
