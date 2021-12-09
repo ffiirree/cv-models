@@ -10,12 +10,25 @@ class HalfIdentityBlock(nn.Module):
         self,
         inp: int,
         g: int = 1,
-        se_ratio: float = 0.0
+        se_ratio: float = 0.0,
+        num_fixed: int = None
     ):
         super().__init__()
 
-        self.half3x3 = blocks.Conv2d3x3(
-            inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
+        if not num_fixed:
+            self.half3x3 = blocks.Conv2d3x3(inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
+        elif num_fixed == 32:
+            self.half3x3 = blocks.Filters32(inp // 2)
+        elif num_fixed == 16:
+            self.half3x3 = blocks.Filters16(inp // 2)
+        elif num_fixed == 8:
+            self.half3x3 = nn.Sequential(
+                blocks.Filters8(inp // 2),
+                nn.BatchNorm2d(inp // 2)
+            )
+        else:
+            ValueError(f'')
+        
         self.combine = blocks.Combine('CONCAT')
 
         self.conv1x1 = blocks.PointwiseBlock(inp, inp // 2)
@@ -87,6 +100,7 @@ class VGNet(nn.Module):
         layers: List[int] = None,
         group_widths: List[int] = [1, 1, 1, 1],
         se_ratio: float = 0.0,
+        num_fixed: int = None,
         thumbnail: bool = False,
         **kwargs: Any
     ):
@@ -112,11 +126,13 @@ class VGNet(nn.Module):
                     downsamplings[i],
                     layers[i],
                     group_widths[i],
-                    se_ratio
+                    se_ratio,
+                    num_fixed
                 )
             )
 
         self.features.add_module('last', nn.Sequential(
+            # blocks.DepthwiseConv2d(channels[-1], channels[-1]),
             blocks.SharedDepthwiseConv2d(channels[-1], t=8),
             blocks.PointwiseBlock(channels[-1], channels[-1]),
         ))
@@ -124,12 +140,12 @@ class VGNet(nn.Module):
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(channels[-1], num_classes)
 
-    def make_layers(self, inp, oup, s, m, n, g, se_ratio):
+    def make_layers(self, inp, oup, s, m, n, g, se_ratio, num_fixed):
         layers = [
             DownsamplingBlock(inp, oup, stride=s, method=m, se_ratio=se_ratio)
         ]
         for _ in range(n - 1):
-            layers.append(HalfIdentityBlock(oup, g, se_ratio))
+            layers.append(HalfIdentityBlock(oup, g, se_ratio, num_fixed))
 
         layers.append(blocks.Combine('CONCAT'))
         return blocks.Stage(*layers)
@@ -221,18 +237,20 @@ def vgnet_g_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool =
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_2_5mp-2e69acdd.pth')
 def vgnet_g_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    kwargs['channels'] = [32, 72, 184, 392, 512]
+    kwargs['channels'] = [32, 80, 192, 400, 544]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
-    kwargs['layers'] = [3, 7, 16, 3]
+    kwargs['layers'] = [3, 6, 16, 2]
     return _vgnet(pretrained, pth, progress, **kwargs)
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_2_5mp_se-49f75972.pth')
 def vgnet_g_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    kwargs['channels'] = [32, 72, 184, 392, 512]
+    kwargs['channels'] = [32, 80, 192, 400, 544]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
-    kwargs['layers'] = [3, 7, 16, 3]
+    kwargs['layers'] = [3, 6, 16, 2]
     kwargs['se_ratio'] = 0.25
     return _vgnet(pretrained, pth, progress, **kwargs)
 
