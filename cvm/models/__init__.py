@@ -30,3 +30,5 @@ from .dcgan import *
 from .vae import *
 
 from .unet import *
+
+from .fcn import *

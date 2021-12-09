@@ -120,19 +120,37 @@ class Stage(nn.Sequential):
         super().__init__(*args)
 
 
+class Affine(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+
+        self.dim = dim
+
+        self.alpha = nn.Parameter(torch.ones(dim, 1, 1))
+        self.beta = nn.Parameter(torch.zeros(dim, 1, 1))
+
+    def forward(self, x):
+        return self.alpha * x + self.beta
+
+    def extra_repr(self):
+        return f'{self.dim}'
+
+
 class Conv2d3x3(nn.Conv2d):
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
         stride: int = 1,
-        padding: int = 1,
+        padding: int = None,
+        dilation: int = 1,
         bias: bool = False,
         groups: int = 1
     ):
+        padding = padding if padding is not None else dilation
         super().__init__(
             in_channels, out_channels, 3, stride=stride,
-            padding=padding, bias=bias, groups=groups
+            padding=padding, dilation=dilation, bias=bias, groups=groups
         )
 
 
@@ -158,16 +176,18 @@ class Conv2d3x3BN(nn.Sequential):
         in_channels: int,
         out_channels: int,
         stride: int = 1,
-        padding: int = 1,
+        padding: int = None,
+        dilation: int = 1,
         bias: bool = False,
         groups: int = 1,
         normalizer_fn: nn.Module = None
     ):
         normalizer_fn = normalizer_fn or _NORMALIZER
+        padding = padding if padding is not None else dilation
 
         super().__init__(
             Conv2d3x3(in_channels, out_channels, stride=stride,
-                      padding=padding, bias=bias, groups=groups)
+                      padding=padding, dilation=dilation, bias=bias, groups=groups)
         )
         if normalizer_fn:
             self.add_module(str(self.__len__()), normalizer_fn(out_channels))
@@ -221,16 +241,20 @@ class Conv2dBlock(nn.Sequential):
         out_channels,
         kernel_size: int = 3,
         stride: int = 1,
-        padding: int = 1,
+        padding: int = None,
+        dilation: int = 1,
         bias: bool = False,
         groups: int = 1,
         normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None,
         norm_position: str = None,
     ):
+        if padding is None:
+            padding = ((kernel_size - 1) * (dilation - 1) + kernel_size) // 2
+
         super().__init__(
             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
-                      bias=bias, stride=stride, padding=padding, groups=groups),
+                      bias=bias, stride=stride, padding=padding, dilation=dilation, groups=groups),
             *norm_activation(out_channels, normalizer_fn, activation_fn, norm_position)
         )
 
@@ -243,6 +267,7 @@ class ResBasicBlockV1(nn.Module):
         inp,
         oup,
         stride: int = 1,
+        dilation: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
@@ -263,10 +288,12 @@ class ResBasicBlockV1(nn.Module):
             raise ValueError('width_per_group are not supported!')
 
         self.branch1 = nn.Sequential(OrderedDict([
-            ('conv1', Conv2d3x3(inp, oup, stride=stride, groups=groups)),
+            ('conv1', Conv2d3x3(
+                inp, oup, stride=stride, dilation=dilation, groups=groups
+            )),
             ('norm1', normalizer_fn(oup)),
             ('relu1', activation_fn()),
-            ('conv2', Conv2d3x3(oup, oup)),
+            ('conv2', Conv2d3x3(oup, oup, dilation=dilation)),
             ('norm2', normalizer_fn(oup))
         ]))
 
@@ -311,6 +338,7 @@ class BottleneckV1(nn.Module):
         inp: int,
         oup: int,
         stride: int = 1,
+        dilation: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
@@ -333,7 +361,9 @@ class BottleneckV1(nn.Module):
             ('conv1', Conv2d1x1(inp, width)),
             ('norm1', normalizer_fn(width)),
             ('relu1', activation_fn()),
-            ('conv2', Conv2d3x3(width, width, stride=stride, groups=groups)),
+            ('conv2', Conv2d3x3(
+                width, width, stride=stride, dilation=dilation, groups=groups
+            )),
             ('norm2', normalizer_fn(width)),
             ('relu2', activation_fn()),
             ('conv3', Conv2d1x1(width, oup * self.expansion)),
@@ -382,6 +412,7 @@ class ResBasicBlockV2(nn.Module):
         inp,
         oup,
         stride: int = 1,
+        dilation: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
@@ -404,7 +435,9 @@ class ResBasicBlockV2(nn.Module):
         self.branch1 = nn.Sequential(OrderedDict([
             ('norm1', normalizer_fn(inp)),
             ('relu1', activation_fn()),
-            ('conv1', Conv2d3x3(inp, oup, stride=stride, groups=groups)),
+            ('conv1', Conv2d3x3(
+                inp, oup, stride=stride, dilation=dilation, groups=groups
+            )),
             ('norm2', normalizer_fn(oup)),
             ('relu2', activation_fn()),
             ('conv2', Conv2d3x3(oup, oup))
@@ -446,6 +479,7 @@ class BottleneckV2(nn.Module):
         inp: int,
         oup: int,
         stride: int = 1,
+        dilation: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
         se_ratio: float = None,
@@ -470,7 +504,9 @@ class BottleneckV2(nn.Module):
             ('conv1', Conv2d1x1(inp, width)),
             ('norm2', normalizer_fn(width)),
             ('relu2', activation_fn()),
-            ('conv2', Conv2d3x3(width, width, stride=stride, groups=groups)),
+            ('conv2', Conv2d3x3(
+                width, width, stride=stride, dilation=dilation, groups=groups
+            )),
             ('norm3', normalizer_fn(width)),
             ('relu3', activation_fn()),
             ('conv3', Conv2d1x1(width, oup * self.expansion))
@@ -526,11 +562,16 @@ class DepthwiseConv2d(nn.Conv2d):
         oup,
         kernel_size: int = 3,
         stride: int = 1,
-        padding: int = 1,
+        padding: int = None,
+        dilation: int = 1,
         bias: bool = False,
     ):
+        if padding is None:
+            padding = ((kernel_size - 1) * (dilation - 1) + kernel_size) // 2
+
         super().__init__(
-            inp, oup, kernel_size, stride=stride, padding=padding, bias=bias, groups=inp
+            inp, oup, kernel_size, stride=stride,
+            padding=padding, dilation=dilation, bias=bias, groups=inp
         )
 
 
@@ -553,14 +594,15 @@ class DepthwiseConv2dBN(nn.Sequential):
         oup,
         kernel_size: int = 3,
         stride: int = 1,
-        padding: int = 1,
+        padding: int = None,
+        dilation: int = 1,
         normalizer_fn: nn.Module = None
     ):
         normalizer_fn = normalizer_fn or _NORMALIZER
 
         super().__init__(
-            DepthwiseConv2d(inp, oup, kernel_size,
-                            stride=stride, padding=padding),
+            DepthwiseConv2d(inp, oup, kernel_size, stride=stride,
+                            padding=padding, dilation=dilation),
             normalizer_fn(oup)
         )
 
@@ -587,13 +629,15 @@ class DepthwiseBlock(nn.Sequential):
         oup,
         kernel_size: int = 3,
         stride: int = 1,
-        padding: int = 1,
+        padding: int = None,
+        dilation: int = 1,
         normalizer_fn: nn.Module = None,
         activation_fn: nn.Module = None,
         norm_position: str = None
     ):
         super().__init__(
-            DepthwiseConv2d(inp, oup, kernel_size, stride, padding=padding),
+            DepthwiseConv2d(inp, oup, kernel_size, stride,
+                            padding=padding, dilation=dilation),
             *norm_activation(oup, normalizer_fn, activation_fn, norm_position)
         )
 
@@ -783,6 +827,7 @@ class InvertedResidualBlock(nn.Module):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = None,
+        dilation: int = 1,
         se_ratio: float = None,
         se_ind: bool = False,
         survival_prob: float = None,
@@ -796,7 +841,6 @@ class InvertedResidualBlock(nn.Module):
         self.planes = int(self.inp * t)
         self.oup = oup
         self.stride = stride
-        self.padding = padding if padding is not None else (kernel_size // 2)
         self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
         self.se_ratio = se_ratio if se_ind or se_ratio is None else (
             se_ratio / t)
@@ -812,11 +856,11 @@ class InvertedResidualBlock(nn.Module):
                 inp, self.planes, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
 
         if dw_se_act is None:
-            layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                         normalizer_fn=normalizer_fn, activation_fn=activation_fn))
+            layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride,
+                          padding=padding, dilation=dilation, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
         else:
-            layers.append(DepthwiseConv2dBN(self.planes, self.planes, kernel_size, stride=self.stride, padding=self.padding,
-                                            normalizer_fn=normalizer_fn))
+            layers.append(DepthwiseConv2dBN(self.planes, self.planes, kernel_size, stride=self.stride, padding=padding,
+                                            dilation=dilation, normalizer_fn=normalizer_fn))
 
         if self.has_se:
             layers.append(SEBlock(self.planes, self.se_ratio))

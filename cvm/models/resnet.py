@@ -33,9 +33,14 @@ class ResNet(nn.Module):
         use_resnetc_stem: bool = False,
         use_resnetd_shortcut: bool = False,
         zero_init_last_bn: bool = True,
+        dilations: List[int] = None,
         **kwargs: Any
     ):
         super().__init__()
+
+        if dilations is None:
+            dilations = [1, 1, 1, 1]
+        assert len(dilations) >= 4, ''
 
         FRONT_S = 1 if thumbnail else 2
 
@@ -65,8 +70,8 @@ class ResNet(nn.Module):
 
         if self.version == 1 or replace_stem_max_pool:
             stem.extend(blocks.norm_activation(64))
-            
-        stage1 =[]
+
+        stage1 = []
         if replace_stem_max_pool:
             stage1.append(blocks.Conv2d3x3(64, 64, stride=FRONT_S))
             if self.version == 1:
@@ -74,10 +79,10 @@ class ResNet(nn.Module):
         elif not thumbnail:
             stage1.append(nn.MaxPool2d(3, stride=2, padding=1))
 
-        stage1.extend(self.make_layers(64 // block.expansion, 64, 1, layers[0], 2))
-        stage2 = self.make_layers(64, 128, 2, layers[1], 3)
-        stage3 = self.make_layers(128, 256, 2, layers[2], 4)
-        stage4 = self.make_layers(256, 512, 2, layers[3], 5)
+        stage1.extend(self.make_layers(64 // block.expansion, 64, 1, layers[0], 2, dilations[0]))
+        stage2 = self.make_layers(64, 128, 2, layers[1], 3, dilations[1])
+        stage3 = self.make_layers(128, 256, 2, layers[2], 4, dilations[2])
+        stage4 = self.make_layers(256, 512, 2, layers[3], 5, dilations[3])
 
         if self.version == 2:
             stage4.extend(blocks.norm_activation(512 * self.block.expansion))
@@ -129,7 +134,7 @@ class ResNet(nn.Module):
         else:
             return None
 
-    def make_layers(self, inp, oup, stride, n, block_num):
+    def make_layers(self, inp, oup, stride, n, block_num, dilation):
         layers = []
         inp = inp * self.block.expansion
         for _ in range(n):
@@ -137,12 +142,13 @@ class ResNet(nn.Module):
                 self.block(
                     inp,
                     oup,
-                    stride=stride,
+                    stride=stride if dilation == 1 else 1,
                     groups=self.groups,
                     width_per_group=self.width_per_group,
                     se_ratio=self.ratio,
                     drop_path_rate=self.get_drop_path_rate(block_num),
-                    use_resnetd_shortcut=self.use_resnetd_shortcut
+                    use_resnetd_shortcut=self.use_resnetd_shortcut,
+                    dilation=max(1, (dilation//stride))
                 )
             )
             inp = oup * self.block.expansion
@@ -167,7 +173,7 @@ def _resnet(
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-resnets/resnet18_v1-cd762dac.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-resnets/resnet18_v1-9f8d6382.pth')
 def resnet18_v1(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _resnet([2, 2, 2, 2], blocks.ResBasicBlockV1, None, pretrained, pth, progress, **kwargs)
 
