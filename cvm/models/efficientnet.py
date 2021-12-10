@@ -1,3 +1,4 @@
+from functools import partial
 import math
 import torch
 import torch.nn as nn
@@ -31,14 +32,13 @@ def efficientnet_params(model_name):
 @export
 class EfficientNet(nn.Module):
 
-    activation_layer = nn.SiLU
-
     t = [1, 6, 6, 6, 6, 6, 6]  # expand_factor
     c = [32, 16, 24, 40, 80, 112, 192, 320, 1280]  # channels
     n = [1, 2, 2, 3, 3, 4, 1]  # repeats
     k = [3, 3, 5, 3, 5, 5, 3]  # kernel_size
 
-    @blocks.nonlinear(nn.SiLU)
+    @blocks.se(partial(nn.SiLU, inplace=True))
+    @blocks.nonlinear(partial(nn.SiLU, inplace=True))
     def __init__(
         self,
         in_channels: int = 3,
@@ -47,7 +47,8 @@ class EfficientNet(nn.Module):
         depth_coefficient: float = 1,
         dropout_rate: float = 0.2,
         drop_path_rate: float = 0.2,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -147,10 +148,10 @@ class EfficientNet(nn.Module):
 
 def _effnet(arch, pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     args = efficientnet_params(arch)
+    kwargs['dropout_rate'] = kwargs.get('dropout_rate', args[3])
     model = EfficientNet(
         width_coefficient=args[0],
         depth_coefficient=args[1],
-        dropout_rate=args[3],
         **kwargs
     )
 

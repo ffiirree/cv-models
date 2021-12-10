@@ -1,3 +1,4 @@
+from functools import partial
 import torch
 import torch.nn as nn
 from .core import blocks, export, load_from_local_or_url
@@ -40,8 +41,8 @@ efficientnetv2_params = {
 
 @export
 class EfficientNetV2(nn.Module):
-    # @blocks.normalizer(partial(nn.BatchNorm2d, momentum=_BN_MOMENTUM, eps=_BN_EPSILON))
-    @blocks.nonlinear(nn.SiLU)
+    @blocks.se(partial(nn.SiLU, inplace=True))
+    @blocks.nonlinear(partial(nn.SiLU, inplace=True))
     def __init__(
         self,
         in_channels: int = 3,
@@ -54,7 +55,8 @@ class EfficientNetV2(nn.Module):
         layers: List[int] = [2, 4, 5, 6, 9, 15],
         strides: List[int] = [1, 2, 2, 2, 1, 2],
         se_ratio: List[float] = [0, 0, 0, 0.25, 0.25, 0.25],
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -126,8 +128,8 @@ class EfficientNetV2(nn.Module):
 
 @export
 def efficientnet_v2_s(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    kwargs['dropout_rate'] = kwargs.get('dropout_rate', 0.2)
     model = EfficientNetV2(
-        dropout_rate=0.2,
         block_type=[0, 0, 0, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6],
         filters=[24, 24, 48, 64, 128, 160, 256, 1280],
@@ -145,8 +147,8 @@ def efficientnet_v2_s(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 @export
 def efficientnet_v2_m(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    kwargs['dropout_rate'] = kwargs.get('dropout_rate', 0.3)
     model = EfficientNetV2(
-        dropout_rate=0.3,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
         filters=[24, 24, 48, 80, 160, 176, 304, 512, 1280],
@@ -164,8 +166,8 @@ def efficientnet_v2_m(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 @export
 def efficientnet_v2_l(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    kwargs['dropout_rate'] = kwargs.get('dropout_rate', 0.3)
     model = EfficientNetV2(
-        dropout_rate=0.3,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
         filters=[32, 32, 64, 96, 192, 224, 384, 640, 1280],
@@ -183,8 +185,8 @@ def efficientnet_v2_l(pretrained: bool = False, pth: str = None, **kwargs: Any):
 
 @export
 def efficientnet_v2_xl(pretrained: bool = False, pth: str = None, **kwargs: Any):
+    kwargs['dropout_rate'] = kwargs.get('dropout_rate', 0.4)
     model = EfficientNetV2(
-        dropout_rate=0.4,
         block_type=[0, 0, 0, 1, 1, 1, 1],
         expand_ratio=[1, 4, 4, 4, 6, 6, 6],
         filters=[32, 32, 64, 96, 192, 256, 512, 640, 1280],

@@ -42,7 +42,8 @@ class ReXNet(nn.Module):
         num_classes: int = 1000,
         width_multiplier: float = 1.0,
         dropout_rate: float = 0.2,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 

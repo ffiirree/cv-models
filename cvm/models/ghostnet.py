@@ -38,22 +38,22 @@ class GhostModule(nn.Module):
     def forward(self, x):
         x1 = self.primary_conv(x)
         x2 = self.cheap_operation(x1)
-        out = torch.cat([x1,x2], dim=1)
-        return out[:,:self.oup,:,:]
+        out = torch.cat([x1, x2], dim=1)
+        return out[:, :self.oup, :, :]
 
 
 class GhostBottleneck(nn.Module):
     """ Ghost bottleneck w/ optional SE"""
 
     def __init__(
-            self,
-            in_chs,
-            mid_chs,
-            out_chs,
-            dw_kernel_size=3,
-            stride=1,
-            act_layer=nn.ReLU,
-            se_ratio=0.
+        self,
+        in_chs,
+        mid_chs,
+        out_chs,
+        dw_kernel_size: int = 3,
+        stride: int = 1,
+        act_layer: nn.Module = nn.ReLU,
+        se_ratio: float = 0.
     ):
         super(GhostBottleneck, self).__init__()
         has_se = se_ratio is not None and se_ratio > 0.
@@ -114,6 +114,7 @@ class GhostBottleneck(nn.Module):
 
 @export
 class GhostNet(nn.Module):
+    @blocks.se(gating_fn=nn.Hardsigmoid)
     def __init__(
         self,
         in_channels: int = 3,
@@ -135,7 +136,9 @@ class GhostNet(nn.Module):
             _layers = []
             for k, t, c, se_ratio, s in cfg:
                 oup = make_divisible(c * multiplier, 4)
-                _layers.append(GhostBottleneck(inp, make_divisible(t * multiplier, 4), oup, k, s, se_ratio=se_ratio))
+                _layers.append(GhostBottleneck(
+                    inp, make_divisible(t * multiplier, 4), oup, k, s, se_ratio=se_ratio
+                ))
                 inp = oup
 
             _features.append(blocks.Stage(*_layers))
