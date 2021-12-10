@@ -1,3 +1,4 @@
+from functools import partial
 import os
 import torch
 import torch.nn as nn
@@ -11,19 +12,18 @@ class HalfIdentityBlock(nn.Module):
         inp: int,
         g: int = 1,
         se_ratio: float = 0.0,
-        num_fixed: int = None
+        fixed: int = None,
+        relu_bn: bool = False,
     ):
         super().__init__()
 
-        if not num_fixed:
+        if not fixed:
             self.half3x3 = blocks.Conv2d3x3(inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
-        elif num_fixed == 32:
-            self.half3x3 = blocks.Filters32(inp // 2)
-        elif num_fixed == 16:
-            self.half3x3 = blocks.Filters16(inp // 2)
-        elif num_fixed == 8:
+            if relu_bn:
+                self.half3x3 = blocks.Conv2dBlock(inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
+        elif fixed:
             self.half3x3 = nn.Sequential(
-                blocks.Filters8(inp // 2),
+                blocks.FixedConv2d(inp // 2),
                 nn.BatchNorm2d(inp // 2)
             )
         else:
@@ -100,7 +100,8 @@ class VGNet(nn.Module):
         layers: List[int] = None,
         group_widths: List[int] = [1, 1, 1, 1],
         se_ratio: float = 0.0,
-        num_fixed: int = None,
+        fixed: int = None,
+        relu_bn: bool = False,
         thumbnail: bool = False,
         **kwargs: Any
     ):
@@ -127,25 +128,34 @@ class VGNet(nn.Module):
                     layers[i],
                     group_widths[i],
                     se_ratio,
-                    num_fixed
+                    fixed,
+                    relu_bn
                 )
             )
 
-        self.features.add_module('last', nn.Sequential(
+        if relu_bn:
+            self.features.add_module('last', nn.Sequential(
             # blocks.DepthwiseConv2d(channels[-1], channels[-1]),
             blocks.SharedDepthwiseConv2d(channels[-1], t=8),
+            *blocks.norm_activation(channels[-1]),
             blocks.PointwiseBlock(channels[-1], channels[-1]),
         ))
+        else:
+            self.features.add_module('last', nn.Sequential(
+                # blocks.DepthwiseConv2d(channels[-1], channels[-1]),
+                blocks.SharedDepthwiseConv2d(channels[-1], t=8),
+                blocks.PointwiseBlock(channels[-1], channels[-1]),
+            ))
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(channels[-1], num_classes)
 
-    def make_layers(self, inp, oup, s, m, n, g, se_ratio, num_fixed):
+    def make_layers(self, inp, oup, s, m, n, g, se_ratio, fixed, relu_bn):
         layers = [
             DownsamplingBlock(inp, oup, stride=s, method=m, se_ratio=se_ratio)
         ]
         for _ in range(n - 1):
-            layers.append(HalfIdentityBlock(oup, g, se_ratio, num_fixed))
+            layers.append(HalfIdentityBlock(oup, g, se_ratio, fixed, relu_bn))
 
         layers.append(blocks.Combine('CONCAT'))
         return blocks.Stage(*layers)
@@ -187,6 +197,14 @@ def vgnet_g_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tr
     kwargs['layers'] = [4, 7, 13, 2]
     return _vgnet(pretrained, pth, progress, **kwargs)
 
+@export
+@blocks.nonlinear(partial(nn.SiLU, inplace=True))
+def vgnet_g_1_0mp_silu(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [28, 56, 112, 224, 368]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [4, 7, 13, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
 
 @export
 @config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_0mp_se-1b12c66e.pth')
@@ -201,6 +219,33 @@ def vgnet_g_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool =
 @export
 @config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_5mp-1eab7052.pth')
 def vgnet_g_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 64, 128, 256, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 7, 14, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_c_1_5mp-d27cd513.pth')
+def vgnet_c_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 64, 128, 256, 512]
+    kwargs['downsamplings'] = ['dwconv', 'dwconv', 'dwconv', 'dwconv']
+    kwargs['layers'] = [3, 7, 14, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+@export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_f_1_5mp-24848836.pth')
+def vgnet_f_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 64, 128, 256, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 7, 14, 2]
+    kwargs['fixed'] = True
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+@export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_5mp_silu-e3a13968.pth')
+@blocks.nonlinear(partial(nn.SiLU, inplace=True))
+def vgnet_g_1_5mp_silu(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 7, 14, 2]
