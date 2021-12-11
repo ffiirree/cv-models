@@ -147,7 +147,8 @@ class ReXNetPlain(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         dropout_rate: float = 0.2,
-        thumbnail: bool = False
+        thumbnail: bool = False,
+        **kwargs: Any
     ):
         super().__init__()
 
@@ -188,15 +189,7 @@ class ReXNetPlain(nn.Module):
 @export
 def rexnet_plain(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ReXNetPlain(**kwargs)
-
+        
     if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
-            state_dict = torch.hub.load_state_dict_from_url(
-                kwargs['url'],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model

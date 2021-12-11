@@ -669,7 +669,7 @@ class PointwiseBlock(nn.Sequential):
         )
 
 
-class SEBlock(nn.Module):
+class SEBlock(nn.Sequential):
     """Squeeze excite block
     """
 
@@ -680,8 +680,6 @@ class SEBlock(nn.Module):
         inner_activation_fn: nn.Module = None,
         gating_fn: nn.Module = None
     ):
-        super().__init__()
-
         squeezed_channels = make_divisible(int(channels * ratio), _SE_DIVISOR)
         inner_activation_fn = inner_activation_fn or _SE_INNER_NONLINEAR
         gating_fn = gating_fn or _SE_GATING_FN
@@ -696,10 +694,15 @@ class SEBlock(nn.Module):
         layers['expand'] = Conv2d1x1(squeezed_channels, channels, bias=True)
         layers['gate'] = gating_fn()
 
-        self.se = nn.Sequential(layers)
+        super().__init__(layers)
+        
+    def _forward(self, input):
+        for module in self:
+            input = module(input)
+        return input
 
     def forward(self, x):
-        return x * self.se(x)
+        return x * self._forward(x)
 
 
 class ChannelChunk(nn.Module):

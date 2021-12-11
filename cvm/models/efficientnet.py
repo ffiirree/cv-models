@@ -10,7 +10,6 @@ _BN_EPSILON = 1e-3
 _BN_MOMENTUM = 0.01
 
 
-@export
 def efficientnet_params(model_name):
     """Get efficientnet params based on model name."""
     params_dict = {

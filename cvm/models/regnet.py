@@ -247,7 +247,7 @@ def regnet_x_32gf(pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 @export
 def regnet_y_200mf(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
-    return _regnet(13, 24, 36,44, 2.49, 1.0, 8, 0.25, pretrained, pth, progress, **kwargs)
+    return _regnet(13, 24, 36.44, 2.49, 1.0, 8, 0.25, pretrained, pth, progress, **kwargs)
 
 
 @export
