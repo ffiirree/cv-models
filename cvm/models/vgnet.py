@@ -158,7 +158,7 @@ class VGNet(nn.Module):
             layers.append(HalfIdentityBlock(oup, g, se_ratio, fixed, relu_bn))
 
         layers.append(blocks.Combine('CONCAT'))
-        return blocks.Stage(*layers)
+        return blocks.Stage(layers)
 
     def forward(self, x):
         x = self.features(x)

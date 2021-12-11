@@ -171,7 +171,7 @@ class RegNet(nn.Module):
                 )
             )
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(stage_widths[-1], num_classes)
@@ -179,7 +179,7 @@ class RegNet(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x

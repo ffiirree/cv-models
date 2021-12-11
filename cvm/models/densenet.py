@@ -84,12 +84,12 @@ class DenseNet(nn.Module):
             nn.ReLU(inplace=True)
         )
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(channels[3] + 32 * layers[-1], num_classes)
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x

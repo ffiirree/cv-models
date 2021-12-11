@@ -80,7 +80,7 @@ class GhostBottleneck(nn.Module):
 
         # shortcut
         if (in_chs == out_chs and self.stride == 1):
-            self.shortcut = nn.Sequential()
+            self.shortcut = nn.Identity()
         else:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_chs, in_chs, dw_kernel_size, stride=stride,
@@ -130,25 +130,25 @@ class GhostNet(nn.Module):
         FRONT_S = 1 if thumbnail else 2
 
         inp = make_divisible(16 * multiplier, 4)
-        _features = [blocks.Conv2dBlock(in_channels, inp, stride=FRONT_S)]
+        features = [blocks.Conv2dBlock(in_channels, inp, stride=FRONT_S)]
 
         for cfg in cfgs:
-            _layers = []
+            stage = blocks.Stage()
             for k, t, c, se_ratio, s in cfg:
                 oup = make_divisible(c * multiplier, 4)
-                _layers.append(GhostBottleneck(
+                stage.append(GhostBottleneck(
                     inp, make_divisible(t * multiplier, 4), oup, k, s, se_ratio=se_ratio
                 ))
                 inp = oup
 
-            _features.append(blocks.Stage(*_layers))
+            features.append(stage)
 
         oup = make_divisible(t * multiplier, 4)
-        _features.append(blocks.Conv2d1x1Block(inp, oup))
+        features.append(blocks.Conv2d1x1Block(inp, oup))
 
-        self.features = nn.Sequential(*_features)
+        self.features = nn.Sequential(*features)
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Linear(oup, 1280),
             nn.ReLU(inplace=True),
@@ -158,7 +158,7 @@ class GhostNet(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x

@@ -79,7 +79,7 @@ class ShuffleNet(nn.Module):
             ('stage4', self.make_layers(repeats[2], channels[2], channels[3], g))
         ]))
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(channels[3], num_classes)
 
     @staticmethod
@@ -88,11 +88,11 @@ class ShuffleNet(nn.Module):
         for _ in range(repeat - 1):
             layers.append(ShuffleAddBlock(oup, g=g))
 
-        return blocks.Stage(*layers)
+        return blocks.Stage(layers)
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x

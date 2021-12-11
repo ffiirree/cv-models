@@ -1,6 +1,10 @@
+from functools import partial
 import torch.nn as nn
 from torch.nn import functional as F
 from typing import List, Optional
+from cvm.models.core import blocks
+
+from torchvision.models.feature_extraction import create_feature_extractor
 
 __all__ = ['SegmentationModel']
 
@@ -20,26 +24,27 @@ class SegmentationModel(nn.Module):
 
         assert aux_head is None or len(out_stages) == 2, ''
 
-        self.backbone = backbone
+        self.backbone = create_feature_extractor(
+            backbone,
+            return_nodes=[f'stage{i}' for i in out_stages],
+            tracer_kwargs={'leaf_modules': [blocks.Stage]}
+        )
         self.out_stages = out_stages
         self.decode_head = decode_head
         self.aux_head = aux_head
+        self.interpolate = partial(F.interpolate, mode='bilinear', align_corners=False)
 
     def forward(self, x):
-        input_size = x.shape[-2:]
+        size = x.shape[-2:]
 
-        stages = [self.backbone.stem(x)]
-        stages.append(self.backbone.stage1(stages[0]))
-        stages.append(self.backbone.stage2(stages[1]))
-        stages.append(self.backbone.stage3(stages[2]))
-        stages.append(self.backbone.stage4(stages[3]))
+        stages = self.backbone(x)
 
-        decode_out = self.decode_head(stages[self.out_stages[-1]])
-        decode_out = F.interpolate(decode_out, size=input_size, mode='bilinear', align_corners=False)
+        out = self.decode_head(stages[f'stage{self.out_stages[-1]}'])
+        out = self.interpolate(out, size=size)
 
         if self.aux_head:
-            aux_out = self.aux_head(stages[self.out_stages[-2]])
-            aux_out = F.interpolate(aux_out, size=input_size, mode='bilinear', align_corners=False)
-            return (decode_out, aux_out)
+            aux = self.aux_head(stages[f'stage{self.out_stages[-2]}'])
+            aux = self.interpolate(aux, size=size)
+            return (out, aux)
 
-        return (decode_out,)
+        return (out,)

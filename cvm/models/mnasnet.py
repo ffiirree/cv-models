@@ -40,8 +40,8 @@ class MnasNet(nn.Module):
 
         self.features = nn.Sequential(*features)
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Sequential(
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(c[-1], num_classes)
         )
@@ -61,13 +61,13 @@ class MnasNet(nn.Module):
         for _ in range(n - 1):
             layers.append(blocks.InvertedResidualBlock(oup, oup, t, kernel_size, se_ratio=se_ratio))
 
-        return blocks.Stage(*layers)
+        return blocks.Stage(layers)
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x
 
 

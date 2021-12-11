@@ -37,7 +37,7 @@ class MobileNetV2(nn.Module):
         features.append(blocks.Conv2d1x1Block(c[-1], 1280))
 
         self.features = nn.Sequential(*features)
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(1280, num_classes)
@@ -54,7 +54,7 @@ class MobileNetV2(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
 

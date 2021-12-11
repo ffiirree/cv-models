@@ -1,4 +1,4 @@
-from typing import List, OrderedDict
+from typing import List, OrderedDict, Union
 from contextlib import contextmanager
 from functools import partial
 import torch
@@ -117,7 +117,17 @@ def norm_activation(
 
 class Stage(nn.Sequential):
     def __init__(self, *args):
+        if len(args) == 1 and isinstance(args[0], list):
+            args = args[0]
         super().__init__(*args)
+
+    def append(self, m: Union[nn.Module, List[nn.Module]]):
+        if isinstance(m, nn.Module):
+            self.add_module(str(len(self)), m)
+        elif isinstance(m, list):
+            [self.append(i) for i in m]
+        else:
+            ValueError('')
 
 
 class Affine(nn.Module):

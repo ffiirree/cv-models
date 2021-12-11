@@ -67,7 +67,7 @@ class MobileNetV3Small(nn.Module):
             ))
         ]))
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Linear(576, 1024),
             hs(),
@@ -77,7 +77,7 @@ class MobileNetV3Small(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
@@ -143,7 +143,7 @@ class MobileNetV3Large(nn.Module):
             ))
         ]))
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Linear(960, 1280),
             hs(),
@@ -153,7 +153,7 @@ class MobileNetV3Large(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x

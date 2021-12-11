@@ -69,7 +69,7 @@ class MobileNet(nn.Module):
 
         self.features = nn.Sequential(*layers)
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(depth(base_width * factors[-1]), num_classes)
@@ -77,7 +77,7 @@ class MobileNet(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x

@@ -43,7 +43,7 @@ class VGGNet(nn.Module):
             ))
         ]))
 
-        self.avg = nn.AdaptiveAvgPool2d((7, 7))
+        self.pool = nn.AdaptiveAvgPool2d((7, 7))
 
         self.classifier = nn.Sequential(
             nn.Linear(512 * 7 * 7, 4096),
@@ -72,7 +72,7 @@ class VGGNet(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x

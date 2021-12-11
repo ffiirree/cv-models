@@ -56,46 +56,43 @@ class ResNet(nn.Module):
             self.version = 2
 
         if use_resnetc_stem:
-            stem = [
+            stem = blocks.Stage(
                 blocks.Conv2d3x3(in_channels, 64, stride=FRONT_S),
                 *blocks.norm_activation(64),
                 blocks.Conv2d3x3(64, 64),
                 *blocks.norm_activation(64),
                 blocks.Conv2d3x3(64, 64)
-            ]
+            )
         else:
-            stem = [
+            stem = blocks.Stage(
                 nn.Conv2d(in_channels, 64, 7, FRONT_S, padding=3, bias=False)
-            ]
+            )
 
         if self.version == 1 or replace_stem_max_pool:
-            stem.extend(blocks.norm_activation(64))
+            stem.append(blocks.norm_activation(64))
 
-        stage1 = []
+        stage1 = blocks.Stage()
         if replace_stem_max_pool:
             stage1.append(blocks.Conv2d3x3(64, 64, stride=FRONT_S))
             if self.version == 1:
-                stage1.extend(blocks.norm_activation(64))
+                stage1.append(blocks.norm_activation(64))
         elif not thumbnail:
             stage1.append(nn.MaxPool2d(3, stride=2, padding=1))
 
-        stage1.extend(self.make_layers(64 // block.expansion, 64, 1, layers[0], 2, dilations[0]))
-        stage2 = self.make_layers(64, 128, 2, layers[1], 3, dilations[1])
-        stage3 = self.make_layers(128, 256, 2, layers[2], 4, dilations[2])
-        stage4 = self.make_layers(256, 512, 2, layers[3], 5, dilations[3])
-
-        if self.version == 2:
-            stage4.extend(blocks.norm_activation(512 * self.block.expansion))
+        stage1.append(self.make_layers(64 // block.expansion, 64, 1, layers[0], 2, dilations[0]))
 
         self.features = nn.Sequential(OrderedDict([
-            ('stem', blocks.Stage(*stem)),
-            ('stage1', blocks.Stage(*stage1)),
-            ('stage2', blocks.Stage(*stage2)),
-            ('stage3', blocks.Stage(*stage3)),
-            ('stage4', blocks.Stage(*stage4)),
+            ('stem', stem),
+            ('stage1', stage1),
+            ('stage2', self.make_layers(64, 128, 2, layers[1], 3, dilations[1])),
+            ('stage3', self.make_layers(128, 256, 2, layers[2], 4, dilations[2])),
+            ('stage4', self.make_layers(256, 512, 2, layers[3], 5, dilations[3])),
         ]))
-
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        
+        if self.version == 2:
+            self.features.stage4.append(blocks.norm_activation(512 * self.block.expansion))
+            
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate, inplace=True),
             nn.Linear(512 * block.expansion, num_classes)
@@ -123,7 +120,7 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
@@ -153,7 +150,7 @@ class ResNet(nn.Module):
             )
             inp = oup * self.block.expansion
             stride = 1
-        return layers
+        return blocks.Stage(layers)
 
 
 def _resnet(

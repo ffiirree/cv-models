@@ -110,7 +110,7 @@ class GoogLeNet(nn.Module):
         self.inception_5a = InceptionBlock(832, 256, 160, 320, 32, 128, 128)
         self.inception_5b = InceptionBlock(832, 384, 192, 384, 48, 128, 128)
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
         self.classifiar = nn.Sequential(
             nn.Dropout(0.4),
@@ -147,7 +147,7 @@ class GoogLeNet(nn.Module):
         x = self.inception_5a(x)
         x = self.inception_5b(x)
 
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifiar(x)
 

@@ -75,17 +75,17 @@ class ReXNet(nn.Module):
 
         self.features = nn.Sequential(*features)
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Sequential(
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate),
             nn.Linear(multiplier(1280), num_classes)
         )
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x
 
 
@@ -171,17 +171,17 @@ class ReXNetPlain(nn.Module):
             blocks.Conv2d1x1Block(1024, 1280)
         )
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Sequential(
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate),
             nn.Linear(1280, num_classes)
         )
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x
 
 

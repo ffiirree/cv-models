@@ -89,7 +89,7 @@ class EfficientNet(nn.Module):
 
         self.features = nn.Sequential(*features)
 
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_rate),
             nn.Linear(self.c[-1], num_classes)
@@ -109,8 +109,7 @@ class EfficientNet(nn.Module):
         for i in range(n):
             inp = inp if i == 0 else oup
             stride = stride if i == 0 else 1
-            survival_prob = self.survival_prob + \
-                (1 - self.survival_prob) * (i + self.block_idx) / self.blocks
+            survival_prob = self.survival_prob + (1 - self.survival_prob) * (i + self.block_idx) / self.blocks
 
             layers.append(
                 blocks.InvertedResidualBlock(
@@ -140,7 +139,7 @@ class EfficientNet(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = self.avg(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
