@@ -242,7 +242,7 @@ def vgnetc_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetf_1_5mp-e7c1e174.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetf_1_5mp-21d7e648.pth')
 def vgnetf_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -252,7 +252,7 @@ def vgnetf_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnete_1_5mp-fdc6e0e8.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnete_1_5mp-8416471a.pth')
 def vgnete_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
