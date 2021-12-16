@@ -3,7 +3,7 @@ import os
 import torch
 import torch.nn as nn
 from .core import blocks, export, config
-from typing import Any, List
+from typing import Any, List, OrderedDict
 
 
 class HalfIdentityBlock(nn.Module):
@@ -12,23 +12,26 @@ class HalfIdentityBlock(nn.Module):
         inp: int,
         g: int = 1,
         se_ratio: float = 0.0,
-        fixed: int = None,
-        relu_bn: bool = False,
+        kernels: str = 'random'
     ):
         super().__init__()
 
-        if not fixed:
-            self.half3x3 = blocks.Conv2d3x3(inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
-            if relu_bn:
-                self.half3x3 = blocks.Conv2dBlock(inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
-        elif fixed:
+        if kernels == 'random':
+            self.half3x3 = blocks.Conv2d3x3(
+                inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
+        elif kernels == 'edge':
+            self.half3x3 = nn.Sequential(
+                blocks.EdgeDetection(inp // 2),
+                nn.BatchNorm2d(inp // 2)
+            )
+        elif kernels == 'edge_gassian':
             self.half3x3 = nn.Sequential(
                 blocks.FixedConv2d(inp // 2),
                 nn.BatchNorm2d(inp // 2)
             )
         else:
             ValueError(f'')
-        
+
         self.combine = blocks.Combine('CONCAT')
 
         self.conv1x1 = blocks.PointwiseBlock(inp, inp // 2)
@@ -100,8 +103,7 @@ class VGNet(nn.Module):
         layers: List[int] = None,
         group_widths: List[int] = [1, 1, 1, 1],
         se_ratio: float = 0.0,
-        fixed: int = None,
-        relu_bn: bool = False,
+        kernels: str = 'random',
         thumbnail: bool = False,
         **kwargs: Any
     ):
@@ -110,12 +112,11 @@ class VGNet(nn.Module):
         FRONT_S = 1 if thumbnail else 2
         strides = [FRONT_S, 2, 2, 2]
 
-        self.features = nn.Sequential()
-
-        self.features.add_module(
-            'stem',
-            blocks.Conv2dBlock(in_channels, channels[0], stride=FRONT_S)
-        )
+        self.features = nn.Sequential(OrderedDict([
+            ('stem', blocks.Conv2dBlock(
+                in_channels, channels[0], stride=FRONT_S
+            ))
+        ]))
 
         for i in range(len(strides)):
             self.features.add_module(
@@ -128,34 +129,38 @@ class VGNet(nn.Module):
                     layers[i],
                     group_widths[i],
                     se_ratio,
-                    fixed,
-                    relu_bn
+                    kernels
                 )
             )
 
-        if relu_bn:
-            self.features.add_module('last', nn.Sequential(
-            # blocks.DepthwiseConv2d(channels[-1], channels[-1]),
-            blocks.SharedDepthwiseConv2d(channels[-1], t=8),
-            *blocks.norm_activation(channels[-1]),
-            blocks.PointwiseBlock(channels[-1], channels[-1]),
-        ))
-        else:
-            self.features.add_module('last', nn.Sequential(
+        if kernels == 'random':
+            self.features.stage4.append(nn.Sequential(
                 # blocks.DepthwiseConv2d(channels[-1], channels[-1]),
                 blocks.SharedDepthwiseConv2d(channels[-1], t=8),
+                blocks.PointwiseBlock(channels[-1], channels[-1]),
+            ))
+        elif kernels == 'edge_gassian':
+            self.features.stage4.append(nn.Sequential(
+                blocks.FixedConv2d(channels[-1]),
+                nn.BatchNorm2d(channels[-1]),
+                blocks.PointwiseBlock(channels[-1], channels[-1]),
+            ))
+        elif kernels == 'edge':
+            self.features.stage4.append(nn.Sequential(
+                blocks.EdgeDetection(channels[-1]),
+                nn.BatchNorm2d(channels[-1]),
                 blocks.PointwiseBlock(channels[-1], channels[-1]),
             ))
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(channels[-1], num_classes)
 
-    def make_layers(self, inp, oup, s, m, n, g, se_ratio, fixed, relu_bn):
+    def make_layers(self, inp, oup, s, m, n, g, se_ratio, fixed):
         layers = [
             DownsamplingBlock(inp, oup, stride=s, method=m, se_ratio=se_ratio)
         ]
         for _ in range(n - 1):
-            layers.append(HalfIdentityBlock(oup, g, se_ratio, fixed, relu_bn))
+            layers.append(HalfIdentityBlock(oup, g, se_ratio, fixed))
 
         layers.append(blocks.Combine('CONCAT'))
         return blocks.Stage(layers)
@@ -190,16 +195,18 @@ def _vgnet(
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_0mp-baec6e1c.pth')
-def vgnet_g_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_0mp-533cb12b.pth')
+def vgnetg_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [4, 7, 13, 2]
     return _vgnet(pretrained, pth, progress, **kwargs)
+
 
 @export
 @blocks.nonlinear(partial(nn.SiLU, inplace=True))
-def vgnet_g_1_0mp_silu(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_0mp_silu-e56f1ed9.pth')
+def vgnetg_1_0mp_silu(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [4, 7, 13, 2]
@@ -207,8 +214,8 @@ def vgnet_g_1_0mp_silu(pretrained: bool = False, pth: str = None, progress: bool
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_0mp_se-1b12c66e.pth')
-def vgnet_g_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_0mp_se-4ddbde88.pth')
+def vgnetg_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [4, 7, 13, 2]
@@ -217,8 +224,8 @@ def vgnet_g_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool =
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_5mp-1eab7052.pth')
-def vgnet_g_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_5mp-cbaa0f5d.pth')
+def vgnetg_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 7, 14, 2]
@@ -226,26 +233,38 @@ def vgnet_g_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_c_1_5mp-d27cd513.pth')
-def vgnet_c_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetc_1_5mp-3711bf00.pth')
+def vgnetc_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['dwconv', 'dwconv', 'dwconv', 'dwconv']
     kwargs['layers'] = [3, 7, 14, 2]
     return _vgnet(pretrained, pth, progress, **kwargs)
 
+
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_f_1_5mp-24848836.pth')
-def vgnet_f_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetf_1_5mp-e7c1e174.pth')
+def vgnetf_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 7, 14, 2]
-    kwargs['fixed'] = True
+    kwargs['kernels'] = 'edge_gassian'
     return _vgnet(pretrained, pth, progress, **kwargs)
 
+
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_5mp_silu-e3a13968.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnete_1_5mp-fdc6e0e8.pth')
+def vgnete_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 64, 128, 256, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 7, 14, 2]
+    kwargs['kernels'] = 'edge'
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_5mp_silu-0edf5431.pth')
 @blocks.nonlinear(partial(nn.SiLU, inplace=True))
-def vgnet_g_1_5mp_silu(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def vgnetg_1_5mp_silu(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 7, 14, 2]
@@ -253,8 +272,8 @@ def vgnet_g_1_5mp_silu(pretrained: bool = False, pth: str = None, progress: bool
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_1_5mp_se-d8fc4b39.pth')
-def vgnet_g_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_5mp_se-a759664f.pth')
+def vgnetg_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 7, 14, 2]
@@ -263,8 +282,8 @@ def vgnet_g_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool =
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_2_0mp-a4296c51.pth')
-def vgnet_g_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_0mp-aa9fa383.pth')
+def vgnetg_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 72, 168, 376, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 6, 13, 2]
@@ -272,8 +291,8 @@ def vgnet_g_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_2_0mp_se-0f8cf6d5.pth')
-def vgnet_g_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_0mp_se-bcf70864.pth')
+def vgnetg_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 72, 168, 376, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 6, 13, 2]
@@ -282,8 +301,8 @@ def vgnet_g_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool =
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_2_5mp-2e69acdd.pth')
-def vgnet_g_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_5mp-378e2472.pth')
+def vgnetg_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 80, 192, 400, 544]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 6, 16, 2]
@@ -291,8 +310,8 @@ def vgnet_g_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnet_g_2_5mp_se-49f75972.pth')
-def vgnet_g_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_5mp_se-8c373f00.pth')
+def vgnetg_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 80, 192, 400, 544]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 6, 16, 2]
@@ -301,7 +320,7 @@ def vgnet_g_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool =
 
 
 @export
-def vgnet_g_5_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def vgnetg_5_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 88, 216, 456, 856]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [4, 7, 15, 5]
@@ -309,7 +328,7 @@ def vgnet_g_5_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 
 @export
-def vgnet_g_5_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def vgnetg_5_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 88, 216, 456, 856]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [4, 7, 15, 5]

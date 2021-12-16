@@ -1113,9 +1113,9 @@ class FixedConv2d(nn.Module):
                 [-2/12,     1, -2/12],
                 [-1/12, -2/12, -1/12]
             ]], [[
-                [0,    -1/5,    0],
-                [-1/5,    1, -1/5],
-                [0,    -1/5,    0]
+                [0,    -1/4,    0],
+                [-1/4,    1, -1/4],
+                [0,    -1/4,    0]
             ]], [[
                 [-3/3, -2/3, -1/3],
                 [-2/3,    0,  2/3],
@@ -1141,6 +1141,71 @@ class FixedConv2d(nn.Module):
 
         self.weight = nn.Parameter(kernels.repeat(
             self.in_channels // 8, 1, 1, 1), False)
+        self.register_parameter('bias', None)
+
+        self.weight.requires_grad_(False)
+
+    def forward(self, x):
+        return F.conv2d(x, self.weight, self.bias, self.stride, self.padding,
+                        self.dilation, self.groups)
+
+    def extra_repr(self):
+        s = ('{in_channels}, {out_channels}, kernel_size={kernel_size}'
+             ', stride={stride}')
+        if self.padding != (0,) * len(self.padding):
+            s += ', padding={padding}'
+        if self.dilation != (1,) * len(self.dilation):
+            s += ', dilation={dilation}'
+        if self.groups != 1:
+            s += ', groups={groups}'
+        if self.bias is None:
+            s += ', bias=False'
+        if self.padding_mode != 'zeros':
+            s += ', padding_mode={padding_mode}'
+        return s.format(**self.__dict__)
+
+
+
+class EdgeDetection(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        stride: int = 1,
+        dilation: int = 1
+    ):
+        super().__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = in_channels
+        self.kernel_size = (3, 3)
+        self.padding = (1, 1)
+        self.stride = (stride, stride)
+        self.dilation = (dilation, dilation)
+        self.groups = in_channels
+        self.padding_mode = 'zeros'
+
+        edge = torch.tensor(
+            [[[
+                [-1/2, -1, -1/2],
+                [0,     0,    0],
+                [1/2,   1,  1/2]
+            ]], [[
+                [-1/2, 0, 1/2],
+                [-1,   0,   1],
+                [-1/2, 0, 1/2]
+            ]], [[
+                [-1/12, -2/12, -1/12],
+                [-2/12,     1, -2/12],
+                [-1/12, -2/12, -1/12]
+            ]], [[
+                [0,    -1/4,    0],
+                [-1/4,    1, -1/4],
+                [0,    -1/4,    0]
+            ]]], dtype=torch.float32
+        )
+
+        self.weight = nn.Parameter(edge.repeat(
+            self.in_channels // 4, 1, 1, 1), False)
         self.register_parameter('bias', None)
 
         self.weight.requires_grad_(False)
