@@ -14,8 +14,6 @@ def parse_args():
                         help='path to the ImageNet dataset.')
     parser.add_argument('--model', '-m', type=str, default='mobilenet_v1_x1_0', choices=list_models(),
                         help='type of model to use. (default: mobilenet_v1_x1_0)')
-    parser.add_argument('--pretrained', action='store_true',
-                        help='use pre-trained model. (default: false)')
     parser.add_argument('--real-labels', type=str, default=None)
     parser.add_argument('--model-path', type=str, default=None)
     parser.add_argument('--workers', '-j', type=int, default=8, metavar='N',
@@ -74,7 +72,7 @@ if __name__ == '__main__':
 
     model = create_model(
         args.model,
-        pretrained=args.pretrained,
+        pretrained=True,
         pth=args.model_path
     )
 

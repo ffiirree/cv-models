@@ -126,6 +126,7 @@ class RegNet(nn.Module):
         g: int = None,
         se_ratio: float = None,
         dropout_rate: float = 0.0,
+        thumbnail: bool = False,
         **kwargs: Any
     ):
         """
@@ -139,8 +140,10 @@ class RegNet(nn.Module):
         """
         super().__init__()
 
+        FRONT_S = 1 if thumbnail else 2
+
         self.features = nn.Sequential()
-        self.features.add_module('stem', blocks.Conv2dBlock(in_channels, stem_width, stride=2))
+        self.features.add_module('stem', blocks.Conv2dBlock(in_channels, stem_width, stride=FRONT_S))
 
         uj = w0 + wa * torch.arange(d)
         sj = torch.round(torch.log(uj / w0) / math.log(wm))
@@ -162,7 +165,7 @@ class RegNet(nn.Module):
                 RegStage(
                     stage_widths[i],
                     stage_widths[i+1],
-                    2,
+                    2 if i != 0 else FRONT_S,
                     stage_depths[i],
                     group_widths[i],
                     bottleneck_multipliers[i],
