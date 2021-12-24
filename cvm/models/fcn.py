@@ -53,6 +53,7 @@ def _fcn(
 @export
 def fcn_resnet50_v1(
     num_classes: int = 21,
+    aux_loss: bool = False,
     dropout_rate: float = 0.1,
     pretrained: bool = False,
     pretrained_backbone: bool = False,
@@ -61,13 +62,15 @@ def fcn_resnet50_v1(
     **kwargs: Any
 ):
     decode_head = FCNHead(2048, 512, num_classes, dropout_rate)
+    aux_head = FCNHead(1024, 256, num_classes, dropout_rate) if aux_loss else None
 
-    return _fcn('resnet50_v1', decode_head, None, pretrained_backbone, pretrained, pth, progress, **kwargs)
+    return _fcn('resnet50_v1', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)
 
 
 @export
 def fcn_mobilenet_v3_small(
     num_classes: int = 21,
+    aux_loss: bool = False,
     dropout_rate: float = 0.1,
     pretrained: bool = False,
     pretrained_backbone: bool = False,
@@ -76,12 +79,15 @@ def fcn_mobilenet_v3_small(
     **kwargs: Any
 ):
     decode_head = FCNHead(576, 512, num_classes, dropout_rate)
-    return _fcn('mobilenet_v3_small', decode_head, None, pretrained_backbone, pretrained, pth, progress, **kwargs)
+    aux_head = FCNHead(48, 12, num_classes, dropout_rate) if aux_loss else None
+    
+    return _fcn('mobilenet_v3_small', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)
 
 
 @export
 def fcn_mobilenet_v3_large(
     num_classes: int = 21,
+    aux_loss: bool = False,
     dropout_rate: float = 0.1,
     pretrained: bool = False,
     pretrained_backbone: bool = False,
@@ -90,4 +96,6 @@ def fcn_mobilenet_v3_large(
     **kwargs: Any
 ):
     decode_head = FCNHead(960, 512, num_classes, dropout_rate)
-    return _fcn('mobilenet_v3_large', decode_head, None, pretrained_backbone, pretrained, pth, progress, **kwargs)
+    aux_head = FCNHead(112, 28, num_classes, dropout_rate) if aux_loss else None
+    
+    return _fcn('mobilenet_v3_large', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)

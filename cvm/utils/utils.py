@@ -82,7 +82,7 @@ def manual_seed(seed: int = 0):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    torch.set_printoptions(precision=10)
+    # torch.set_printoptions(precision=10)
 
 
 def named_layers(module, memo=None, prefix: str = ''):

@@ -1,4 +1,5 @@
 from os import path
+import inspect
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,6 +8,7 @@ from torch.utils.data.distributed import DistributedSampler
 import torchvision
 from torchvision import datasets
 import torchvision.transforms as T
+from . import seg_transforms as ST
 import cvm
 from .utils import group_params, list_datasets, get_world_size
 from cvm.dataset.constants import *
@@ -20,6 +22,7 @@ import nvidia.dali.fn as fn
 import nvidia.dali.types as types
 from nvidia.dali.pipeline import pipeline_def
 from nvidia.dali.plugin.pytorch import DALIClassificationIterator, LastBatchPolicy
+from typing import List, Union
 
 try:
     import timm
@@ -246,57 +249,59 @@ def _get_name(name):
 
 
 def _get_dataset_image_size(name):
-    name = _get_name(name)
+    name = _get_name(name).lower()
 
-    if name.startswith('CIFAR'):
+    if name.startswith('cifar'):
         return CIFAR_IMAGE_SIZE
-    if 'MNIST' in name:
+    if 'mnist' in name:
         return MNIST_IMAGE_SIZE
     return 0
 
 
 def _get_dataset_mean_or_std(name, attr):
-    name = _get_name(name)
+    name = _get_name(name).lower()
 
-    if name.startswith('CIFAR'):
+    if name.startswith('cifar'):
         return CIFAR_MEAN if attr == 'mean' else CIFAR_STD
-    if name.lower() == 'imagenet':
+    if name == 'imagenet':
         return IMAGE_MEAN if attr == 'mean' else IMAGE_STD
-    if name.lower() == 'mnist':
+    if name == 'mnist':
         return MNIST_MEAN if attr == 'mean' else MNIST_STD
+    if name.startswith('voc') or name.startswith('sbd'):
+        return VOC_MEAN if attr == 'mean' else VOC_STD
     return IMAGE_MEAN if attr == 'mean' else IMAGE_STD
 
 
 def _get_autoaugment_policy(name):
-    name = _get_name(name)
+    name = _get_name(name).lower()
 
-    if name.lower() == 'imagenet':
+    if name == 'imagenet':
         return T.AutoAugmentPolicy.IMAGENET
-    if name.lower().startswith('cifar'):
+    if name.startswith('cifar'):
         return T.AutoAugmentPolicy.CIFAR10
-    if name.lower().startswith('svhn'):
+    if name.startswith('svhn'):
         return T.AutoAugmentPolicy.SVHN
 
     ValueError(f'Unknown AutoAugmentPolicy: {name}.')
 
 
 def create_transforms(
-    resize_size=256,
-    crop_size=224,
+    resize_size: int = 256,
+    crop_size: int = 224,
     padding: int = 0,
     random_crop: bool = False,
-    is_training=True,
+    is_training: bool = True,
     mean=IMAGE_MEAN,
     std=IMAGE_STD,
-    hflip=0.5,
-    vflip=0.0,
+    hflip: float = 0.5,
+    vflip: float = 0.0,
     color_jitter=None,
     augment: str = None,
-    randaugment_n=2,
-    randaugment_m=5,
+    randaugment_n: int = 2,
+    randaugment_m: int = 5,
     autoaugment_policy='imagenet',
-    random_erasing=0.,
-    dataset_image_size=0
+    random_erasing: float = 0.,
+    dataset_image_size: int = 0
 ):
     ops = []
     if not is_training:
@@ -305,11 +310,13 @@ def create_transforms(
         if dataset_image_size != crop_size:
             ops.append(T.CenterCrop(crop_size))
     else:
+        # cifar10/100
         if random_crop:
             if dataset_image_size < crop_size:
                 ops.append(T.Resize(crop_size))
             if padding != 0 or dataset_image_size > crop_size:
                 ops.append(T.RandomCrop(crop_size, padding))
+        # imagenet
         else:
             ops.append(T.RandomResizedCrop(
                 crop_size,
@@ -317,6 +324,7 @@ def create_transforms(
                 ratio=(3. / 4., 4. / 3.),
                 interpolation=T.InterpolationMode.BILINEAR
             ))
+
         if hflip > 0.0:
             ops.append(T.RandomHorizontalFlip(hflip))
         if vflip > 0.0:
@@ -339,6 +347,30 @@ def create_transforms(
     return T.Compose(ops)
 
 
+def create_segmentation_transforms(
+    resize_size: Union[int, List[int]],
+    crop_size: int,
+    padding: int = 0,
+    is_training: bool = True,
+    mean=VOC_MEAN,
+    std=VOC_STD,
+    hflip: float = 0.5
+):
+    ops = []
+    if is_training:
+        ops.append(ST.RandomCrop(crop_size, pad_if_needed=True, padding=padding))
+        if hflip > 0.0:
+            ops.append(ST.RandomHorizontalFlip(hflip))
+    else:
+        ops.append(ST.Resize(resize_size))
+
+    ops.append(ST.PILToTensor())
+    ops.append(ST.ConvertImageDtype(torch.float))
+    ops.append(ST.Normalize(mean, std))
+
+    return ST.Compose(ops)
+
+
 def create_dataset(
     name: str,
     root: str = '',
@@ -347,6 +379,16 @@ def create_dataset(
     **kwargs
 ):
     if name in list_datasets():
+        dataset = datasets.__dict__[name]
+        params = inspect.signature(dataset.__init__).parameters.keys()
+
+        if 'image_set' in params:
+            return datasets.__dict__[name](
+                path.expanduser(root),
+                image_set='train' if is_training else 'val',
+                download=download
+            )
+
         return datasets.__dict__[name](
             path.expanduser(root),
             train=is_training,
@@ -367,7 +409,7 @@ def create_loader(
     workers: int = 4,
     pin_memory: bool = True,
     crop_padding: int = 4,
-    val_resize_size: int = 256,
+    val_resize_size: Union[int, List[int]] = 256,
     val_crop_size: int = 224,
     crop_size: int = 224,
     hflip: float = 0.5,
@@ -377,13 +419,16 @@ def create_loader(
     dali: bool = False,
     dali_cpu: bool = True,
     augment: str = None,
-    randaugment_n=2,
+    randaugment_n: int = 2,
     randaugment_m=5,
     local_rank: int = 0,
     root: str = None,
     distributed: bool = False,
+    transform: T.Compose = None,
+    taskname: str = 'classification',
     **kwargs
 ):
+    assert taskname in ['classification', 'segmentation'], f'Unknown task: {taskname}.'
     # Nvidia/DALI
     if dali:
         assert _get_name(dataset).lower() == 'imagenet', ''
@@ -422,24 +467,34 @@ def create_loader(
                 **kwargs
             )
 
-        dataset.transform = create_transforms(
-            is_training=is_training,
-            hflip=hflip,
-            vflip=vflip,
-            color_jitter=color_jitter,
-            random_erasing=random_erasing,
-            augment=augment,
-            randaugment_n=randaugment_n,
-            randaugment_m=randaugment_m,
-            autoaugment_policy=_get_autoaugment_policy(dataset),
-            mean=kwargs.get('mean', _get_dataset_mean_or_std(dataset, 'mean')),
-            std=kwargs.get('std', _get_dataset_mean_or_std(dataset, 'std')),
-            random_crop=crop_size <= 128,
-            resize_size=val_resize_size,
-            crop_size=crop_size if is_training else val_crop_size,
-            padding=crop_padding,
-            dataset_image_size=_get_dataset_image_size(dataset),
-        )
+        if taskname == 'classification':
+            dataset.transform = transform or create_transforms(
+                is_training=is_training,
+                hflip=hflip,
+                vflip=vflip,
+                color_jitter=color_jitter,
+                random_erasing=random_erasing,
+                augment=augment,
+                randaugment_n=randaugment_n,
+                randaugment_m=randaugment_m,
+                autoaugment_policy=_get_autoaugment_policy(dataset),
+                mean=kwargs.get('mean', _get_dataset_mean_or_std(dataset, 'mean')),
+                std=kwargs.get('std', _get_dataset_mean_or_std(dataset, 'std')),
+                random_crop=crop_size <= 128,
+                resize_size=val_resize_size,
+                crop_size=crop_size if is_training else val_crop_size,
+                padding=crop_padding,
+                dataset_image_size=_get_dataset_image_size(dataset),
+            )
+        elif taskname == 'segmentation':
+            dataset.transforms = transform or create_segmentation_transforms(
+                is_training=is_training,
+                hflip=hflip,
+                mean=kwargs.get('mean', _get_dataset_mean_or_std(dataset, 'mean')),
+                std=kwargs.get('std', _get_dataset_mean_or_std(dataset, 'std')),
+                resize_size=val_resize_size,
+                crop_size=crop_size if is_training else val_crop_size,
+            )
 
         return DataIterator(DataLoader(
             dataset,

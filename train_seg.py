@@ -1,10 +1,11 @@
+import os
 import json
 import time
 import datetime
 import argparse
 import torch
 import torch.nn as nn
-import torchvision.transforms as T
+import torchvision
 
 from cvm.utils import *
 
@@ -20,10 +21,10 @@ def parse_args():
                         help='number of data loading workers pre GPU. (default: 4)')
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
-    parser.add_argument('--crop-size', type=int, default=224)
+    parser.add_argument('--crop-size', type=int, default=320)
     parser.add_argument('--crop-padding', type=int, default=4, metavar='S')
-    parser.add_argument('--val-resize-size', type=int, default=256)
-    parser.add_argument('--val-crop-size', type=int, default=224)
+    parser.add_argument('--val-resize-size', type=int, nargs='+', default=[384, 480])
+    parser.add_argument('--val-crop-size', type=int, default=384)
 
     # model
     parser.add_argument('--model', type=str, default='resnet18_v1', choices=list_models(),
@@ -31,10 +32,11 @@ def parse_args():
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
     parser.add_argument('--model-path', type=str, default=None)
-    parser.add_argument('--num-classes', type=int, default=1000, metavar='N',
+    parser.add_argument('--num-classes', type=int, default=21, metavar='N',
                         help='number of label classes')
     parser.add_argument('--bn-eps', type=float, default=None)
     parser.add_argument('--bn-momentum', type=float, default=None)
+    parser.add_argument('--aux-loss', action='store_true')
 
     # optimizer
     parser.add_argument('--optim', type=str, default='sgd', choices=['sgd', 'rmsprop'],
@@ -77,18 +79,6 @@ def parse_args():
     parser.add_argument('--color-jitter', type=float, default=0., metavar='M')
     parser.add_argument('--random-erasing', type=float,
                         default=0., metavar='P')
-    parser.add_argument('--mixup-alpha', type=float, default=0., metavar='V',
-                        help='beta distribution parameter for mixup sampling. (default: 0.0)')
-    parser.add_argument('--cutmix-alpha', type=float, default=0., metavar='V',
-                        help='beta distribution parameter for cutmix sampling. (default: 0.0)')
-    parser.add_argument('--label-smoothing', type=float, default=0.0,
-                        help='use label smoothing or not in training. (default: 0.0)')
-    parser.add_argument('--augment', type=str, default=None,
-                        choices=['randaugment', 'autoaugment'])
-    parser.add_argument('--randaugment-n', type=int, default=2, metavar='N',
-                        help='RandAugment n.')
-    parser.add_argument('--randaugment-m', type=int, default=10, metavar='M',
-                        help='RandAugment m.')
     parser.add_argument('--dropout-rate', type=float, default=0., metavar='P',
                         help='dropout rate. (default: 0.0)')
     parser.add_argument('--drop-path-rate', type=float, default=0., metavar='P',
@@ -113,67 +103,58 @@ def parse_args():
     return parser.parse_args()
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args, mixupcutmix_fn=None):
+def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
-    top1 = AverageMeter()
-    top5 = AverageMeter()
 
     model.train()
 
     end = time.time()
-    for i, (input, target) in enumerate(train_loader):
-        if mixupcutmix_fn is not None:
-            input, target = mixupcutmix_fn(input, target)
-
+    for i, (images, targets) in enumerate(train_loader):
         optimizer.zero_grad(set_to_none=True)
         with torch.cuda.amp.autocast(enabled=args.amp):
-            output = model(input)
-            loss = criterion(output, target)
+            outputs = model(images)
+            loss = torch.stack([criterion(output, targets) for output in outputs]).sum()
 
         scaler.scale(loss).backward()
-        if args.clip_grad_norm is not None:
-            scaler.unscale_(optimizer)
-            nn.utils.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
         scaler.step(optimizer)
         scaler.update()
 
         scheduler.step()
 
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        
-        top1.update(acc1.item(), input.size(0))
-        top5.update(acc5.item(), input.size(0))
-        losses.update(loss.item(), input.size(0))
+        losses.update(loss.item(), images.size(0))
         batch_time.update(time.time() - end)
 
         end = time.time()
 
         if i % args.print_freq == 0 and i != 0:
             logger.info(f'#{epoch:>3}[{i:>4}] t={batch_time.avg:>.3f}, '
-                        f't1={top1.avg:>6.3f}, t5={top5.avg:>6.3f}, '
                         f'lr={optimizer.param_groups[0]["lr"]:>.6f}, '
                         f'l={losses.avg:>.3f}')
 
+            if not os.path.exists('logs/voc'):
+                os.makedirs('logs/voc')
+            
+            output = outputs[0].argmax(dim=1)
+            targets[targets==255] = 0
+
+            torchvision.utils.save_image(images[0], f'logs/voc/{i}_image.png', normalize=True)
+            torchvision.utils.save_image(output[0].float(), f'logs/voc/{i}_pred.png', normalize=True)
+            torchvision.utils.save_image(targets[0].float(), f'logs/voc/{i}_mask.png', normalize=True)
+
 
 def validate(val_loader, model, criterion):
-    top1 = AverageMeter()
-    top5 = AverageMeter()
     losses = AverageMeter()
 
     model.eval()
-    for input, target in val_loader:
+    for images, targets in val_loader:
         with torch.inference_mode():
-            output = model(input)
-            loss = criterion(output, target)
+            outputs = model(images)
+            loss = criterion(outputs[0], targets)
 
-        acc1, acc5 = accuracy(output.data, target, topk=(1, 5))
+        losses.update(loss.item(), images.size(0))
 
-        top1.update(acc1.item(), input.size(0))
-        top5.update(acc5.item(), input.size(0))
-        losses.update(loss.item(), input.size(0))
-
-    logger.info(f'loss={losses.avg:>.5f}, top1={top1.avg:>6.3f}, top5={top5.avg:>6.3f}')
+    logger.info(f'loss={losses.avg:>.5f}')
 
 
 if __name__ == '__main__':
@@ -197,6 +178,7 @@ if __name__ == '__main__':
     model = create_model(
         args.model,
         num_classes=args.num_classes,
+        aux_loss=args.aux_loss,
         dropout_rate=args.dropout_rate,
         drop_path_rate=args.drop_path_rate,
         bn_eps=args.bn_eps,
@@ -210,33 +192,22 @@ if __name__ == '__main__':
     )
 
     optimizer = create_optimizer(args.optim, model, **dict(vars(args)))
-    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+    criterion = nn.CrossEntropyLoss(ignore_index=255)
 
     train_loader = create_loader(
         root=args.data_dir,
         is_training=True,
         distributed=True,
+        taskname='segmentation',
         **(dict(vars(args)))
     )
     val_loader = create_loader(
         root=args.data_dir,
         is_training=False,
         distributed=True,
+        taskname='segmentation',
         **(dict(vars(args)))
     )
-
-    mixupcutmix_fn = None
-    mixup_transforms = []
-    if args.mixup_alpha > 0.0:
-        mixup_transforms.append(
-            RandomMixup(args.num_classes, p=1.0, alpha=args.mixup_alpha)
-        )
-    if args.cutmix_alpha > 0.0:
-        mixup_transforms.append(
-            RandomCutmix(args.num_classes, p=1.0, alpha=args.cutmix_alpha)
-        )
-    if mixup_transforms:
-        mixupcutmix_fn = T.RandomChoice(mixup_transforms)
 
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
 
@@ -250,9 +221,8 @@ if __name__ == '__main__':
     if args.local_rank == 0:
         logger.info(f'Model: \n{model}')
         if not args.dali:
-            logger.info(f'Training: \n{train_loader.dataset.transform}')
-            logger.info(f'Validation: \n{val_loader.dataset.transform}')
-        logger.info(f'Mixup/CutMix: \n{mixupcutmix_fn}')
+            logger.info(f'Training: \n{train_loader.dataset.transforms}')
+            logger.info(f'Validation: \n{val_loader.dataset.transforms}')
         logger.info(f'Optimizer: \n{optimizer}')
         logger.info(f'Criterion: {criterion}')
         logger.info(f'Scheduler: {scheduler}')
@@ -268,8 +238,7 @@ if __name__ == '__main__':
             scheduler,
             scaler,
             epoch,
-            args,
-            mixupcutmix_fn
+            args
         )
 
         validate(val_loader, model, criterion)

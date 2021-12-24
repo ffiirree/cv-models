@@ -35,18 +35,15 @@ class VisionTransformer(nn.Module):
     ):
         super().__init__()
 
-        num_patches = (image_size // patch_size) ** 2
+        self.num_patches = (image_size // patch_size) ** 2
         self.classifier = classifier
         self.distilled = distilled
 
         self.cls_token = nn.Parameter(torch.randn(1, 1, hidden_dim))
-        self.dist_token = nn.Parameter(torch.randn(
-            1, 1, hidden_dim)) if distilled else None
-        self.positions = nn.Parameter(
-            torch.randn(num_patches + (1 if not distilled else 2), hidden_dim))
+        self.dist_token = nn.Parameter(torch.randn(1, 1, hidden_dim)) if distilled else None
+        self.positions = nn.Parameter(torch.randn(self.num_patches + (1 if not distilled else 2), hidden_dim))
 
-        self.embedding = nn.Conv2d(
-            in_channels, hidden_dim, patch_size, stride=patch_size)
+        self.embedding = nn.Conv2d(in_channels, hidden_dim, patch_size, stride=patch_size)
 
         self.drop = nn.Dropout(dropout_rate)
 

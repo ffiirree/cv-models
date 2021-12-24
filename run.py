@@ -1,5 +1,6 @@
 import os
 import time
+import torch
 
 
 def run_script(script: str, args: str = ''):
@@ -10,21 +11,25 @@ def run_script(script: str, args: str = ''):
 
 
 if __name__ == '__main__':
-    cmd = '--standalone --nnodes=1 --nproc_per_node=4 train.py '\
-        '--data-dir "/datasets/ILSVRC2012" '\
-        '--workers 3 '\
-        '--amp '\
-        '--dali --dali-cpu '\
-        '--lr 0.2 --lr-sched cosine --momentum 0.9 --wd 0.0001 --no-bias-bn-wd '\
-        '--batch-size 512 '\
-        '--warmup-epochs 5 '\
-        '--print-freq 250 ' \
-        '--label-smoothing 0.1 --epochs 100 '
+    num_devices = torch.cuda.device_count()
+    
+    # ImageNet
+    # cmd = f'--standalone --nnodes=1 --nproc_per_node={num_devices} train.py '\
+    #     '--data-dir "/datasets/ILSVRC2012" '\
+    #     '--workers 4 '\
+    #     '--amp '\
+    #     '--dali --dali-cpu '\
+    #     '--lr 0.2 --lr-sched cosine --momentum 0.9 --wd 0.0001 --no-bias-bn-wd '\
+    #     '--batch-size 512 '\
+    #     '--warmup-epochs 5 '\
+    #     '--print-freq 250 ' \
+    #     '--label-smoothing 0.1 --epochs 100 '
 
-    # cmd = '--standalone --nnodes=1 --nproc_per_node=4 train.py '\
-    #     '--dataset CIFAR100 --data-dir "/home/zhliangqi/data/datasets/CIFAR100" '\
+    # CIFAR10/100
+    # cmd = f'--standalone --nnodes=1 --nproc_per_node={num_devices} train.py '\
+    #     '--dataset CIFAR100 --data-dir "/datasets/CIFAR100" '\
     #     '--crop-size 32 --val-resize-size 32 --val-crop-size 32 ' \
-    #     '--workers 3 '\
+    #     '--workers 4 '\
     #     '--amp '\
     #     '--lr 0.4 --lr-sched cosine --momentum 0.9 --wd 0.0005 --no-bias-bn-wd '\
     #     '--batch-size 1024 '\
@@ -32,13 +37,15 @@ if __name__ == '__main__':
     #     '--print-freq 15 ' \
     #     '--augment autoaugment --label-smoothing 0.1 --epochs 100 '
 
+    # VOC segmentation
+    cmd = f'--standalone --nnodes=1 --nproc_per_node={num_devices} train_seg.py '\
+        '--dataset VOCSegmentation --data-dir "/datasets/PASCAL_VOC" '\
+        '--workers 4 '\
+        '--amp '\
+        '--lr 0.01 --lr-sched cosine --momentum 0.9 --wd 0.0001 --no-bias-bn-wd '\
+        '--batch-size 16 '\
+        '--warmup-epochs 5 '\
+        '--print-freq 30 ' \
+        '--epochs 100 --aux-loss'
 
-    # run_script(cmd, '--crop-size 128 --val-resize-size 144 --val-crop-size 128 --model vgnetg_1_0mp')
-    run_script(cmd, '--model vgnetg_1_0mp')
-    # run_script(cmd, '--model vgnetg_1_5mp')
-    # run_script(cmd, '--model vgnetg_2_0mp')
-    # run_script(cmd, '--model vgnetg_2_5mp')
-    
-
-
-
+    run_script(cmd, '--model fcn_resnet50_v1')

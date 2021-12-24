@@ -1,3 +1,6 @@
+import torch
+
+
 class DataIterator:
     def __init__(
         self,
@@ -38,7 +41,7 @@ class DataIterator:
 
         if self.type == 'dali':
             self.loader.reset()
-        else:
+        elif isinstance(self.sampler, torch.utils.data.distributed.DistributedSampler):
             self.loader.sampler.set_epoch(self._counter)
 
     def __len__(self):
