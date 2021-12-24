@@ -10,6 +10,7 @@ import torchvision.transforms as T
 import cvm
 from .utils import group_params, list_datasets, get_world_size
 from cvm.dataset.constants import *
+from cvm.dataset.loader import DataIterator
 from cvm.models.core import blocks
 from functools import partial
 
@@ -406,11 +407,11 @@ def create_loader(
             random_erasing=random_erasing
         )
         pipe.build()
-        return DALIClassificationIterator(
+        return DataIterator(DALIClassificationIterator(
             pipe,
             reader_name="Reader",
             last_batch_policy=LastBatchPolicy.PARTIAL
-        )
+        ), 'dali')
     # Pytorch/Vision
     else:
         if isinstance(dataset, str):
@@ -440,7 +441,7 @@ def create_loader(
             dataset_image_size=_get_dataset_image_size(dataset),
         )
 
-        return DataLoader(
+        return DataIterator(DataLoader(
             dataset,
             batch_size=batch_size,
             num_workers=workers,
@@ -449,4 +450,4 @@ def create_loader(
                 dataset, shuffle=is_training
             ) if distributed else None,
             shuffle=((not distributed) and is_training)
-        )
+        ), 'torch')

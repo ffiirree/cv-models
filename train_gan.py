@@ -100,17 +100,12 @@ if __name__ == '__main__':
     assert torch.cuda.is_available(), 'CUDA IS NOT AVAILABLE!!'
 
     args = parse_args()
-
-    args.batch_size = int(args.batch_size / torch.cuda.device_count())
-    args.local_rank = int(os.environ['LOCAL_RANK'])
+    init_distributed_mode(args)
 
     torch.backends.cudnn.benchmark = True
     if args.deterministic:
         manual_seed(args.seed + args.local_rank)
         torch.use_deterministic_algorithms(True)
-
-    torch.cuda.set_device(args.local_rank)
-    dist.init_process_group('nccl')
 
     logger = make_logger(
         f'imagenet_{args.model}', f'{args.output_dir}/{args.model}',
@@ -167,9 +162,8 @@ if __name__ == '__main__':
     for epoch in range(0, args.epochs):
         model.train()
 
-        for i, (images, _) in enumerate(train_loader):
+        for i, (real_data, _) in enumerate(train_loader):
             # Discriminator
-            real_data = images.cuda(non_blocking=True)
             batch_size = real_data.shape[0]
             real_labels = torch.ones(batch_size, 1).cuda()
             fake_labels = torch.zeros(batch_size, 1).cuda()
@@ -202,7 +196,7 @@ if __name__ == '__main__':
             if i % 10 == 0:
                 save_image(fake_data.detach(), f'{args.output_dir}/fake.png', normalize=True)
 
-        train_loader.sampler.set_epoch(epoch + 1)
+        train_loader.reset()
 
         logger.info(f'#{epoch:>3}/{args.epochs}] gloss={g_loss.item():.3f}, dloss={(d_fake_loss + d_real_loss).item():.3f}')
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

@@ -1,3 +1,4 @@
+import os
 import time
 import random
 import torch
@@ -20,7 +21,8 @@ __all__ = [
     'Benchmark', 'env_info', 'manual_seed',
     'named_layers', 'accuracy', 'AverageMeter',
     'module_parameters', 'group_params', 'list_models',
-    'list_datasets', 'is_dist_avail_and_initialized', 'get_world_size'
+    'list_datasets', 'is_dist_avail_and_initialized', 'get_world_size',
+    'init_distributed_mode'
 ]
 
 
@@ -161,16 +163,36 @@ class AverageMeter(object):
         self.reset()
 
     def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
+        self._total = 0
+        self._count = 0
 
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
+    def update(self, value, n=1):
+        self._total += value * n
+        self._count += n
+
+    @property
+    def avg(self):
+        reduced = reduce_across_processes([self._count, self._total])
+        return reduced.tolist()[1] / reduced.tolist()[0]
+
+    @property
+    def total(self):
+        return reduce_across_processes(self._total).item()
+
+    @property
+    def count(self):
+        return reduce_across_processes(self._count).item()
+
+
+def reduce_across_processes(val):
+    if not is_dist_avail_and_initialized():
+        # nothing to sync, but we still convert to tensor for consistency with the distributed case.
+        return torch.tensor(val)
+
+    t = torch.tensor(val, device="cuda")
+    dist.barrier()
+    dist.all_reduce(t)
+    return t
 
 
 def _filter_models(name_list, prefix='', sort=False):
@@ -228,3 +250,24 @@ def get_world_size():
     if not is_dist_avail_and_initialized():
         return 1
     return dist.get_world_size()
+
+
+def init_distributed_mode(args):
+    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+        args.rank = int(os.environ["RANK"])
+        args.world_size = int(os.environ["WORLD_SIZE"])
+        args.local_rank = int(os.environ["LOCAL_RANK"])
+
+        args.batch_size = int(args.batch_size / torch.cuda.device_count())
+
+        torch.cuda.set_device(args.local_rank)
+        args.dist_backend = "nccl"
+        args.dist_url = "env://"
+
+        torch.distributed.init_process_group(
+            backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
+        )
+
+        return True
+
+    return False

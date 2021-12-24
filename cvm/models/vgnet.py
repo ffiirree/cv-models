@@ -17,8 +17,7 @@ class HalfIdentityBlock(nn.Module):
         super().__init__()
 
         if kernels == 'random':
-            self.half3x3 = blocks.Conv2d3x3(
-                inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
+            self.half3x3 = blocks.Conv2d3x3(inp // 2, inp // 2, groups=(inp // 2) // min(inp // 2, g))
         elif kernels == 'edge':
             self.half3x3 = nn.Sequential(
                 blocks.EdgeDetection(inp // 2),

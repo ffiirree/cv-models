@@ -98,17 +98,12 @@ if __name__ == '__main__':
     assert torch.cuda.is_available(), 'CUDA IS NOT AVAILABLE!!'
 
     args = parse_args()
-
-    args.batch_size = int(args.batch_size / torch.cuda.device_count())
-    args.local_rank = int(os.environ['LOCAL_RANK'])
+    init_distributed_mode(args)
 
     torch.backends.cudnn.benchmark = True
     if args.deterministic:
         manual_seed(args.seed + args.local_rank)
         torch.use_deterministic_algorithms(True)
-
-    torch.cuda.set_device(args.local_rank)
-    dist.init_process_group('nccl')
 
     logger = make_logger(
         f'imagenet_{args.model}', f'{args.output_dir}/{args.model}',
@@ -165,7 +160,6 @@ if __name__ == '__main__':
         model.train()
 
         for i, (images, _) in enumerate(train_loader):
-            images = images.cuda(non_blocking=True)
 
             optimizer.zero_grad(set_to_none=True)
             with torch.cuda.amp.autocast(enabled=args.amp):
@@ -176,7 +170,7 @@ if __name__ == '__main__':
             scaler.step(optimizer)
             scaler.update()
 
-        train_loader.sampler.set_epoch(epoch + 1)
+        train_loader.reset()
 
         save_image(output.detach(), f'{args.output_dir}/rec.png', normalize=True)
 

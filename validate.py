@@ -33,14 +33,7 @@ def validate(val_loader, model, real_evaluator, args):
     top5 = AverageMeter()
 
     model.eval()
-    for data in tqdm(val_loader, desc='validating', unit='batch'):
-        if args.dali:
-            images = data[0]["data"]
-            target = data[0]["label"].squeeze(-1).long()
-        else:
-            images = data[0].cuda(non_blocking=True)
-            target = data[1].cuda(non_blocking=True)
-
+    for (images, target) in tqdm(val_loader, desc='validating', unit='batch'):
         with torch.inference_mode():
             output = model(images)
 

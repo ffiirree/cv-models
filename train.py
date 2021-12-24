@@ -1,11 +1,9 @@
-import os
 import json
 import time
 import datetime
 import argparse
 import torch
 import torch.nn as nn
-import torch.distributed as dist
 import torchvision.transforms as T
 
 from cvm.utils import *
@@ -122,14 +120,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
     model.train()
 
     end = time.time()
-    for i, data in enumerate(train_loader):
-        if args.dali:
-            input = data[0]["data"]
-            target = data[0]["label"].squeeze(-1).long()
-        else:
-            input = data[0].cuda(non_blocking=True)
-            target = data[1].cuda(non_blocking=True)
-
+    for i, (input, target) in enumerate(train_loader):
         if mixupcutmix_fn is not None:
             input, target = mixupcutmix_fn(input, target)
 
@@ -146,17 +137,17 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
             scheduler.step()
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        losses.update(loss.item(), input.size(0))
+        
         top1.update(acc1.item(), input.size(0))
         top5.update(acc5.item(), input.size(0))
+        losses.update(loss.item(), input.size(0))
         batch_time.update(time.time() - end)
+
         end = time.time()
 
         if i % args.print_freq == 0 and i != 0:
-            logger.info(f'#{epoch:>3} [{args.local_rank}:{i:>4}], '
-                        f't={batch_time.val:>.3f}/{batch_time.avg:>.3f}, '
-                        f't1={top1.val:>6.3f}/{top1.avg:>6.3f}, '
-                        f't5={top5.val:>6.3f}/{top5.avg:>6.3f}, '
+            logger.info(f'#{epoch:>3}[{i:>4}] t={batch_time.avg:>.3f}, '
+                        f't1={top1.avg:>6.3f}, t5={top5.avg:>6.3f}, '
                         f'lr={optimizer.param_groups[0]["lr"]:>.6f}, '
                         f'l={losses.avg:>.3f}')
 
@@ -164,54 +155,33 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
 def validate(val_loader, model, criterion):
     top1 = AverageMeter()
     top5 = AverageMeter()
-
-    losses = 0
+    losses = AverageMeter()
 
     model.eval()
-    for i, data in enumerate(val_loader):
-        if args.dali:
-            input = data[0]["data"]
-            target = data[0]["label"].squeeze(-1).long()
-        else:
-            input = data[0].cuda(non_blocking=True)
-            target = data[1].cuda(non_blocking=True)
-
+    for input, target in val_loader:
         with torch.inference_mode():
             output = model(input)
             loss = criterion(output, target)
-            losses += loss
 
         acc1, acc5 = accuracy(output.data, target, topk=(1, 5))
 
         top1.update(acc1.item(), input.size(0))
         top5.update(acc5.item(), input.size(0))
+        losses.update(loss.item(), input.size(0))
 
-    dist.all_reduce(losses)
-    top1 = torch.tensor([top1.avg]).cuda()
-    top5 = torch.tensor([top5.avg]).cuda()
-    dist.all_reduce(top1)
-    dist.all_reduce(top5)
-    if args.local_rank == 0:
-        logger.info(f'loss={losses.item() / (len(val_loader) * dist.get_world_size()):>.5f}, '
-                    f'top1={top1.item() / dist.get_world_size():>6.3f}, '
-                    f'top5={top5.item() / dist.get_world_size():>6.3f}')
+    logger.info(f'loss={losses.avg:>.5f}, top1={top1.avg:>6.3f}, top5={top5.avg:>6.3f}')
 
 
 if __name__ == '__main__':
     assert torch.cuda.is_available(), 'CUDA IS NOT AVAILABLE!!'
 
     args = parse_args()
-
-    args.batch_size = int(args.batch_size / torch.cuda.device_count())
-    args.local_rank = int(os.environ['LOCAL_RANK'])
+    init_distributed_mode(args)
 
     torch.backends.cudnn.benchmark = True
     if args.deterministic:
         manual_seed(args.seed + args.local_rank)
         torch.use_deterministic_algorithms(True)
-
-    torch.cuda.set_device(args.local_rank)
-    dist.init_process_group('nccl')
 
     logger = make_logger(
         f'imagenet_{args.model}', f'{args.output_dir}/{args.model}',
@@ -300,13 +270,10 @@ if __name__ == '__main__':
 
         validate(val_loader, model, criterion)
 
-        if args.dali:
-            train_loader.reset()
-            val_loader.reset()
-        else:
-            train_loader.sampler.set_epoch(epoch + 1)
+        train_loader.reset()
+        val_loader.reset()
 
-        if args.local_rank == 0 and epoch > (args.epochs - 10):
+        if args.rank == 0 and epoch > (args.epochs - 10):
             model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
             torch.save(model.module.state_dict(), model_name)
             logger.info(f'Saved: {model_name}!')

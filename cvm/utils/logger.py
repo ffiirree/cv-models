@@ -18,7 +18,7 @@ def make_logger(run_name, log_dir='logs', rank: int = 0):
         os.makedirs(log_dir)
     dist.barrier()
 
-    if not logger.handlers:  # execute only if logger doesn't already exist
+    if not logger.handlers and rank == 0:  # execute only if logger doesn't already exist
         file_handler = logging.FileHandler(log_filepath, mode='a', encoding='utf-8')
         stream_handler = logging.StreamHandler(os.sys.stdout)
 
