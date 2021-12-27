@@ -45,6 +45,7 @@ def create_dali_pipeline(
     resize_size,
     shard_id,
     num_shards,
+    random_scale=[0.08, 1.0],
     interpolation=types.INTERP_TRIANGULAR,
     dali_cpu=False,
     is_training=True,
@@ -80,7 +81,7 @@ def create_dali_pipeline(
             preallocate_width_hint=preallocate_width_hint,
             preallocate_height_hint=preallocate_height_hint,
             random_aspect_ratio=[3/4, 4/3],
-            random_area=[0.08, 1.0],
+            random_area=random_scale,
             num_attempts=100
         )
 
@@ -318,6 +319,7 @@ def _to_dali_interpolation(interpolation):
 def create_transforms(
     resize_size: int = 256,
     crop_size: int = 224,
+    random_scale: List[float] = [0.08, 1.0],
     padding: int = 0,
     interpolation=T.InterpolationMode.BILINEAR,
     random_crop: bool = False,
@@ -351,7 +353,7 @@ def create_transforms(
         else:
             ops.append(T.RandomResizedCrop(
                 crop_size,
-                scale=(0.08, 1.0),
+                scale=random_scale,
                 ratio=(3. / 4., 4. / 3.),
                 interpolation=interpolation
             ))
@@ -379,7 +381,7 @@ def create_transforms(
 
 
 def create_segmentation_transforms(
-    resize_size: Union[int, List[int]],
+    resize_size: int,
     crop_size: int,
     interpolation=T.InterpolationMode.BILINEAR,
     padding: int = 0,
@@ -442,7 +444,7 @@ def create_loader(
     pin_memory: bool = True,
     interpolation: str = 'bilinear',
     crop_padding: int = 4,
-    val_resize_size: Union[int, List[int]] = 256,
+    val_resize_size: int = 256,
     val_crop_size: int = 224,
     crop_size: int = 224,
     hflip: float = 0.5,
@@ -478,6 +480,7 @@ def create_loader(
             ),
             crop_size=crop_size if is_training else val_crop_size,
             resize_size=val_resize_size,
+            random_scale=kwargs.get('random_scale', [0.08, 1.0]),
             interpolation=_to_dali_interpolation(interpolation),
             dali_cpu=dali_cpu,
             shard_id=local_rank,
@@ -506,6 +509,7 @@ def create_loader(
         if taskname == 'classification':
             dataset.transform = transform or create_transforms(
                 is_training=is_training,
+                random_scale=kwargs.get('random_scale', [0.08, 1.0]),
                 interpolation=T.InterpolationMode(interpolation),
                 hflip=hflip,
                 vflip=vflip,

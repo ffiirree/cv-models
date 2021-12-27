@@ -20,6 +20,7 @@ def parse_args():
                         help='number of data loading workers pre GPU. (default: 4)')
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
+    parser.add_argument('--random-scale', type=float, nargs='+', default=[0.08, 1.0])
     parser.add_argument('--crop-size', type=int, default=224)
     parser.add_argument('--crop-padding', type=int, default=4, metavar='S')
     parser.add_argument('--val-resize-size', type=int, default=256)
@@ -209,7 +210,7 @@ if __name__ == '__main__':
         pretrained=args.pretrained,
         pth=args.model_path,
         sync_bn=args.sync_bn,
-        distributed=True,
+        distributed=args.distributed,
         local_rank=args.local_rank
     )
 
@@ -219,13 +220,11 @@ if __name__ == '__main__':
     train_loader = create_loader(
         root=args.data_dir,
         is_training=True,
-        distributed=True,
         **(dict(vars(args)))
     )
     val_loader = create_loader(
         root=args.data_dir,
         is_training=False,
-        distributed=True,
         **(dict(vars(args)))
     )
 

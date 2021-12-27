@@ -44,8 +44,7 @@ if __name__ == '__main__':
         '--amp '\
         '--lr 0.01 --lr-sched cosine --momentum 0.9 --wd 0.0001 --no-bias-bn-wd '\
         '--batch-size 16 '\
-        '--warmup-epochs 5 '\
         '--print-freq 30 ' \
         '--epochs 100 --aux-loss'
 
-    run_script(cmd, '--model fcn_resnet50_v1')
+    run_script(cmd, '--pretrained-backbone --model seg/fcn_regnet_x_400mf')

@@ -241,6 +241,9 @@ def get_world_size():
 
 
 def init_distributed_mode(args):
+    args.local_rank = 0
+    args.distributed = False
+
     if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ["WORLD_SIZE"])
@@ -255,7 +258,7 @@ def init_distributed_mode(args):
         torch.distributed.init_process_group(
             backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
         )
-
+        args.distributed = True
         return True
 
     return False

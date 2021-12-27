@@ -1,18 +1,15 @@
-import os
 import json
 import datetime
 import argparse
 import torch
 import torch.nn as nn
 from torchvision.utils import save_image
-import torch.distributed as dist
-import torchvision
 
 from cvm.utils import *
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+    parser = argparse.ArgumentParser(description='PyTorch GAN Training')
     # dataset
     parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
                         help='path to the ImageNet dataset.')
@@ -28,8 +25,8 @@ def parse_args():
 
     # model
     parser.add_argument('--input-size', type=int, default=28)
-    parser.add_argument('--model', type=str, default='resnet18_v1', choices=list_models(),
-                        help='type of model to use. (default: resnet18_v1)')
+    parser.add_argument('--model', type=str, default='gan/dcgan', choices=list_models(),
+                        help='type of model to use. (default: gan/dcgan)')
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
     parser.add_argument('--model-path', type=str, default=None)
@@ -80,7 +77,7 @@ def parse_args():
                         help='RandAugment n.')
     parser.add_argument('--randaugment-m', type=int, default=10, metavar='M',
                         help='RandAugment m.')
-    
+
     parser.add_argument('--seed', type=int, default=0, metavar='S',
                         help='random seed (default: 0)')
     parser.add_argument('--deterministic', action='store_true',
@@ -127,21 +124,19 @@ if __name__ == '__main__':
         pretrained=args.pretrained,
         pth=args.model_path,
         sync_bn=args.sync_bn,
-        distributed=True,
+        distributed=args.distributed,
         local_rank=args.local_rank
     )
     generator = model.module.generator
     discriminator = model.module.discriminator
 
     optimizer_g = create_optimizer(args.optim, generator, **dict(vars(args)))
-    optimizer_d = create_optimizer(
-        args.optim, discriminator, **dict(vars(args)))
+    optimizer_d = create_optimizer(args.optim, discriminator, **dict(vars(args)))
     criterion = nn.BCELoss()
 
     train_loader = create_loader(
         root=args.data_dir,
         is_training=True,
-        distributed=True,
         download=args.dataset_download,
         mean=(0.5,),
         std=(0.5,),
@@ -167,14 +162,14 @@ if __name__ == '__main__':
             batch_size = real_data.shape[0]
             real_labels = torch.ones(batch_size, 1).cuda()
             fake_labels = torch.zeros(batch_size, 1).cuda()
-            
+
             z = torch.randn(batch_size, args.hidden_dim, 1, 1).cuda()
 
             optimizer_d.zero_grad(set_to_none=True)
             with torch.cuda.amp.autocast(enabled=args.amp):
                 output = discriminator(real_data)
                 d_real_loss = criterion(output, real_labels)
-  
+
                 fake_data = generator(z)
                 output = discriminator(fake_data.detach())
                 d_fake_loss = criterion(output, fake_labels)
@@ -192,7 +187,7 @@ if __name__ == '__main__':
             scaler.scale(g_loss).backward()
             scaler.step(optimizer_g)
             scaler.update()
-            
+
             if i % 10 == 0:
                 save_image(fake_data.detach(), f'{args.output_dir}/fake.png', normalize=True)
 

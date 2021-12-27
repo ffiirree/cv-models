@@ -11,26 +11,28 @@ from cvm.utils import *
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+    parser = argparse.ArgumentParser(description='PyTorch Segmentation Training')
     # dataset
-    parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
-                        help='path to the ImageNet dataset.')
-    parser.add_argument('--dataset', type=str, default='ImageNet', metavar='NAME',
+    parser.add_argument('--data-dir', type=str, default='/datasets/PASCAL_VOC',
+                        help='path to the segmentation dataset.')
+    parser.add_argument('--dataset', type=str, default='VOCSegmentation', metavar='NAME',
                         choices=list_datasets() + ['ImageNet'], help='dataset type.')
     parser.add_argument('--workers', '-j', type=int, default=4, metavar='N',
                         help='number of data loading workers pre GPU. (default: 4)')
-    parser.add_argument('--batch-size', type=int, default=256, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=1, metavar='N',
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
     parser.add_argument('--crop-size', type=int, default=320)
     parser.add_argument('--crop-padding', type=int, default=4, metavar='S')
-    parser.add_argument('--val-resize-size', type=int, nargs='+', default=[384, 480])
+    parser.add_argument('--val-resize-size', type=int, default=384)
     parser.add_argument('--val-crop-size', type=int, default=384)
 
     # model
-    parser.add_argument('--model', type=str, default='resnet18_v1', choices=list_models(),
-                        help='type of model to use. (default: resnet18_v1)')
+    parser.add_argument('--model', type=str, default='seg/fcn_regnet_x_400mf', choices=list_models(),
+                        help='type of model to use. (default: seg/fcn_regnet_x_400mf)')
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
+    parser.add_argument('--pretrained-backbone', action='store_true',
+                        help='use pre-trained backbone. (default: false)')
     parser.add_argument('--model-path', type=str, default=None)
     parser.add_argument('--num-classes', type=int, default=21, metavar='N',
                         help='number of label classes')
@@ -61,7 +63,7 @@ def parse_args():
     # learning rate
     parser.add_argument('--lr', type=float, default=0.1,
                         help='initial learning rate. (default: 0.1)')
-    parser.add_argument('--lr-sched', type=str, default=None, choices=['step', 'cosine'],
+    parser.add_argument('--lr-sched', type=str, default='cosine', choices=['step', 'cosine'],
                         help="learning rate scheduler mode, options are [cosine, step]. (default: cosine)")
     parser.add_argument('--min-lr', type=float, default=1e-6)
     parser.add_argument('--lr-decay-rate', type=float, default=0.1, metavar='RATE',
@@ -88,7 +90,7 @@ def parse_args():
                         help='random seed (default: 0)')
     parser.add_argument('--deterministic', action='store_true',
                         help='reproducibility. (default: false)')
-    parser.add_argument('--print-freq', default=100, type=int, metavar='N',
+    parser.add_argument('--print-freq', default=10, type=int, metavar='N',
                         help='print frequency. (default: 10)')
     parser.add_argument('--sync_bn', action='store_true',
                         help='use SyncBatchNorm. (default: false)')
@@ -100,6 +102,7 @@ def parse_args():
                         help='runs CPU based version of DALI pipeline. (default: false)')
     parser.add_argument('--output-dir', type=str,
                         default=f'logs/{datetime.date.today()}', metavar='DIR')
+    parser.add_argument('--validate', action='store_true')
     return parser.parse_args()
 
 
@@ -151,11 +154,16 @@ def validate(val_loader, model, args):
         with torch.inference_mode():
             outputs = model(images)
 
-        confmat.update(outputs, targets)
+        predictions = outputs[0] if isinstance(outputs, tuple) else outputs['out']
+        confmat.update(predictions.argmax(1).flatten(), targets.flatten())
 
     confmat.all_reduce()
-    iou = [f'{i}:{v}' for i, v in enumerate(confmat.iou)]
-    logger.info(f'miou={confmat.mean_iou}, iou ={iou}')
+    iou = [f'{v*100:>4.1f}' for v in confmat.iou]
+    pa = [f'{v*100:>4.1f}' for v in confmat.mean_pa]
+    logger.info(f'\nPA = {pa}'
+                f'\ngloabal PA = {confmat.pa*100:>4.1f}'
+                f'\nIoU = {iou}'
+                f'\nmean IoU = {confmat.mean_iou*100:>4.1f}')
 
 
 if __name__ == '__main__':
@@ -186,9 +194,10 @@ if __name__ == '__main__':
         bn_momentum=args.bn_momentum,
         thumbnail=(args.crop_size < 128),
         pretrained=args.pretrained,
+        pretrained_backbone=args.pretrained_backbone,
         pth=args.model_path,
         sync_bn=args.sync_bn,
-        distributed=True,
+        distributed=args.distributed,
         local_rank=args.local_rank
     )
 
@@ -198,17 +207,21 @@ if __name__ == '__main__':
     train_loader = create_loader(
         root=args.data_dir,
         is_training=True,
-        distributed=True,
         taskname='segmentation',
         **(dict(vars(args)))
     )
+
+    args.batch_size = 1
     val_loader = create_loader(
         root=args.data_dir,
         is_training=False,
-        distributed=True,
         taskname='segmentation',
         **(dict(vars(args)))
     )
+
+    if args.validate:
+        validate(val_loader, model, args)
+        exit(0)
 
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
 

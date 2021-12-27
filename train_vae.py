@@ -1,17 +1,15 @@
-import os
 import json
 import datetime
 import argparse
 import torch
 import torch.nn.functional as F
-import torch.distributed as dist
 from torchvision.utils import save_image
 
 from cvm.utils import *
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+    parser = argparse.ArgumentParser(description='PyTorch VAE Training')
     # dataset
     parser.add_argument('--data-dir', type=str, default='/datasets/ILSVRC2012',
                         help='path to the ImageNet dataset.')
@@ -27,8 +25,8 @@ def parse_args():
 
     # model
     parser.add_argument('--input-size', type=int, default=28)
-    parser.add_argument('--model', type=str, default='resnet18_v1', choices=list_models(),
-                        help='type of model to use. (default: resnet18_v1)')
+    parser.add_argument('--model', type=str, default='vae/vae', choices=list_models(),
+                        help='type of model to use. (default: vae/vae)')
     parser.add_argument('--pretrained', action='store_true',
                         help='use pre-trained model. (default: false)')
     parser.add_argument('--model-path', type=str, default=None)
@@ -124,7 +122,7 @@ if __name__ == '__main__':
         pretrained=args.pretrained,
         pth=args.model_path,
         sync_bn=args.sync_bn,
-        distributed=True,
+        distributed=args.distributed,
         local_rank=args.local_rank
     )
 
@@ -139,7 +137,6 @@ if __name__ == '__main__':
     train_loader = create_loader(
         root=args.data_dir,
         is_training=True,
-        distributed=True,
         download=args.dataset_download,
         mean=(0.5,),
         std=(0.5,),

@@ -61,7 +61,7 @@ class ConfusionMatrix:
 
     @property
     def mean_iou(self):
-        return self.intersection / (self.union - self.intersection + self.eps).mean().item()
+        return (self.intersection / (self.union - self.intersection + self.eps)).mean().item()
 
     @property
     def pa(self):
@@ -69,4 +69,4 @@ class ConfusionMatrix:
 
     @property
     def mean_pa(self):
-        return (self.intersection / self.mat.sum(0)).mean().item()
+        return (self.intersection / self.mat.sum(1)).tolist()

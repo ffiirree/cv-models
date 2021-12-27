@@ -17,7 +17,7 @@ import math
 import torch
 import torch.nn as nn
 from .core import blocks, export, make_divisible, config, load_from_local_or_url
-from typing import Any
+from typing import Any, List
 
 
 class BottleneckTransform(nn.Sequential):
@@ -29,6 +29,7 @@ class BottleneckTransform(nn.Sequential):
         stride,
         group_width,
         bottleneck_multiplier,
+        dilation,
         se_ratio
     ):
         super().__init__()
@@ -36,7 +37,7 @@ class BottleneckTransform(nn.Sequential):
         wb = int(round(oup * bottleneck_multiplier))
 
         self.add_module('1x1-1', blocks.Conv2d1x1Block(inp, wb))
-        self.add_module('3x3', blocks.Conv2dBlock(wb, wb, stride=stride, groups=(wb // group_width)))
+        self.add_module('3x3', blocks.Conv2dBlock(wb, wb, stride=stride, groups=(wb // group_width), dilation=dilation))
 
         if se_ratio:
             self.add_module('se', blocks.SEBlock(wb, (inp * se_ratio) / wb))  # se <-> inp
@@ -54,6 +55,7 @@ class ResBottleneckBlock(nn.Module):
         stride: int,
         group_width: int = 1,
         bottleneck_multiplier: float = 1.0,
+        dilation: int = 1,
         se_ratio: float = None,
     ) -> None:
         super().__init__()
@@ -70,6 +72,7 @@ class ResBottleneckBlock(nn.Module):
             stride,
             group_width,
             bottleneck_multiplier,
+            dilation,
             se_ratio,
         )
 
@@ -92,20 +95,23 @@ class RegStage(nn.Sequential):
         depth,
         group_widths,
         bottleneck_multiplier,
+        dilation: int,
         se_ratio: float,
         stage_index: int
     ):
         super().__init__()
 
         for i in range(depth):
+            stride = stride if i == 0 and dilation == 1 else 1
             self.add_module(
                 f'stage{stage_index}-{i}',
                 ResBottleneckBlock(
                     in_width if i == 0 else out_width,
                     out_width,
-                    stride if i == 0 else 1,
+                    stride,
                     group_widths,
                     bottleneck_multiplier,
+                    max(dilation // stride, 1),
                     se_ratio
                 )
             )
@@ -126,6 +132,7 @@ class RegNet(nn.Module):
         g: int = None,
         se_ratio: float = None,
         dropout_rate: float = 0.0,
+        dilations: List[int] = [1, 1, 1, 1],
         thumbnail: bool = False,
         **kwargs: Any
     ):
@@ -139,6 +146,8 @@ class RegNet(nn.Module):
         g: group width
         """
         super().__init__()
+
+        assert len(dilations) == 4, ''
 
         FRONT_S = 1 if thumbnail else 2
 
@@ -169,6 +178,7 @@ class RegNet(nn.Module):
                     stage_depths[i],
                     group_widths[i],
                     bottleneck_multipliers[i],
+                    dilations[i],
                     se_ratio,
                     i + 1
                 )
@@ -214,6 +224,7 @@ def regnet_x_200mf(pretrained: bool = False, pth: str = None, progress: bool = T
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1-regnets/regnet_x_400mf-4e2ca5f3.pth')
 def regnet_x_400mf(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
     return _regnet(22, 24, 24.48, 2.54, 1.0, 16, None, pretrained, pth, progress, **kwargs)
 

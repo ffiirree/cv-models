@@ -36,6 +36,9 @@ def _fcn(
     progress: bool = True,
     **kwargs: Any
 ):
+    if pretrained:
+        pretrained_backbone = False
+
     backbone = models.__dict__[backbone](
         pretrained=pretrained_backbone,
         dilations=[1, 1, 2, 4],
@@ -61,8 +64,7 @@ def fcn_resnet50_v1(
     **kwargs: Any
 ):
     decode_head = FCNHead(2048, 512, num_classes, dropout_rate)
-    aux_head = FCNHead(1024, 256, num_classes,
-                       dropout_rate) if aux_loss else None
+    aux_head = FCNHead(1024, 256, num_classes, dropout_rate) if aux_loss else None
 
     return _fcn('resnet50_v1', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)
 
@@ -96,7 +98,23 @@ def fcn_mobilenet_v3_large(
     **kwargs: Any
 ):
     decode_head = FCNHead(960, 512, num_classes, dropout_rate)
-    aux_head = FCNHead(112, 28, num_classes,
-                       dropout_rate) if aux_loss else None
+    aux_head = FCNHead(112, 28, num_classes, dropout_rate) if aux_loss else None
 
     return _fcn('mobilenet_v3_large', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)
+
+
+@export
+def fcn_regnet_x_400mf(
+    num_classes: int = 21,
+    aux_loss: bool = False,
+    dropout_rate: float = 0.1,
+    pretrained: bool = False,
+    pretrained_backbone: bool = True,
+    pth: str = None,
+    progress: bool = True,
+    **kwargs: Any
+):
+    decode_head = FCNHead(400, 100, num_classes, dropout_rate)
+    aux_head = FCNHead(160, 40, num_classes, dropout_rate) if aux_loss else None
+
+    return _fcn('regnet_x_400mf', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)
