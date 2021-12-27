@@ -1,8 +1,7 @@
 import torch.nn as nn
-from typing import Any
-
+from ..core import SegmentationModel, export, load_from_local_or_url
 import cvm.models as models
-from cvm.models.core import SegmentationModel, export, load_from_local_or_url
+from typing import Any
 
 
 class FCNHead(nn.Sequential):
@@ -62,7 +61,8 @@ def fcn_resnet50_v1(
     **kwargs: Any
 ):
     decode_head = FCNHead(2048, 512, num_classes, dropout_rate)
-    aux_head = FCNHead(1024, 256, num_classes, dropout_rate) if aux_loss else None
+    aux_head = FCNHead(1024, 256, num_classes,
+                       dropout_rate) if aux_loss else None
 
     return _fcn('resnet50_v1', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)
 
@@ -80,7 +80,7 @@ def fcn_mobilenet_v3_small(
 ):
     decode_head = FCNHead(576, 512, num_classes, dropout_rate)
     aux_head = FCNHead(48, 12, num_classes, dropout_rate) if aux_loss else None
-    
+
     return _fcn('mobilenet_v3_small', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)
 
 
@@ -96,6 +96,7 @@ def fcn_mobilenet_v3_large(
     **kwargs: Any
 ):
     decode_head = FCNHead(960, 512, num_classes, dropout_rate)
-    aux_head = FCNHead(112, 28, num_classes, dropout_rate) if aux_loss else None
-    
+    aux_head = FCNHead(112, 28, num_classes,
+                       dropout_rate) if aux_loss else None
+
     return _fcn('mobilenet_v3_large', decode_head, aux_head, pretrained_backbone, pretrained, pth, progress, **kwargs)

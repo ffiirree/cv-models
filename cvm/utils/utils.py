@@ -19,7 +19,7 @@ except ImportError:
 
 __all__ = [
     'Benchmark', 'env_info', 'manual_seed',
-    'named_layers', 'accuracy', 'AverageMeter',
+    'named_layers', 'AverageMeter',
     'module_parameters', 'group_params', 'list_models',
     'list_datasets', 'is_dist_avail_and_initialized', 'get_world_size',
     'init_distributed_mode'
@@ -137,25 +137,6 @@ def group_params(model, wd: float, no_bias_bn_decay: bool = False):
         ]
 
 
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.inference_mode():
-        maxk = max(topk)
-        batch_size = target.size(0)
-        if target.ndim == 2:
-            target = target.max(dim=1)[1]
-
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target[None])
-
-        res = []
-        for k in topk:
-            correct_k = correct[:k].flatten().sum(dtype=torch.float32)
-            res.append(correct_k * (100.0 / batch_size))
-        return res
-
-
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -195,7 +176,8 @@ def reduce_across_processes(val):
     return t
 
 
-def _filter_models(name_list, prefix='', sort=False):
+def _filter_models(module, prefix='', sort=True):
+    name_list = module.__dict__
     models = [prefix + name for name in name_list
               if name.islower() and not name.startswith("__")
               and callable(name_list[name])]
@@ -205,26 +187,32 @@ def _filter_models(name_list, prefix='', sort=False):
 def list_models(lib: str = 'all'):
     assert lib in ['all', 'cvm', 'torch', 'timm'], f'Unknown library {lib}.'
 
-    if lib == 'all':
-        cvm_models = _filter_models(models.__dict__, sort=True)
-        torch_models = _filter_models(torchvision.models.__dict__, 'torch/', sort=True)
+    cvm_models = [
+        *_filter_models(models),
+        *_filter_models(models.seg, 'seg/'),
+        *_filter_models(models.gan, 'gan/'),
+        *_filter_models(models.vae, 'vae/')
+    ]
+    if lib == 'cvm':
+        return cvm_models
 
-        timm_models = [
-            'timm/' + name for name in timm.list_models()
-        ] if has_timm else []
-        return cvm_models + torch_models + timm_models
+    torch_models = [
+        *_filter_models(torchvision.models, 'torch/'),
+        *_filter_models(torchvision.models.segmentation, 'torch/segmentation/'),
+        *_filter_models(torchvision.models.detection, 'torch/detection/'),
+        *_filter_models(torchvision.models.video, 'torch/video/'),
+    ]
+    if lib == 'torch':
+        return torch_models
 
-    elif lib == 'torch':
-        return _filter_models(
-            torchvision.models.__dict__,
-            prefix='torch/',
-            sort=True
-        )
-    elif lib == 'timm':
-        assert has_timm, 'Please install timm first.'
-        return ['timm/' + name for name in timm.list_models()]
-    else:
-        return _filter_models(models.__dict__, sort=True)
+    timm_models = [
+        'timm/' + name for name in timm.list_models()
+    ] if has_timm else []
+
+    if lib == 'timm':
+        return timm_models
+
+    return cvm_models + torch_models + timm_models
 
 
 def list_datasets():

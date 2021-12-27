@@ -3,7 +3,7 @@ import json
 import torch
 from tqdm import tqdm
 from cvm.utils import accuracy, AverageMeter, create_loader, create_model, list_models, list_datasets
-from cvm.dataset import ImageNet1KRealLabelsEvaluator
+from cvm.data import ImageNet1KRealLabelsEvaluator
 
 
 def parse_args():

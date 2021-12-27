@@ -134,27 +134,28 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
 
             if not os.path.exists('logs/voc'):
                 os.makedirs('logs/voc')
-            
+
             output = outputs[0].argmax(dim=1)
-            targets[targets==255] = 0
+            targets[targets == 255] = 0
 
             torchvision.utils.save_image(images[0], f'logs/voc/{i}_image.png', normalize=True)
             torchvision.utils.save_image(output[0].float(), f'logs/voc/{i}_pred.png', normalize=True)
             torchvision.utils.save_image(targets[0].float(), f'logs/voc/{i}_mask.png', normalize=True)
 
 
-def validate(val_loader, model, criterion):
-    losses = AverageMeter()
+def validate(val_loader, model, args):
+    confmat = ConfusionMatrix(args.num_classes)
 
     model.eval()
     for images, targets in val_loader:
         with torch.inference_mode():
             outputs = model(images)
-            loss = criterion(outputs[0], targets)
 
-        losses.update(loss.item(), images.size(0))
+        confmat.update(outputs, targets)
 
-    logger.info(f'loss={losses.avg:>.5f}')
+    confmat.all_reduce()
+    iou = [f'{i}:{v}' for i, v in enumerate(confmat.iou)]
+    logger.info(f'miou={confmat.mean_iou}, iou ={iou}')
 
 
 if __name__ == '__main__':
@@ -241,7 +242,7 @@ if __name__ == '__main__':
             args
         )
 
-        validate(val_loader, model, criterion)
+        validate(val_loader, model, args)
 
         train_loader.reset()
         val_loader.reset()

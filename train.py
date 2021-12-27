@@ -24,6 +24,8 @@ def parse_args():
     parser.add_argument('--crop-padding', type=int, default=4, metavar='S')
     parser.add_argument('--val-resize-size', type=int, default=256)
     parser.add_argument('--val-crop-size', type=int, default=224)
+    parser.add_argument("--interpolation", default="bilinear", type=str,
+                        help="the interpolation method (default: bilinear)")
 
     # model
     parser.add_argument('--model', type=str, default='resnet18_v1', choices=list_models(),
@@ -83,6 +85,8 @@ def parse_args():
                         help='beta distribution parameter for cutmix sampling. (default: 0.0)')
     parser.add_argument('--label-smoothing', type=float, default=0.0,
                         help='use label smoothing or not in training. (default: 0.0)')
+    parser.add_argument("--ra-repetitions", default=0, type=int,
+                        help="number of repetitions for Repeated Augmentation (default: 0)")
     parser.add_argument('--augment', type=str, default=None,
                         choices=['randaugment', 'autoaugment'])
     parser.add_argument('--randaugment-n', type=int, default=2, metavar='N',
@@ -141,7 +145,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
         scheduler.step()
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        
+
         top1.update(acc1.item(), input.size(0))
         top5.update(acc5.item(), input.size(0))
         losses.update(loss.item(), input.size(0))

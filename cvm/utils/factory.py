@@ -8,11 +8,13 @@ from torch.utils.data.distributed import DistributedSampler
 import torchvision
 from torchvision import datasets
 import torchvision.transforms as T
-from . import seg_transforms as ST
+
 import cvm
+from cvm.data.samplers import RASampler
+from . import seg_transforms as ST
 from .utils import group_params, list_datasets, get_world_size
-from cvm.dataset.constants import *
-from cvm.dataset.loader import DataIterator
+from cvm.data.constants import *
+from cvm.data.loader import DataIterator
 from cvm.models.core import blocks
 from functools import partial
 
@@ -43,6 +45,7 @@ def create_dali_pipeline(
     resize_size,
     shard_id,
     num_shards,
+    interpolation=types.INTERP_TRIANGULAR,
     dali_cpu=False,
     is_training=True,
     hflip=0.5,
@@ -86,7 +89,7 @@ def create_dali_pipeline(
             device=dali_device,
             resize_x=crop_size,
             resize_y=crop_size,
-            interp_type=types.INTERP_TRIANGULAR
+            interp_type=interpolation
         )
 
         if color_jitter > 0.0:
@@ -115,7 +118,7 @@ def create_dali_pipeline(
             device=dali_device,
             size=resize_size,
             mode="not_smaller",
-            interp_type=types.INTERP_TRIANGULAR
+            interp_type=interpolation
         )
 
         mirror = False
@@ -145,7 +148,13 @@ def create_model(
 ):
     if name.startswith('torch/'):
         name = name.replace('torch/', '')
-        model = torchvision.models.__dict__[name](pretrained=pretrained)
+
+        _models = torchvision.models
+        if len(name.split('/')) > 1:
+            _models = torchvision.models.__dict__[name.split('/')[0]]
+            name = name.split('/')[1]
+
+        model = _models.__dict__[name](pretrained=pretrained)
     elif name.startswith('timm/'):
         assert has_timm, 'Please install timm first.'
         name = name.replace('timm/', '')
@@ -162,11 +171,16 @@ def create_model(
             checkpoint_path=kwargs.get('initial_checkpoint', None),
         )
     else:
+        _models = cvm.models
+        if len(name.split('/')) > 1:
+            _models = cvm.models.__dict__[name.split('/')[0]]
+            name = name.split('/')[1]
+
         if 'bn_eps' in kwargs and kwargs['bn_eps'] and 'bn_momentum' in kwargs and kwargs['bn_momentum']:
             with blocks.normalizer(partial(nn.BatchNorm2d, eps=kwargs['bn_eps'], momentum=kwargs['bn_momentum'])):
-                model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+                model = _models.__dict__[name](pretrained=pretrained, **kwargs)
         else:
-            model = cvm.models.__dict__[name](pretrained=pretrained, **kwargs)
+            model = _models.__dict__[name](pretrained=pretrained, **kwargs)
 
     if cuda:
         model.cuda()
@@ -285,10 +299,27 @@ def _get_autoaugment_policy(name):
     ValueError(f'Unknown AutoAugmentPolicy: {name}.')
 
 
+def _to_dali_interpolation(interpolation):
+    interp_types = {
+        'nearest': types.INTERP_NN,
+        'linear': types.INTERP_LINEAR,
+        'cubic': types.INTERP_CUBIC,
+        'triangular': types.INTERP_TRIANGULAR,
+        'gaussian': types.INTERP_GAUSSIAN,
+        'lanczos': types.INTERP_LANCZOS3,
+
+        # For pytorch compatibility
+        'bilinear': types.INTERP_TRIANGULAR,
+    }
+
+    return interp_types[interpolation]
+
+
 def create_transforms(
     resize_size: int = 256,
     crop_size: int = 224,
     padding: int = 0,
+    interpolation=T.InterpolationMode.BILINEAR,
     random_crop: bool = False,
     is_training: bool = True,
     mean=IMAGE_MEAN,
@@ -306,14 +337,14 @@ def create_transforms(
     ops = []
     if not is_training:
         if dataset_image_size != resize_size:
-            ops.append(T.Resize(resize_size))
+            ops.append(T.Resize(resize_size, interpolation=interpolation))
         if dataset_image_size != crop_size:
             ops.append(T.CenterCrop(crop_size))
     else:
         # cifar10/100
         if random_crop:
             if dataset_image_size < crop_size:
-                ops.append(T.Resize(crop_size))
+                ops.append(T.Resize(crop_size, interpolation=interpolation))
             if padding != 0 or dataset_image_size > crop_size:
                 ops.append(T.RandomCrop(crop_size, padding))
         # imagenet
@@ -322,7 +353,7 @@ def create_transforms(
                 crop_size,
                 scale=(0.08, 1.0),
                 ratio=(3. / 4., 4. / 3.),
-                interpolation=T.InterpolationMode.BILINEAR
+                interpolation=interpolation
             ))
 
         if hflip > 0.0:
@@ -333,9 +364,9 @@ def create_transforms(
             ops.append(T.ColorJitter(*((color_jitter, ) * 3)))  # no hue
 
         if augment == 'randaugment':
-            ops.append(T.RandAugment(randaugment_n, randaugment_m))
+            ops.append(T.RandAugment(randaugment_n, randaugment_m, interpolation=interpolation))
         elif augment == 'autoaugment':
-            ops.append(T.AutoAugment(autoaugment_policy))
+            ops.append(T.AutoAugment(autoaugment_policy, interpolation=interpolation))
 
     ops.append(T.PILToTensor())
     ops.append(T.ConvertImageDtype(torch.float))
@@ -350,6 +381,7 @@ def create_transforms(
 def create_segmentation_transforms(
     resize_size: Union[int, List[int]],
     crop_size: int,
+    interpolation=T.InterpolationMode.BILINEAR,
     padding: int = 0,
     is_training: bool = True,
     mean=VOC_MEAN,
@@ -362,7 +394,7 @@ def create_segmentation_transforms(
         if hflip > 0.0:
             ops.append(ST.RandomHorizontalFlip(hflip))
     else:
-        ops.append(ST.Resize(resize_size))
+        ops.append(ST.Resize(resize_size, interpolation=interpolation))
 
     ops.append(ST.PILToTensor())
     ops.append(ST.ConvertImageDtype(torch.float))
@@ -408,6 +440,7 @@ def create_loader(
     batch_size: int = 256,
     workers: int = 4,
     pin_memory: bool = True,
+    interpolation: str = 'bilinear',
     crop_padding: int = 4,
     val_resize_size: Union[int, List[int]] = 256,
     val_crop_size: int = 224,
@@ -424,6 +457,7 @@ def create_loader(
     local_rank: int = 0,
     root: str = None,
     distributed: bool = False,
+    ra_repetitions: int = 0,
     transform: T.Compose = None,
     taskname: str = 'classification',
     **kwargs
@@ -432,6 +466,7 @@ def create_loader(
     # Nvidia/DALI
     if dali:
         assert _get_name(dataset).lower() == 'imagenet', ''
+        assert ra_repetitions == 0, 'Do not support RepeatedAugmentation when using nvidia/dali.'
 
         pipe = create_dali_pipeline(
             batch_size=batch_size,
@@ -443,6 +478,7 @@ def create_loader(
             ),
             crop_size=crop_size if is_training else val_crop_size,
             resize_size=val_resize_size,
+            interpolation=_to_dali_interpolation(interpolation),
             dali_cpu=dali_cpu,
             shard_id=local_rank,
             num_shards=get_world_size(),
@@ -470,6 +506,7 @@ def create_loader(
         if taskname == 'classification':
             dataset.transform = transform or create_transforms(
                 is_training=is_training,
+                interpolation=T.InterpolationMode(interpolation),
                 hflip=hflip,
                 vflip=vflip,
                 color_jitter=color_jitter,
@@ -489,6 +526,7 @@ def create_loader(
         elif taskname == 'segmentation':
             dataset.transforms = transform or create_segmentation_transforms(
                 is_training=is_training,
+                interpolation=T.InterpolationMode(interpolation),
                 hflip=hflip,
                 mean=kwargs.get('mean', _get_dataset_mean_or_std(dataset, 'mean')),
                 std=kwargs.get('std', _get_dataset_mean_or_std(dataset, 'std')),
@@ -496,13 +534,18 @@ def create_loader(
                 crop_size=crop_size if is_training else val_crop_size,
             )
 
+        sampler = None
+        if distributed:
+            if ra_repetitions > 0 and is_training:
+                sampler = RASampler(dataset, shuffle=True, repetitions=ra_repetitions)
+            else:
+                sampler = DistributedSampler(dataset, shuffle=is_training)
+
         return DataIterator(DataLoader(
             dataset,
             batch_size=batch_size,
             num_workers=workers,
             pin_memory=pin_memory,
-            sampler=DistributedSampler(
-                dataset, shuffle=is_training
-            ) if distributed else None,
+            sampler=sampler,
             shuffle=((not distributed) and is_training)
         ), 'torch')
