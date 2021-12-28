@@ -261,7 +261,7 @@ if __name__ == '__main__':
         val_loader.reset()
 
         if args.rank == 0 and epoch > (args.epochs - 10):
-            model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
+            model_name = f'{args.output_dir}/{args.model}/{epoch:0>3}_{time.time()}.pth'
             torch.save(model.module.state_dict(), model_name)
             logger.info(f'Saved: {model_name}!')
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

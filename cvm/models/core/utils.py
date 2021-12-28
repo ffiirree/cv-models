@@ -2,8 +2,10 @@ import os
 import sys
 import functools
 import torch
+import torch.nn as nn
 
-__all__ = ['export', 'config', 'load_from_local_or_url']
+__all__ = ['export', 'config', 'load_from_local_or_url',
+           'get_out_channels']
 
 
 def export(obj):
@@ -36,5 +38,14 @@ def load_from_local_or_url(model, pth=None, url=None, progress=True):
         state_dict = torch.load(os.path.expanduser(pth))
     else:
         state_dict = torch.hub.load_state_dict_from_url(url, progress=progress)
-    
+
     model.load_state_dict(state_dict)
+
+
+def get_out_channels(module: nn.Module):
+    out_channels = 0
+    for m in module.modules():
+        if isinstance(m, nn.Conv2d):
+            out_channels = m.out_channels
+
+    return out_channels

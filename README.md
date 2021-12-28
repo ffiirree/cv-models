@@ -66,13 +66,16 @@
 - [ ] `Faster R-CNN` - [Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks](https://arxiv.org/abs/1506.01497), 2015
 - [ ] `YOLOv1` - [You Only Look Once: Unified, Real-Time Object Detection](https://arxiv.org/abs/1506.02640), 2015
 - [ ] `SSD` - [SSD: Single Shot MultiBox Detector](https://arxiv.org/abs/1512.02325), ECCV, 2015
+- [ ] `FPN` - [Feature Pyramid Networks for Object Detection](https://arxiv.org/abs/1612.03144), 2016
 
 ## Semantic Segmentation
 
 - [x] `FCN` - [Fully Convolutional Networks for Semantic Segmentation](https://arxiv.org/abs/1411.4038), CVPR, 2014
-- [ ] `FPN` - [Feature Pyramid Networks for Object Detection](https://arxiv.org/abs/1612.03144), 2016
-- [ ] `Mask R-CNN` - [Mask R-CNN](https://arxiv.org/abs/1703.06870), 2017
 - [x] `UNet` - [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597), MICCAI, 2015
+- [ ] `PSPNet` - [Pyramid Scene Parsing Network](https://arxiv.org/abs/1612.01105), CVPR, 2016
+- [ ] `DeepLabv3` - [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/pdf/1706.05587.pdf), 2017
+- [ ] `DeepLabv3+` - [Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation](https://arxiv.org/pdf/1802.02611.pdf), CVPR, 2018
+- [ ] `Mask R-CNN` - [Mask R-CNN](https://arxiv.org/abs/1703.06870), 2017
 
 ## Generative Models
 
