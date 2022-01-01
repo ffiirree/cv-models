@@ -25,3 +25,4 @@ from .vgnet import *
 from . import gan
 from . import vae
 from . import seg
+from . import det
