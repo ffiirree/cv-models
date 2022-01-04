@@ -3,24 +3,7 @@ import torch.nn as nn
 from cvm import models
 from ..core import blocks, export, SegmentationModel, get_out_channels, load_from_local_or_url
 from torch.nn import functional as F
-
-
-class FCNHead(nn.Sequential):
-    def __init__(
-        self,
-        in_channels: int = 2048,
-        channels: int = None,
-        num_classes: int = 32,
-        dropout_rate: float = 0.1,
-    ):
-        channels = channels or int(in_channels / 4.0)
-        super().__init__(
-            nn.Conv2d(in_channels, channels, 3, padding=1, bias=False),
-            nn.BatchNorm2d(channels),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Conv2d(channels, num_classes, 1)
-        )
+from .heads import FCNHead, ClsHead
 
 
 class ASPPPooling(nn.Sequential):
@@ -92,6 +75,7 @@ def create_deeplabv3(
     backbone: str = 'resnet50_v1',
     num_classes: int = 21,
     aux_loss: bool = False,
+    cls_loss: bool = False,
     dropout_rate: float = 0.1,
     pretrained_backbone: bool = False,
     pretrained: bool = False,
@@ -109,9 +93,10 @@ def create_deeplabv3(
     ).features
 
     aux_head = FCNHead(get_out_channels(backbone.stage3), None, num_classes, dropout_rate) if aux_loss else None
+    cls_head = ClsHead(get_out_channels(backbone.stage4), num_classes) if cls_loss else None
     decode_head = DeepLabHead(get_out_channels(backbone.stage4), num_classes=num_classes)
 
-    model = DeepLabV3(backbone, [3, 4] if aux_loss else [4], decode_head, aux_head)
+    model = DeepLabV3(backbone, [3, 4] if aux_loss else [4], decode_head, aux_head, cls_head)
 
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)

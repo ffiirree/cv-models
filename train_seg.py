@@ -39,6 +39,7 @@ def parse_args():
     parser.add_argument('--bn-eps', type=float, default=None)
     parser.add_argument('--bn-momentum', type=float, default=None)
     parser.add_argument('--aux-loss', action='store_true')
+    parser.add_argument('--cls-loss', action='store_true')
 
     # optimizer
     parser.add_argument('--optim', type=str, default='sgd', choices=['sgd', 'rmsprop'],
@@ -117,7 +118,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
         optimizer.zero_grad(set_to_none=True)
         with torch.cuda.amp.autocast(enabled=args.amp):
             outputs = model(images)
-            loss = torch.stack([criterion(output, targets) for output in outputs]).sum()
+            loss = criterion(outputs['out'], targets)
+            if args.aux_loss:
+                loss += criterion(outputs['aux'], targets)
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
@@ -138,7 +141,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
             if not os.path.exists('logs/voc'):
                 os.makedirs('logs/voc')
 
-            output = outputs[0].argmax(dim=1)
+            output = outputs['out'].argmax(dim=1)
             targets[targets == 255] = 0
 
             torchvision.utils.save_image(images[0], f'logs/voc/{i}_image.png', normalize=True)
@@ -154,7 +157,7 @@ def validate(val_loader, model, args):
         with torch.inference_mode():
             outputs = model(images)
 
-        predictions = outputs[0] if isinstance(outputs, tuple) else outputs['out']
+        predictions = outputs['out']
         confmat.update(predictions.argmax(1).flatten(), targets.flatten())
 
     confmat.all_reduce()
@@ -188,6 +191,7 @@ if __name__ == '__main__':
         args.model,
         num_classes=args.num_classes,
         aux_loss=args.aux_loss,
+        cls_loss=args.cls_loss,
         dropout_rate=args.dropout_rate,
         drop_path_rate=args.drop_path_rate,
         bn_eps=args.bn_eps,

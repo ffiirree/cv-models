@@ -1,4 +1,5 @@
 from functools import partial
+import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from typing import List, Optional
@@ -15,7 +16,8 @@ class SegmentationModel(nn.Module):
         backbone: nn.Module,
         out_stages: List[int],
         decode_head: nn.Module = None,
-        aux_head: Optional[nn.Module] = None
+        aux_head: Optional[nn.Module] = None,
+        cls_head: Optional[nn.Module] = None
     ):
         super().__init__()
 
@@ -32,6 +34,7 @@ class SegmentationModel(nn.Module):
         self.out_stages = out_stages
         self.decode_head = decode_head
         self.aux_head = aux_head
+        self.cls_head = cls_head
         self.interpolate = partial(F.interpolate, mode='bilinear', align_corners=False)
 
     def forward(self, x):
@@ -42,9 +45,16 @@ class SegmentationModel(nn.Module):
         out = self.decode_head(stages[f'stage{self.out_stages[-1]}'])
         out = self.interpolate(out, size=size)
 
+        res = {'out': out}
+
         if self.aux_head:
             aux = self.aux_head(stages[f'stage{self.out_stages[-2]}'])
             aux = self.interpolate(aux, size=size)
-            return (out, aux)
+            res['aux'] = aux
 
-        return (out,)
+        if self.cls_head:
+            cls = self.cls_head(stages[f'stage{self.out_stages[-1]}'])
+            cls = cls.reshape(cls.shape[0], cls.shape[1], 1, 1)
+            res['out'] = out * torch.sigmoid(cls)
+
+        return res

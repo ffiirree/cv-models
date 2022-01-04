@@ -22,7 +22,7 @@ __all__ = [
     'named_layers', 'AverageMeter',
     'module_parameters', 'group_params', 'list_models',
     'list_datasets', 'is_dist_avail_and_initialized', 'get_world_size',
-    'init_distributed_mode'
+    'init_distributed_mode', 'mask_to_label'
 ]
 
 
@@ -241,6 +241,7 @@ def get_world_size():
 
 
 def init_distributed_mode(args):
+    args.rank = 0
     args.local_rank = 0
     args.distributed = False
 
@@ -262,3 +263,11 @@ def init_distributed_mode(args):
         return True
 
     return False
+
+
+def mask_to_label(masks, num_classes):
+    labels = torch.zeros((masks.shape[0], num_classes), dtype=masks.dtype, device=masks.device)
+    for i in range(masks.shape[0]):
+        for j in range(num_classes):
+            labels[i][j] = bool((masks[i] == j).sum())
+    return labels.float()
