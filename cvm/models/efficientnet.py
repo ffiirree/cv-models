@@ -3,7 +3,7 @@ import math
 import torch
 import torch.nn as nn
 from .core import blocks, export, load_from_local_or_url
-from typing import Any
+from typing import Any, OrderedDict, List
 
 _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
@@ -46,14 +46,19 @@ class EfficientNet(nn.Module):
         depth_coefficient: float = 1,
         dropout_rate: float = 0.2,
         drop_path_rate: float = 0.2,
+        dilations: List[int] = None,
         thumbnail: bool = False,
         **kwargs: Any
     ):
         super().__init__()
 
+        dilations = dilations or [1, 1, 1, 1]
+        assert len(dilations) == 4, ''
+
         FRONT_S = 1 if thumbnail else 2
 
         self.s = [1, FRONT_S, 2, 2, 1, 2, 1]  # stride
+        self.stages = [0, 1, 1, 1, 0, 1, 0]   # stages
 
         self.survival_prob = 1 - drop_path_rate
         self.width_coefficient = width_coefficient
@@ -67,26 +72,32 @@ class EfficientNet(nn.Module):
         self.block_idx = 0
 
         # first conv3x3
-        features = [blocks.Conv2dBlock(in_channels, self.c[0], stride=FRONT_S)]
+        self.features = nn.Sequential(OrderedDict([
+            ('stem', blocks.Stage(
+                blocks.Conv2dBlock(in_channels, self.c[0], stride=FRONT_S)
+            ))
+        ]))
 
         # blocks
         for i in range(len(self.t)):
-            features.append(
-                self.make_layers(
-                    self.c[i],
-                    self.t[i],
-                    self.c[i+1],
-                    self.n[i],
-                    self.s[i],
-                    self.k[i],
-                    0.25
-                )
+            layers = self.make_layers(
+                self.c[i],
+                self.t[i],
+                self.c[i+1],
+                self.n[i],
+                self.s[i],
+                self.k[i],
+                0.25,
+                dilations[max(0, len(self.features) - 2)]
             )
+            
+            if self.stages[i]:
+                self.features.add_module(f'stage{len(self.features)}', blocks.Stage(layers))
+            else:
+                self.features[-1].append(layers)
 
         # last conv1x1
-        features.append(blocks.Conv2d1x1Block(self.c[-2], self.c[-1]))
-
-        self.features = nn.Sequential(*features)
+        self.features[-1].append(blocks.Conv2d1x1Block(self.c[-2], self.c[-1]))
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
@@ -102,7 +113,8 @@ class EfficientNet(nn.Module):
         n: int,
         stride: int,
         kernel_size: int = 3,
-        se_ratio: float = None
+        se_ratio: float = None,
+        dilation: int = 1
     ):
         layers = []
         for i in range(n):
@@ -113,21 +125,20 @@ class EfficientNet(nn.Module):
             layers.append(
                 blocks.InvertedResidualBlock(
                     inp, oup, t,
-                    kernel_size=kernel_size, stride=stride,
-                    survival_prob=survival_prob, se_ratio=se_ratio
+                    kernel_size=kernel_size, stride=stride if dilation == 1 else 1, 
+                    dilation=max(dilation // stride, 1), survival_prob=survival_prob, se_ratio=se_ratio
                 )
             )
 
         self.block_idx += n
 
-        return nn.Sequential(*layers)
+        return layers
 
     def round_filters(self, filters: int, divisor: int = 8, min_depth: int = None):
         filters *= self.width_coefficient
 
         min_depth = min_depth or divisor
-        new_filters = max(min_depth, int(
-            filters + divisor / 2) // divisor * divisor)
+        new_filters = max(min_depth, int(filters + divisor / 2) // divisor * divisor)
         # Make sure that round down does not go down by more than 10%.
         if new_filters < 0.9 * filters:
             new_filters += divisor

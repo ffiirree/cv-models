@@ -9,6 +9,7 @@ import platform
 import numpy as np
 from json import dumps
 from cvm import models
+from cvm.models.core import blocks
 import torch.distributed as dist
 
 try:
@@ -127,7 +128,7 @@ def group_params(model, wd: float, no_bias_bn_decay: bool = False):
         wd_params = []
         no_wd_params = []
         for m, n, p in module_parameters(model):
-            if isinstance(m, nn.modules.batchnorm._BatchNorm) or n == 'bias':
+            if isinstance(m, (nn.modules.batchnorm._BatchNorm, blocks.GaussianBlur, blocks.SemanticallyDeterminedDepthwiseConv2d)) or n == 'bias':
                 no_wd_params.append(p)
             else:
                 wd_params.append(p)

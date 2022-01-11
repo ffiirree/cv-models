@@ -3,6 +3,7 @@ import sys
 import functools
 import torch
 import torch.nn as nn
+from . import blocks
 
 __all__ = ['export', 'config', 'load_from_local_or_url',
            'get_out_channels']
@@ -43,6 +44,11 @@ def load_from_local_or_url(model, pth=None, url=None, progress=True):
 
 
 def get_out_channels(module: nn.Module):
+    # block has out_channels
+    if isinstance(module, blocks.Stage) and hasattr(module, 'out_channels'):
+        return module.out_channels
+
+    # or get channels of the last Conv2d
     out_channels = 0
     for m in module.modules():
         if isinstance(m, nn.Conv2d):

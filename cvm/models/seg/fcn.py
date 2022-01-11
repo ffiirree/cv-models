@@ -60,3 +60,13 @@ def fcn_mobilenet_v3_large(*args, **kwargs: Any):
 @export
 def fcn_regnet_x_400mf(*args, **kwargs: Any):
     return create_fcn('regnet_x_400mf', *args, **kwargs)
+
+
+@export
+def fcn_mobilenet_v1_x1_0(*args, **kwargs: Any):
+    return create_fcn('mobilenet_v1_x1_0', *args, **kwargs)
+
+
+@export
+def fcn_efficientnet_b0(*args, **kwargs: Any):
+    return create_fcn('efficientnet_b0', *args, **kwargs)

@@ -298,9 +298,7 @@ class ResBasicBlockV1(nn.Module):
             raise ValueError('width_per_group are not supported!')
 
         self.branch1 = nn.Sequential(OrderedDict([
-            ('conv1', Conv2d3x3(
-                inp, oup, stride=stride, dilation=dilation, groups=groups
-            )),
+            ('conv1', Conv2d3x3(inp, oup, stride=stride, dilation=dilation, groups=groups)),
             ('norm1', normalizer_fn(oup)),
             ('relu1', activation_fn()),
             ('conv2', Conv2d3x3(oup, oup, dilation=dilation)),
@@ -371,9 +369,7 @@ class BottleneckV1(nn.Module):
             ('conv1', Conv2d1x1(inp, width)),
             ('norm1', normalizer_fn(width)),
             ('relu1', activation_fn()),
-            ('conv2', Conv2d3x3(
-                width, width, stride=stride, dilation=dilation, groups=groups
-            )),
+            ('conv2', Conv2d3x3(width, width, stride=stride, dilation=dilation, groups=groups)),
             ('norm2', normalizer_fn(width)),
             ('relu2', activation_fn()),
             ('conv3', Conv2d1x1(width, oup * self.expansion)),
@@ -381,8 +377,7 @@ class BottleneckV1(nn.Module):
         ]))
 
         if self.has_se:
-            self.branch1.add_module('se', SEBlock(
-                oup * self.expansion, se_ratio))
+            self.branch1.add_module('se', SEBlock(oup * self.expansion, se_ratio))
 
         if drop_path_rate:
             self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
@@ -445,9 +440,7 @@ class ResBasicBlockV2(nn.Module):
         self.branch1 = nn.Sequential(OrderedDict([
             ('norm1', normalizer_fn(inp)),
             ('relu1', activation_fn()),
-            ('conv1', Conv2d3x3(
-                inp, oup, stride=stride, dilation=dilation, groups=groups
-            )),
+            ('conv1', Conv2d3x3(inp, oup, stride=stride, dilation=dilation, groups=groups)),
             ('norm2', normalizer_fn(oup)),
             ('relu2', activation_fn()),
             ('conv2', Conv2d3x3(oup, oup))
@@ -514,9 +507,7 @@ class BottleneckV2(nn.Module):
             ('conv1', Conv2d1x1(inp, width)),
             ('norm2', normalizer_fn(width)),
             ('relu2', activation_fn()),
-            ('conv2', Conv2d3x3(
-                width, width, stride=stride, dilation=dilation, groups=groups
-            )),
+            ('conv2', Conv2d3x3(width, width, stride=stride, dilation=dilation, groups=groups)),
             ('norm3', normalizer_fn(width)),
             ('relu3', activation_fn()),
             ('conv3', Conv2d1x1(width, oup * self.expansion))
@@ -539,8 +530,7 @@ class BottleneckV2(nn.Module):
 
             self.branch2.add_module('norm', normalizer_fn(inp))
             self.branch2.add_module('relu', activation_fn())
-            self.branch2.add_module('conv', Conv2d1x1(
-                inp, oup * self.expansion, stride))
+            self.branch2.add_module('conv', Conv2d1x1(inp, oup * self.expansion, stride))
 
         self.combine = Combine('ADD')
 
@@ -611,8 +601,7 @@ class DepthwiseConv2dBN(nn.Sequential):
         normalizer_fn = normalizer_fn or _NORMALIZER
 
         super().__init__(
-            DepthwiseConv2d(inp, oup, kernel_size, stride=stride,
-                            padding=padding, dilation=dilation),
+            DepthwiseConv2d(inp, oup, kernel_size, stride=stride, padding=padding, dilation=dilation),
             normalizer_fn(oup)
         )
 
@@ -646,8 +635,7 @@ class DepthwiseBlock(nn.Sequential):
         norm_position: str = None
     ):
         super().__init__(
-            DepthwiseConv2d(inp, oup, kernel_size, stride,
-                            padding=padding, dilation=dilation),
+            DepthwiseConv2d(inp, oup, kernel_size, stride, padding=padding, dilation=dilation),
             *norm_activation(oup, normalizer_fn, activation_fn, norm_position)
         )
 
@@ -695,7 +683,7 @@ class SEBlock(nn.Sequential):
         layers['gate'] = gating_fn()
 
         super().__init__(layers)
-        
+
     def _forward(self, input):
         for module in self:
             input = module(input)
@@ -778,60 +766,6 @@ class DropPath(nn.Module):
         return f'survival_prob={self.p}'
 
 
-class GaussianFilter(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        stride: int = 1,
-        dilation: int = 1
-    ):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.out_channels = in_channels
-        self.kernel_size = (3, 3)
-        self.padding = (1, 1)
-        self.stride = (stride, stride)
-        self.dilation = (dilation, dilation)
-        self.groups = in_channels
-        self.padding_mode = 'zeros'
-
-        gaussian = torch.tensor([[[
-            [0.0811, 0.1226, 0.0811],
-            [0.1226, 0.1853, 0.1226],
-            [0.0811, 0.1226, 0.0811]
-        ]], [[
-            [-0.0811, -0.1226, -0.0811],
-            [-0.1226, -0.1853, -0.1226],
-            [-0.0811, -0.1226, -0.0811]
-        ]]])
-
-        self.weight = nn.Parameter(gaussian.repeat(
-            self.in_channels // 2, 1, 1, 1), False)
-        self.register_parameter('bias', None)
-
-        self.weight.requires_grad_(False)
-
-    def forward(self, x):
-        return F.conv2d(x, self.weight, self.bias, self.stride, self.padding,
-                        self.dilation, self.groups)
-
-    def extra_repr(self):
-        s = ('{in_channels}, {out_channels}, kernel_size={kernel_size}'
-             ', stride={stride}')
-        if self.padding != (0,) * len(self.padding):
-            s += ', padding={padding}'
-        if self.dilation != (1,) * len(self.dilation):
-            s += ', dilation={dilation}'
-        if self.groups != 1:
-            s += ', groups={groups}'
-        if self.bias is None:
-            s += ', bias=False'
-        if self.padding_mode != 'zeros':
-            s += ', padding_mode={padding_mode}'
-        return s.format(**self.__dict__)
-
-
 class InvertedResidualBlock(nn.Module):
     def __init__(
         self,
@@ -856,18 +790,15 @@ class InvertedResidualBlock(nn.Module):
         self.oup = oup
         self.stride = stride
         self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (
-            se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (
-            self.se_ratio > 0) and (self.se_ratio <= 1)
+        self.se_ratio = se_ratio if se_ind or se_ratio is None else (se_ratio / t)
+        self.has_se = (self.se_ratio is not None) and (self.se_ratio > 0) and (self.se_ratio <= 1)
 
         normalizer_fn = normalizer_fn or _NORMALIZER
         activation_fn = activation_fn or _NONLINEAR
 
         layers = []
         if t != 1:
-            layers.append(Conv2d1x1Block(
-                inp, self.planes, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
+            layers.append(Conv2d1x1Block(inp, self.planes, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
 
         if dw_se_act is None:
             layers.append(DepthwiseBlock(self.planes, self.planes, kernel_size, stride=self.stride,
@@ -882,9 +813,7 @@ class InvertedResidualBlock(nn.Module):
         if dw_se_act:
             layers.append(dw_se_act())
 
-        layers.append(
-            Conv2d1x1BN(self.planes, oup, normalizer_fn=normalizer_fn)
-        )
+        layers.append(Conv2d1x1BN(self.planes, oup, normalizer_fn=normalizer_fn))
 
         if self.apply_residual and survival_prob:
             layers.append(DropPath(survival_prob))
@@ -923,10 +852,8 @@ class FusedInvertedResidualBlock(nn.Module):
         self.stride = stride
         self.padding = padding if padding is not None else (kernel_size // 2)
         self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (
-            se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (
-            self.se_ratio > 0) and (self.se_ratio <= 1)
+        self.se_ratio = se_ratio if se_ind or se_ratio is None else (se_ratio / t)
+        self.has_se = (self.se_ratio is not None) and (self.se_ratio > 0) and (self.se_ratio <= 1)
 
         normalizer_fn = normalizer_fn or _NORMALIZER
         activation_fn = activation_fn or _NONLINEAR
@@ -962,7 +889,8 @@ class SharedDepthwiseConv2d(nn.Module):
         channels,
         kernel_size: int = 3,
         stride: int = 1,
-        padding: int = 1,
+        padding: int = None,
+        dilation: int = 1,
         t: int = 2,
         bias: bool = False
     ):
@@ -971,8 +899,10 @@ class SharedDepthwiseConv2d(nn.Module):
         self.channels = channels // t
         self.t = t
 
-        self.mux = DepthwiseConv2d(
-            self.channels, self.channels, kernel_size, stride, padding, bias=bias)
+        if padding is None:
+            padding = ((kernel_size - 1) * (dilation - 1) + kernel_size) // 2
+
+        self.mux = DepthwiseConv2d(self.channels, self.channels, kernel_size, stride, padding, dilation, bias=bias)
 
     def forward(self, x):
         x = torch.chunk(x, self.t, dim=1)
@@ -1032,8 +962,7 @@ class MultiHeadDotProductAttention(nn.Module):
         # 1. The first step is to calculate the Query, Key, and Value matrices.
         #    We do that by packing our embeddings into a matrix X, and multiplying it by the weight matrices we’ve trained(WQ, WK, WV)
         B, N, C = x.shape
-        qkv = self.w_qkv(x).reshape(B, N, 3, self.num_heads,
-                                    C // self.num_heads).permute(2, 0, 3, 1, 4)
+        qkv = self.w_qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]  # B heads N head_dim
 
         # self-attention
@@ -1064,14 +993,14 @@ class EncoderBlock(nn.Module):
             normalizer_fn(embed_dim),
             MultiHeadDotProductAttention(
                 embed_dim, num_heads, qkv_bias,
-                attn_dropout_rate=attn_dropout_rate, proj_dropout_rate=dropout_rate),
+                attn_dropout_rate=attn_dropout_rate, proj_dropout_rate=dropout_rate
+            ),
             DropPath(1 - drop_path_rate)
         )
 
         self.mlp = nn.Sequential(
             normalizer_fn(embed_dim),
-            MlpBlock(embed_dim, int(embed_dim * mlp_ratio),
-                     dropout_rate=dropout_rate),
+            MlpBlock(embed_dim, int(embed_dim * mlp_ratio), dropout_rate=dropout_rate),
             DropPath(1 - drop_path_rate)
         )
 
@@ -1081,76 +1010,184 @@ class EncoderBlock(nn.Module):
         return x
 
 
-class FixedConv2d(nn.Module):
+class ASPPPooling(nn.Sequential):
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__(
+            nn.AdaptiveAvgPool2d(1),
+            Conv2d1x1Block(in_channels, out_channels)
+        )
+
+    def forward(self, x):
+        size = x.shape[-2:]
+        for mod in self:
+            x = mod(x)
+        return F.interpolate(x, size=size, mode="bilinear", align_corners=False)
+
+
+class ASPP(nn.Module):
+    """Atrous Spatial Pyramid Pooling"""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int = 256,
+        rates: List[int] = [6, 12, 18]
+    ):
+        super().__init__()
+
+        ms = [Conv2d1x1Block(in_channels, out_channels)]
+        for rate in rates:
+            ms.append(Conv2dBlock(in_channels, out_channels, padding=rate, dilation=rate))
+
+        ms.append(ASPPPooling(in_channels, out_channels))
+        self.ms = nn.ModuleList(ms)
+
+        self.combine = Combine('CONCAT')
+        self.conv1x1 = Conv2d1x1(out_channels * len(self.ms), out_channels)
+
+    def forward(self, x):
+        aspp = []
+        for module in self.ms:
+            aspp.append(module(x))
+
+        x = self.combine(aspp)
+        x = self.conv1x1(x)
+        return x
+
+
+class SemanticallyDeterminedDepthwiseConv2d(nn.Module):
     def __init__(
         self,
         in_channels: int,
         stride: int = 1,
-        dilation: int = 1
+        dilation: int = 1,
+        ratio: float = 3 / 4,
+        learnable: bool = True
     ):
         super().__init__()
 
         self.in_channels = in_channels
         self.out_channels = in_channels
         self.kernel_size = (3, 3)
-        self.padding = (1, 1)
+        self.padding = (dilation, dilation)
         self.stride = (stride, stride)
         self.dilation = (dilation, dilation)
         self.groups = in_channels
         self.padding_mode = 'zeros'
 
-        edge = torch.tensor(
-            [[[
-                [-1/2, -1, -1/2],
-                [0,     0,    0],
-                [1/2,   1,  1/2]
-            ]], [[
-                [-1/2, 0, 1/2],
-                [-1,   0,   1],
-                [-1/2, 0, 1/2]
-            ]], [[
-                [-1/12, -2/12, -1/12],
-                [-2/12,     1, -2/12],
-                [-1/12, -2/12, -1/12]
-            ]], [[
-                [0,    -1/4,    0],
-                [-1/4,    1, -1/4],
-                [0,    -1/4,    0]
-            ]], [[
-                [-3/3, -2/3, -1/3],
-                [-2/3,    0,  2/3],
-                [1/3,    2/3, 3/3]
-            ]], [[
-                [-1/3, -2/3, -3/3],
-                [2/3,     0, -2/3],
-                [3/3,   2/3,  1/3]
-            ]]], dtype=torch.float32
-        )
+        self.mask_r0 = torch.tensor([[
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0]
+        ]])
 
-        gaussian = torch.tensor([[[
-            [0.0811, 0.1226, 0.0811],
-            [0.1226, 0.1853, 0.1226],
-            [0.0811, 0.1226, 0.0811]
-        ]], [[
-            [0.0277, 0.1110, 0.0277],
-            [0.1110, 0.4452, 0.1110],
-            [0.0277, 0.1110, 0.0277]
-        ]]], dtype=torch.float32)
+        self.mask_r1 = torch.tensor([[
+            [0, 1, 0],
+            [1, 0, 1],
+            [0, 1, 0]
+        ]])
+        self.mask_r2 = torch.tensor([[
+            [1, 1, 1],
+            [1, 0, 1],
+            [1, 1, 1]
+        ]])
 
-        kernels = torch.cat([edge, gaussian], dim=0)
+        self.mask_sx0 = torch.tensor([[
+            [0, 0, 0],
+            [-1, 0, 1],
+            [0, 0, 0]
+        ]])
 
-        self.weight = nn.Parameter(kernels.repeat(
-            self.in_channels // 8, 1, 1, 1), False)
-        self.register_parameter('bias', None)
+        self.mask_sx = torch.tensor([[
+            [-1, 0, 1],
+            [0, 0, 0],
+            [-1, 0, 1]
+        ]])
 
-        self.weight.requires_grad_(False)
+        self.mask_sy0 = torch.tensor([[
+            [0, -1, 0],
+            [0, 0, 0],
+            [0, 1, 0]
+        ]])
+
+        self.mask_sy = torch.tensor([[
+            [-1, 0, -1],
+            [0, 0, 0],
+            [1, 0, 1]
+        ]])
+
+        self.mask_d1 = torch.tensor([[
+            [-1, 0, 0],
+            [0,  0, 0],
+            [0,  0, 1]
+        ]])
+        self.mask_d2 = torch.tensor([[
+            [0,  0, 1],
+            [0,  0, 0],
+            [-1, 0, 0]
+        ]])
+
+        self.d1 = torch.tensor([[
+            [0, -1, 0],
+            [-1, 0, 1],
+            [0,  1, 0]
+        ]])
+        self.d2 = torch.tensor([[
+            [0,  1, 0],
+            [-1, 0, 1],
+            [0, -1, 0]
+        ]])
+
+        self.r1 = nn.Parameter(torch.tensor(-1/4))
+        self.r2 = nn.Parameter(torch.tensor(-1/8))
+
+        self.sigma1 = nn.Parameter(torch.tensor(1.0))
+        self.sigma2 = nn.Parameter(torch.tensor(1.0))
+
+        self.d = nn.Parameter(torch.tensor(1/3))
+        self.s1 = nn.Parameter(torch.tensor(1/2))
+
+        self.ratio = ratio
+
+        self.edge_chs = make_divisible(self.in_channels * ratio, 6)
+        self.gaussian_chs = self.in_channels - self.edge_chs
 
     def forward(self, x):
-        return F.conv2d(x, self.weight, self.bias, self.stride, self.padding,
-                        self.dilation, self.groups)
+        # return F.conv2d(F.pad(x, [1, 1, 1, 1], mode='reflect'), self.weight, None, self.stride, (0, 0), self.dilation, self.groups)
+        return F.conv2d(x, self.weight, None, self.stride, self.padding, self.dilation, self.groups)
+
+    @property
+    def weight(self):
+        self.r1.data = torch.min(self.r1.data, torch.tensor(-0.125, device=self.r1.device))
+        self.r2.data = torch.min(self.r2.data, torch.tensor(-0.0625, device=self.r1.device))
+        self.s1.data = torch.max(self.s1.data, torch.tensor(0.0625, device=self.r1.device))
+        self.d.data = torch.max(self.d.data, torch.tensor(0.0625, device=self.r1.device))
+
+        self.r1.data = torch.max(self.r1.data, torch.tensor(-0.5, device=self.r1.device))
+        self.r2.data = torch.max(self.r2.data, torch.tensor(-0.25, device=self.r1.device))
+        self.s1.data = torch.min(self.s1.data, torch.tensor(1.0, device=self.r1.device))
+        self.d.data = torch.min(self.d.data, torch.tensor(1.0, device=self.r1.device))
+
+        l1 = (self.mask_r0.to(self.r1.device) + self.r1 * self.mask_r1.to(self.r1.device))
+        l2 = (self.mask_r0.to(self.r1.device) + self.r2 * self.mask_r2.to(self.r1.device))
+        sx = (self.mask_sx0.to(self.r1.device) + self.s1 * self.mask_sx.to(self.r1.device))
+        sy = (self.mask_sy0.to(self.r1.device) + self.s1 * self.mask_sy.to(self.r1.device))
+
+        d1 = (self.mask_d1.to(self.r1.device) + self.d * self.d1.to(self.r1.device))
+        d2 = (self.mask_d2.to(self.r1.device) + self.d * self.d2.to(self.r1.device))
+
+        g1 = get_gaussian_kernel2d(3, self.sigma1)
+        g2 = get_gaussian_kernel2d(3, self.sigma2)
+
+        # print(f'--> {self.in_channels:>3d}, {self.r1.item():>6.3f}, {self.r2.item():>6.3f}, {self.s1.item():>6.3f}, {self.d.item():>6.3f}, {self.sigma1.item():>6.3f}, {self.sigma2.item():>6.3f}')
+
+        return torch.cat([
+            torch.stack([l1, l2, sx, sy, d1, d2]).repeat(self.edge_chs // 6, 1, 1, 1),
+            torch.stack([g1[None, :], g2[None, :]]).repeat(self.gaussian_chs // 2, 1, 1, 1)
+        ])
 
     def extra_repr(self):
-        s = ('{in_channels}, {out_channels}, kernel_size={kernel_size}'
+        s = ('{in_channels}, {out_channels}, ratio={ratio}, kernel_size={kernel_size}'
              ', stride={stride}')
         if self.padding != (0,) * len(self.padding):
             s += ', padding={padding}'
@@ -1158,73 +1195,92 @@ class FixedConv2d(nn.Module):
             s += ', dilation={dilation}'
         if self.groups != 1:
             s += ', groups={groups}'
-        if self.bias is None:
-            s += ', bias=False'
         if self.padding_mode != 'zeros':
             s += ', padding_mode={padding_mode}'
         return s.format(**self.__dict__)
 
 
-
-class EdgeDetection(nn.Module):
+class GaussianBlur(nn.Module):
     def __init__(
         self,
-        in_channels: int,
+        channels: int,
+        kernel_size: int = 3,
         stride: int = 1,
-        dilation: int = 1
+        padding: int = None,
+        dilation: int = 1,
+        sigma: float = 1.0,
+        learnable: bool = True
     ):
         super().__init__()
 
-        self.in_channels = in_channels
-        self.out_channels = in_channels
-        self.kernel_size = (3, 3)
-        self.padding = (1, 1)
+        padding = padding or ((kernel_size - 1) * (dilation - 1) + kernel_size) // 2
+
+        self.channels = channels
+        self.kernel_size = (kernel_size, kernel_size)
+        self.padding = (padding, padding)
         self.stride = (stride, stride)
         self.dilation = (dilation, dilation)
-        self.groups = in_channels
         self.padding_mode = 'zeros'
+        self.learnable = learnable
 
-        edge = torch.tensor(
-            [[[
-                [-1/2, -1, -1/2],
-                [0,     0,    0],
-                [1/2,   1,  1/2]
-            ]], [[
-                [-1/2, 0, 1/2],
-                [-1,   0,   1],
-                [-1/2, 0, 1/2]
-            ]], [[
-                [-1/12, -2/12, -1/12],
-                [-2/12,     1, -2/12],
-                [-1/12, -2/12, -1/12]
-            ]], [[
-                [0,    -1/4,    0],
-                [-1/4,    1, -1/4],
-                [0,    -1/4,    0]
-            ]]], dtype=torch.float32
-        )
-
-        self.weight = nn.Parameter(edge.repeat(
-            self.in_channels // 4, 1, 1, 1), False)
-        self.register_parameter('bias', None)
-
-        self.weight.requires_grad_(False)
+        self.sigma = nn.Parameter(torch.tensor(sigma), learnable)
 
     def forward(self, x):
-        return F.conv2d(x, self.weight, self.bias, self.stride, self.padding,
-                        self.dilation, self.groups)
+        return F.conv2d(x, self.weight, None, self.stride, self.padding, self.dilation, self.channels)
+
+    @property
+    def weight(self):
+        kernel = get_gaussian_kernel2d(self.kernel_size[0], self.sigma)
+        return kernel.repeat(self.channels, 1, 1, 1)
+
+    @property
+    def out_channels(self):
+        return self.channels
 
     def extra_repr(self):
-        s = ('{in_channels}, {out_channels}, kernel_size={kernel_size}'
-             ', stride={stride}')
+        s = ('{channels}, kernel_size={kernel_size}'
+             ', learnable={learnable}, stride={stride}')
         if self.padding != (0,) * len(self.padding):
             s += ', padding={padding}'
         if self.dilation != (1,) * len(self.dilation):
             s += ', dilation={dilation}'
-        if self.groups != 1:
-            s += ', groups={groups}'
-        if self.bias is None:
-            s += ', bias=False'
         if self.padding_mode != 'zeros':
             s += ', padding_mode={padding_mode}'
         return s.format(**self.__dict__)
+
+
+class SDDCBlock(nn.Sequential):
+    def __init__(
+        self,
+        channels,
+        stride: int = 1,
+        dilation: int = 1,
+        ratio: float = 0.75,
+        normalizer_fn: nn.Module = None,
+        activation_fn: nn.Module = None,
+        norm_position: str = None
+    ):
+        super().__init__(
+            SemanticallyDeterminedDepthwiseConv2d(channels, stride, dilation=dilation, ratio=ratio),
+            *norm_activation(channels, normalizer_fn, activation_fn, norm_position)
+        )
+
+
+class GaussianBlurBlock(nn.Sequential):
+    def __init__(
+        self,
+        channels,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: int = None,
+        dilation: int = 1,
+        sigma: float = 1.0,
+        learnable: bool = True,
+        normalizer_fn: nn.Module = None,
+        activation_fn: nn.Module = None,
+        norm_position: str = None
+    ):
+        super().__init__(
+            GaussianBlur(channels, kernel_size, stride, padding, dilation, sigma=sigma, learnable=learnable),
+            *norm_activation(channels, normalizer_fn, activation_fn, norm_position)
+        )

@@ -1,54 +1,8 @@
-from typing import Any, List
+from typing import Any
 import torch.nn as nn
 from cvm import models
 from ..core import blocks, export, SegmentationModel, get_out_channels, load_from_local_or_url
-from torch.nn import functional as F
 from .heads import FCNHead, ClsHead
-
-
-class ASPPPooling(nn.Sequential):
-    def __init__(self, in_channels: int, out_channels: int):
-        super().__init__(
-            nn.AdaptiveAvgPool2d(1),
-            blocks.Conv2d1x1Block(in_channels, out_channels)
-        )
-
-    def forward(self, x):
-        size = x.shape[-2:]
-        for mod in self:
-            x = mod(x)
-        return F.interpolate(x, size=size, mode="bilinear", align_corners=False)
-
-
-class ASPP(nn.Module):
-    """Atrous Spatial Pyramid Pooling"""
-
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int = 256,
-        rates: List[int] = [6, 12, 18]
-    ):
-        super().__init__()
-
-        ms = [blocks.Conv2d1x1Block(in_channels, out_channels)]
-        for rate in rates:
-            ms.append(blocks.Conv2dBlock(in_channels, out_channels, padding=rate, dilation=rate))
-
-        ms.append(ASPPPooling(in_channels, out_channels))
-        self.ms = nn.ModuleList(ms)
-
-        self.combine = blocks.Combine('CONCAT')
-        self.conv1x1 = blocks.Conv2d1x1(out_channels * len(self.ms), out_channels)
-
-    def forward(self, x):
-        aspp = []
-        for module in self.ms:
-            aspp.append(module(x))
-
-        x = self.combine(aspp)
-        x = self.conv1x1(x)
-        return x
 
 
 class DeepLabHead(nn.Sequential):
@@ -59,7 +13,7 @@ class DeepLabHead(nn.Sequential):
         num_classes: int = 32,
     ):
         super().__init__(
-            ASPP(in_channels, out_channels, [12, 24, 36]),
+            blocks.ASPP(in_channels, out_channels, [12, 24, 36]),
             blocks.Conv2dBlock(out_channels, out_channels),
             blocks.Conv2d1x1(out_channels, num_classes)
         )
@@ -121,3 +75,13 @@ def deeplabv3_mobilenet_v3_large(*args, **kwargs: Any):
 @export
 def deeplabv3_regnet_x_400mf(*args, **kwargs: Any):
     return create_deeplabv3('regnet_x_400mf', *args, **kwargs)
+
+
+@export
+def deeplabv3_mobilenet_v1_x1_0(*args, **kwargs: Any):
+    return create_deeplabv3('mobilenet_v1_x1_0', *args, **kwargs)
+
+
+@export
+def deeplabv3_efficientnet_b0(*args, **kwargs: Any):
+    return create_deeplabv3('efficientnet_b0', *args, **kwargs)

@@ -24,8 +24,6 @@ class SegmentationModel(nn.Module):
         if out_stages is None:
             out_stages = [4]
 
-        assert aux_head is None or len(out_stages) == 2, ''
-
         self.backbone = create_feature_extractor(
             backbone,
             return_nodes=[f'stage{i}' for i in out_stages],
