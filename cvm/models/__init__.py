@@ -20,6 +20,7 @@ from .rexnet import *
 from .regnet import *
 from .vision_transformer import *
 from .convmixer import *
+from .convnext import *
 from .vgnet import *
 
 from . import gan
