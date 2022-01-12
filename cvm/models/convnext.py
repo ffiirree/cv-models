@@ -2,7 +2,7 @@
 paper:
     [ConvNeXt] A ConvNet for the 2020s(https://arxiv.org/abs/2201.03545)
 official code :
-    https://github.com/facebookresearch/ConvNeXt/blob/dcb928723662a1289d31190d09d82378b57b810a/models/convnext.py#L12
+    https://github.com/facebookresearch/ConvNeXt/blob/dcb928723662a1289d31190d09d82378b57b810a/models/convnext.py
 '''
 import torch
 import torch.nn as nn
@@ -166,9 +166,8 @@ class ConvNeXt(nn.Module):
 
 
 @export
-@config(url='https://dl.fbaipublicfiles.com/convnext/convnext_tiny_1k_224_ema.pth')
 def convnext_tiny(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    model = ConvNeXt(depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
+    model = ConvNeXt(layers=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
@@ -176,7 +175,7 @@ def convnext_tiny(pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 @export
 def convnext_small(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    model = ConvNeXt(depths=[3, 3, 27, 3], dims=[96, 192, 384, 768], **kwargs)
+    model = ConvNeXt(layers=[3, 3, 27, 3], dims=[96, 192, 384, 768], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
@@ -184,7 +183,7 @@ def convnext_small(pretrained: bool = False, pth: str = None, progress: bool = T
 
 @export
 def convnext_base(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
-    model = ConvNeXt(depths=[3, 3, 27, 3], dims=[128, 256, 512, 1024], **kwargs)
+    model = ConvNeXt(layers=[3, 3, 27, 3], dims=[128, 256, 512, 1024], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
@@ -192,7 +191,7 @@ def convnext_base(pretrained: bool = False, in_22k=False, pth: str = None, progr
 
 @export
 def convnext_large(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
-    model = ConvNeXt(depths=[3, 3, 27, 3], dims=[192, 384, 768, 1536], **kwargs)
+    model = ConvNeXt(layers=[3, 3, 27, 3], dims=[192, 384, 768, 1536], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
@@ -200,7 +199,7 @@ def convnext_large(pretrained: bool = False, in_22k=False, pth: str = None, prog
 
 @export
 def convnext_xlarge(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
-    model = ConvNeXt(depths=[3, 3, 27, 3], dims=[256, 512, 1024, 2048], **kwargs)
+    model = ConvNeXt(layers=[3, 3, 27, 3], dims=[256, 512, 1024, 2048], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
