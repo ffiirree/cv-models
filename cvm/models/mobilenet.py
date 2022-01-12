@@ -60,7 +60,7 @@ class SDBlock(nn.Sequential):
                 blocks.PointwiseBlock(inp, oup, groups=groups)
             )
 
-
+            
 @export
 class MobileNet(nn.Module):
     '''https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet_v1.py'''
@@ -140,31 +140,31 @@ def _mobilenet_v1(
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x1_0-b6e1e34f.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x1_0-e00006ef.pth')
 def mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(1.0, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_75-05a53ab9.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_75-43c1cb04.pth')
 def mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(0.75, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_5-0fbeb3fb.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_5-588ee141.pth')
 def mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(0.5, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_35-16b60798.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x0_35-cbab38a6.pth')
 def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(0.35, MobileBlock, pretrained, pth, progress, **kwargs)
 
 
 @export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x1_0_wo_dwrelubn-9cd9f96e.pth')
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x1_0_wo_dwrelubn-2956d795.pth')
 @blocks.normalizer(position='after')
 def mobilenet_v1_x1_0_wo_dwrelubn(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
     return _mobilenet_v1(1.0, DepthSepBlock, pretrained, pth, progress, **kwargs)
