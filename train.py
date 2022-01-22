@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument('--model-path', type=str, default=None)
     parser.add_argument('--num-classes', type=int, default=1000, metavar='N',
                         help='number of label classes')
+    parser.add_argument('--in-channels', type=int, default=3, metavar='N')
     parser.add_argument('--bn-eps', type=float, default=None)
     parser.add_argument('--bn-momentum', type=float, default=None)
 
@@ -201,6 +202,7 @@ if __name__ == '__main__':
 
     model = create_model(
         args.model,
+        in_channels=args.in_channels,
         num_classes=args.num_classes,
         dropout_rate=args.dropout_rate,
         drop_path_rate=args.drop_path_rate,

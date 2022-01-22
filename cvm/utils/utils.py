@@ -23,7 +23,7 @@ __all__ = [
     'named_layers', 'AverageMeter',
     'module_parameters', 'group_params', 'list_models',
     'list_datasets', 'is_dist_avail_and_initialized', 'get_world_size',
-    'init_distributed_mode', 'mask_to_label'
+    'init_distributed_mode', 'mask_to_label', 'seg_collate_fn'
 ]
 
 
@@ -277,3 +277,19 @@ def mask_to_label(masks, num_classes):
         for j in range(num_classes):
             labels[i][j] = bool((masks[i] == j).sum())
     return labels.float()
+
+
+def cat_list(images, fill_value=0):
+    max_size = tuple(max(s) for s in zip(*[img.shape for img in images]))
+    batch_shape = (len(images),) + max_size
+    batched_imgs = images[0].new(*batch_shape).fill_(fill_value)
+    for img, pad_img in zip(images, batched_imgs):
+        pad_img[..., : img.shape[-2], : img.shape[-1]].copy_(img)
+    return batched_imgs
+
+
+def seg_collate_fn(batch):
+    images, targets = list(zip(*batch))
+    batched_imgs = cat_list(images, fill_value=0)
+    batched_targets = cat_list(targets, fill_value=255)
+    return batched_imgs, batched_targets

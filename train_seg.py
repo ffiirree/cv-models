@@ -21,10 +21,10 @@ def parse_args():
                         help='number of data loading workers pre GPU. (default: 4)')
     parser.add_argument('--batch-size', type=int, default=1, metavar='N',
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
-    parser.add_argument('--crop-size', type=int, default=320)
+    parser.add_argument('--crop-size', type=int, default=480)
     parser.add_argument('--crop-padding', type=int, default=4, metavar='S')
-    parser.add_argument('--val-resize-size', type=int, default=384)
-    parser.add_argument('--val-crop-size', type=int, default=384)
+    parser.add_argument('--val-resize-size', type=int, default=520)
+    parser.add_argument('--val-crop-size', type=int, default=520)
 
     # model
     parser.add_argument('--model', type=str, default='seg/fcn_regnet_x_400mf', choices=list_models(),
@@ -120,7 +120,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
             outputs = model(images)
             loss = criterion(outputs['out'], targets)
             if args.aux_loss:
-                loss += criterion(outputs['aux'], targets)
+                loss += 0.5 * criterion(outputs['aux'], targets)
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
@@ -161,13 +161,7 @@ def validate(val_loader, model, args):
         confmat.update(predictions.argmax(1).flatten(), targets.flatten())
 
     confmat.all_reduce()
-    iou = [f'{v*100:>4.1f}' for v in confmat.iou]
-    pa = [f'{v*100:>4.1f}' for v in confmat.mean_pa]
-    logger.info(f'\nPA = {pa}'
-                f'\ngloabal PA = {confmat.pa*100:>4.1f}'
-                f'\nIoU = {iou}'
-                f'\nmean IoU = {confmat.mean_iou*100:>4.1f}')
-
+    logger.info(f'gloabal PA = {confmat.pa*100:>5.2f}, mean IoU = {confmat.mean_iou*100:>5.2f}')
 
 if __name__ == '__main__':
     assert torch.cuda.is_available(), 'CUDA IS NOT AVAILABLE!!'
@@ -205,7 +199,15 @@ if __name__ == '__main__':
         local_rank=args.local_rank
     )
 
-    optimizer = create_optimizer(args.optim, model, **dict(vars(args)))
+    params_to_optimize = [
+        {"params": [p for p in model.module.backbone.parameters() if p.requires_grad]},
+        {"params": [p for p in model.module.decode_head.parameters() if p.requires_grad]},
+    ]
+    if args.aux_loss:
+        params = [p for p in model.module.aux_head.parameters() if p.requires_grad]
+        params_to_optimize.append({"params": params, "lr": args.lr * 10})
+
+    optimizer = create_optimizer(args.optim, params_to_optimize, **dict(vars(args)))
     criterion = nn.CrossEntropyLoss(ignore_index=255)
 
     train_loader = create_loader(
@@ -220,6 +222,7 @@ if __name__ == '__main__':
         root=args.data_dir,
         is_training=False,
         taskname='segmentation',
+        collate_fn=seg_collate_fn,
         **(dict(vars(args)))
     )
 
@@ -238,7 +241,7 @@ if __name__ == '__main__':
 
     if args.local_rank == 0:
         logger.info(f'Model: \n{model}')
-        if not args.dali:
+        if not args.dali and isinstance(train_loader.dataset, (torchvision.datasets.VisionDataset)):
             logger.info(f'Training: \n{train_loader.dataset.transforms}')
             logger.info(f'Validation: \n{val_loader.dataset.transforms}')
         logger.info(f'Optimizer: \n{optimizer}')

@@ -11,6 +11,7 @@ import torchvision.transforms as T
 
 import cvm
 from cvm.data.samplers import RASampler
+from cvm.utils.coco import get_coco
 from . import seg_transforms as ST
 from .utils import group_params, list_datasets, get_world_size
 from cvm.data.constants import *
@@ -202,12 +203,13 @@ def create_optimizer(
     no_bias_bn_wd: bool = False,
     **kwargs
 ):
-    params = group_params(
-        params,
-        weight_decay,
-        no_bias_bn_wd,
-        lr
-    )
+    if isinstance(params, nn.Module):
+        params = group_params(
+            params,
+            weight_decay,
+            no_bias_bn_wd,
+            lr
+        )
 
     if name == 'sgd':
         return optim.SGD(
@@ -284,6 +286,8 @@ def _get_dataset_mean_or_std(name, attr):
     if name == 'mnist':
         return MNIST_MEAN if attr == 'mean' else MNIST_STD
     if name.startswith('voc') or name.startswith('sbd'):
+        return VOC_MEAN if attr == 'mean' else VOC_STD
+    if name.startswith('coco'):
         return VOC_MEAN if attr == 'mean' else VOC_STD
     return IMAGE_MEAN if attr == 'mean' else IMAGE_STD
 
@@ -393,7 +397,8 @@ def create_segmentation_transforms(
 ):
     ops = []
     if is_training:
-        ops.append(ST.RandomCrop(crop_size, pad_if_needed=True, padding=padding))
+        # ops.append(ST.RandomCrop(crop_size, pad_if_needed=True, padding=padding))
+        ops.append(ST.RandomResizedCrop(crop_size, (0.5, 2.0), interpolation=interpolation))
         if hflip > 0.0:
             ops.append(ST.RandomHorizontalFlip(hflip))
     else:
@@ -417,17 +422,25 @@ def create_dataset(
         dataset = datasets.__dict__[name]
         params = inspect.signature(dataset.__init__).parameters.keys()
 
+        if 'mode' in params and 'image_set' in params:
+            return datasets.__dict__[name](
+                path.expanduser(root),
+                mode='segmentation',
+                image_set='train' if is_training else 'val',
+                download=(download and is_training)
+            )
+
         if 'image_set' in params:
             return datasets.__dict__[name](
                 path.expanduser(root),
                 image_set='train' if is_training else 'val',
-                download=download
+                download=(download and is_training)
             )
 
         return datasets.__dict__[name](
             path.expanduser(root),
             train=is_training,
-            download=download
+            download=(download and is_training)
         )
     elif name == 'ImageNet':
         return datasets.ImageFolder(
@@ -463,6 +476,7 @@ def create_loader(
     ra_repetitions: int = 0,
     transform: T.Compose = None,
     taskname: str = 'classification',
+    collate_fn=None,
     **kwargs
 ):
     assert taskname in ['classification', 'segmentation'], f'Unknown task: {taskname}.'
@@ -499,16 +513,8 @@ def create_loader(
         ), 'dali')
     # Pytorch/Vision
     else:
-        if isinstance(dataset, str):
-            dataset = create_dataset(
-                dataset,
-                root=root,
-                is_training=is_training,
-                **kwargs
-            )
-
         if taskname == 'classification':
-            dataset.transform = transform or create_transforms(
+            transform = transform or create_transforms(
                 is_training=is_training,
                 random_scale=kwargs.get('random_scale', [0.08, 1.0]),
                 interpolation=T.InterpolationMode(interpolation),
@@ -529,7 +535,7 @@ def create_loader(
                 dataset_image_size=_get_dataset_image_size(dataset),
             )
         elif taskname == 'segmentation':
-            dataset.transforms = transform or create_segmentation_transforms(
+            transform = transform or create_segmentation_transforms(
                 is_training=is_training,
                 interpolation=T.InterpolationMode(interpolation),
                 hflip=hflip,
@@ -538,6 +544,24 @@ def create_loader(
                 resize_size=val_resize_size,
                 crop_size=crop_size if is_training else val_crop_size,
             )
+
+        if dataset == 'CocoDetection':
+            dataset = get_coco(
+                root=root,
+                image_set='train' if is_training else 'val',
+                transforms=transform
+            )
+        elif isinstance(dataset, str):
+            dataset = create_dataset(
+                dataset,
+                root=root,
+                is_training=is_training,
+                **kwargs
+            )
+            if taskname == 'classification':
+                dataset.transform = transform
+            elif taskname == 'segmentation':
+                dataset.transforms = transform
 
         sampler = None
         if distributed:
@@ -552,5 +576,7 @@ def create_loader(
             num_workers=workers,
             pin_memory=pin_memory,
             sampler=sampler,
-            shuffle=((not distributed) and is_training)
+            shuffle=((not distributed) and is_training),
+            collate_fn=collate_fn,
+            drop_last=(is_training and taskname == 'segmentation')
         ), 'torch')
