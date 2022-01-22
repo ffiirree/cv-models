@@ -112,7 +112,7 @@ def module_parameters(model):
             yield module, k, v
 
 
-def group_params(model, wd: float, no_bias_bn_decay: bool = False):
+def group_params(model, wd: float, no_bias_bn_decay: bool = False, lr: float = 0.1):
     '''As pointed out by Jia et al. 
     Highly scalable deep learning training system with mixed-precision: Training imagenet in four minutes, 
     however, it’s recommended to only apply the regularization
@@ -127,15 +127,20 @@ def group_params(model, wd: float, no_bias_bn_decay: bool = False):
     else:
         wd_params = []
         no_wd_params = []
+        groups = []
         for m, n, p in module_parameters(model):
-            if isinstance(m, (nn.modules.batchnorm._BatchNorm, blocks.GaussianBlur, blocks.SemanticallyDeterminedDepthwiseConv2d)) or n == 'bias':
+            if isinstance(m, (nn.modules.batchnorm._BatchNorm)) or n == 'bias':
                 no_wd_params.append(p)
+            elif isinstance(m, (blocks.SemanticallyDeterminedDepthwiseConv2d)):
+                groups.append({'params': p, 'weight_decay': 0.0, 'lr': lr / (m.in_channels // 8)})
+            elif isinstance(m, (blocks.GaussianBlur)):
+                groups.append({'params': p, 'weight_decay': 0.0, 'lr': lr / m.channels})
             else:
                 wd_params.append(p)
         return [
-            {'params': wd_params, 'weight_decay': wd},
-            {'params': no_wd_params, 'weight_decay': 0.}
-        ]
+            {'params': wd_params, 'weight_decay': wd, 'lr': lr},
+            {'params': no_wd_params, 'weight_decay': 0., 'lr': lr}
+        ] + groups
 
 
 class AverageMeter(object):

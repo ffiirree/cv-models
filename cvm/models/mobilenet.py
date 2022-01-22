@@ -13,7 +13,8 @@ class MobileBlock(nn.Sequential):
         stride: int = 1,
         padding: int = None,
         dilation: int = 1,
-        groups: int = 1
+        groups: int = 1,
+        ratio: float = 0.75  # unused
     ):
         super().__init__(
             blocks.DepthwiseBlock(inp, inp, kernel_size, stride, padding, dilation=dilation),
@@ -30,7 +31,8 @@ class DepthSepBlock(nn.Sequential):
         stride: int = 1,
         padding: int = None,
         dilation: int = 1,
-        groups: int = 1
+        groups: int = 1,
+        ratio: float = 0.75  # unused
     ):
         super().__init__(
             blocks.DepthwiseConv2d(inp, inp, kernel_size, stride, padding, dilation=dilation),
@@ -47,7 +49,8 @@ class SDBlock(nn.Sequential):
         stride: int = 1,
         padding: int = None,
         dilation: int = 1,
-        groups: int = 1
+        groups: int = 1,
+        ratio: float = 0.75
     ):
         if stride > 1:
             super().__init__(
@@ -56,11 +59,11 @@ class SDBlock(nn.Sequential):
             )
         else:
             super().__init__(
-                blocks.SDDCBlock(inp, stride, dilation=dilation, ratio=0.75),
+                blocks.SDDCBlock(inp, stride, dilation=dilation, ratio=ratio),
                 blocks.PointwiseBlock(inp, oup, groups=groups)
             )
 
-            
+
 @export
 class MobileNet(nn.Module):
     '''https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet_v1.py'''
@@ -88,11 +91,12 @@ class MobileNet(nn.Module):
 
         layers = [2, 2, 6, 2]
         strides = [FRONT_S, 2, 2, 2]
+        ratios = [7/8, 6/8, 4/8, 4/8, 1/16]
 
         self.features = nn.Sequential(OrderedDict([
             ('stem', blocks.Stage(
                 blocks.Conv2dBlock(in_channels, depth(base_width), stride=FRONT_S),
-                block(depth(base_width), depth(base_width) * 2)
+                block(depth(base_width), depth(base_width) * 2, ratio=ratios[0])
             ))
         ]))
 
@@ -106,7 +110,8 @@ class MobileNet(nn.Module):
                     inp if i == 0 else oup,
                     oup,
                     stride=stride if i == 0 else 1,
-                    dilation=max(dilations[stage] // stride, 1)
+                    dilation=max(dilations[stage] // stride, 1),
+                    ratio=ratios[stage+1]
                 ) for i in range(layers[stage])]
             ))
 
@@ -173,18 +178,3 @@ def mobilenet_v1_x1_0_wo_dwrelubn(pretrained: bool = False, pth: str = None, pro
 @export
 def sd_mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(1.0, SDBlock, pretrained, pth, progress, **kwargs)
-
-
-@export
-def sd_mobilenet_v1_x0_75(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1(0.75, SDBlock, pretrained, pth, progress, **kwargs)
-
-
-@export
-def sd_mobilenet_v1_x0_5(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1(0.5, SDBlock, pretrained, pth, progress, **kwargs)
-
-
-@export
-def sd_mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1(0.35, SDBlock, pretrained, pth, progress, **kwargs)

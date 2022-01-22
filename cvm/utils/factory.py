@@ -205,7 +205,8 @@ def create_optimizer(
     params = group_params(
         params,
         weight_decay,
-        no_bias_bn_wd
+        no_bias_bn_wd,
+        lr
     )
 
     if name == 'sgd':

@@ -3,7 +3,7 @@ import math
 import torch
 import torch.nn as nn
 from .core import blocks, export, load_from_local_or_url
-from typing import Any, OrderedDict, List
+from typing import Any, OrderedDict, List, Type, Union
 
 _BN_EPSILON = 1e-3
 # Paper suggests 0.99 momentum
@@ -31,10 +31,10 @@ def efficientnet_params(model_name):
 @export
 class EfficientNet(nn.Module):
 
-    t = [1, 6, 6, 6, 6, 6, 6]  # expand_factor
+    t = [1,   6,  6,  6,  6,   6,   6]  # expand_factor
     c = [32, 16, 24, 40, 80, 112, 192, 320, 1280]  # channels
-    n = [1, 2, 2, 3, 3, 4, 1]  # repeats
-    k = [3, 3, 5, 3, 5, 5, 3]  # kernel_size
+    n = [1,   2,  2,  3,  3,   4,   1]  # repeats
+    k = [3,   3,  3,  3,  3,   3,   3]  # kernel_size
 
     @blocks.se(partial(nn.SiLU, inplace=True))
     @blocks.nonlinear(partial(nn.SiLU, inplace=True))
@@ -44,6 +44,8 @@ class EfficientNet(nn.Module):
         num_classes: int = 1000,
         width_coefficient: float = 1,
         depth_coefficient: float = 1,
+        block: Type[Union[blocks.InvertedResidualBlock, blocks.SDInvertedResidualBlock]] = blocks.InvertedResidualBlock,
+        se_ratio: float = 0.25,
         dropout_rate: float = 0.2,
         drop_path_rate: float = 0.2,
         dilations: List[int] = None,
@@ -59,11 +61,13 @@ class EfficientNet(nn.Module):
 
         self.s = [1, FRONT_S, 2, 2, 1, 2, 1]  # stride
         self.stages = [0, 1, 1, 1, 0, 1, 0]   # stages
+        ratios = [7/8, 7/8, 6/8, 5/8, 4/8, 4/8, 1/16]
 
         self.survival_prob = 1 - drop_path_rate
         self.width_coefficient = width_coefficient
         self.depth_coefficient = depth_coefficient
         self.dropout_rate = dropout_rate
+        self.block = block
 
         self.n = [self.round_repeats(repeat) for repeat in self.n]
         self.c = [self.round_filters(channels) for channels in self.c]
@@ -87,10 +91,11 @@ class EfficientNet(nn.Module):
                 self.n[i],
                 self.s[i],
                 self.k[i],
-                0.25,
-                dilations[max(0, len(self.features) - 2)]
+                se_ratio,
+                dilations[max(0, len(self.features) - 2)],
+                ratios[i]
             )
-            
+
             if self.stages[i]:
                 self.features.add_module(f'stage{len(self.features)}', blocks.Stage(layers))
             else:
@@ -114,7 +119,8 @@ class EfficientNet(nn.Module):
         stride: int,
         kernel_size: int = 3,
         se_ratio: float = None,
-        dilation: int = 1
+        dilation: int = 1,
+        ratio: float = 0.75
     ):
         layers = []
         for i in range(n):
@@ -123,10 +129,11 @@ class EfficientNet(nn.Module):
             survival_prob = self.survival_prob + (1 - self.survival_prob) * (i + self.block_idx) / self.blocks
 
             layers.append(
-                blocks.InvertedResidualBlock(
+                self.block(
                     inp, oup, t,
-                    kernel_size=kernel_size, stride=stride if dilation == 1 else 1, 
-                    dilation=max(dilation // stride, 1), survival_prob=survival_prob, se_ratio=se_ratio
+                    kernel_size=kernel_size, stride=stride if dilation == 1 else 1,
+                    dilation=max(dilation // stride, 1), survival_prob=survival_prob, se_ratio=se_ratio,
+                    ratio=ratio
                 )
             )
 
@@ -171,6 +178,25 @@ def _effnet(arch, pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 @export
 def efficientnet_b0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)
+
+
+@export
+def efficientnet_b0_wo_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['se_ratio'] = None
+    return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)
+
+
+@export
+def sd_efficientnet_b0_wo_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['block'] = blocks.SDInvertedResidualBlock
+    kwargs['se_ratio'] = None
+    return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)
+
+
+@export
+def sd_efficientnet_b0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['block'] = blocks.SDInvertedResidualBlock
     return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)
 
 
