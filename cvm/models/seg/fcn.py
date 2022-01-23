@@ -68,5 +68,35 @@ def fcn_mobilenet_v1_x1_0(*args, **kwargs: Any):
 
 
 @export
+def fcn_sd_mobilenet_v1_x1_0(*args, **kwargs: Any):
+    return create_fcn('sd_mobilenet_v1_x1_0', *args, **kwargs)
+
+
+@export
+def fcn_mobilenet_v2_x1_0(*args, **kwargs: Any):
+    return create_fcn('mobilenet_v2_x1_0', *args, **kwargs)
+
+
+@export
+def fcn_sd_mobilenet_v2_x1_0(*args, **kwargs: Any):
+    return create_fcn('sd_mobilenet_v2_x1_0', *args, **kwargs)
+
+
+@export
+def fcn_shufflenet_v2_x2_0(*args, **kwargs: Any):
+    return create_fcn('shufflenet_v2_x2_0', *args, **kwargs)
+
+
+@export
+def fcn_sd_shufflenet_v2_x2_0(*args, **kwargs: Any):
+    return create_fcn('sd_shufflenet_v2_x2_0', *args, **kwargs)
+
+
+@export
 def fcn_efficientnet_b0(*args, **kwargs: Any):
     return create_fcn('efficientnet_b0', *args, **kwargs)
+
+
+@export
+def fcn_sd_efficientnet_b0(*args, **kwargs: Any):
+    return create_fcn('sd_efficientnet_b0', *args, **kwargs)

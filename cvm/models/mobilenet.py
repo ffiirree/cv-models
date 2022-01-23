@@ -103,14 +103,13 @@ class MobileNet(nn.Module):
         for stage, stride in enumerate(strides):
             inp = depth(base_width * 2 ** (stage + 1))
             oup = depth(base_width * 2 ** (stage + 2))
-            stride = stride if dilations[stage] == 1 else 1
 
             self.features.add_module(f'stage{stage+1}', blocks.Stage(
                 [block(
                     inp if i == 0 else oup,
                     oup,
-                    stride=stride if i == 0 else 1,
-                    dilation=max(dilations[stage] // stride, 1),
+                    stride=stride if (i == 0 and dilations[stage] == 1) else 1,
+                    dilation=max(dilations[stage] // (stride if i == 0 else 1), 1),
                     ratio=ratios[stage+1]
                 ) for i in range(layers[stage])]
             ))

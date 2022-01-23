@@ -83,5 +83,35 @@ def deeplabv3_mobilenet_v1_x1_0(*args, **kwargs: Any):
 
 
 @export
+def deeplabv3_sd_mobilenet_v1_x1_0(*args, **kwargs: Any):
+    return create_deeplabv3('sd_mobilenet_v1_x1_0', *args, **kwargs)
+
+
+@export
+def deeplabv3_mobilenet_v2_x1_0(*args, **kwargs: Any):
+    return create_deeplabv3('mobilenet_v2_x1_0', *args, **kwargs)
+
+
+@export
+def deeplabv3_sd_mobilenet_v2_x1_0(*args, **kwargs: Any):
+    return create_deeplabv3('sd_mobilenet_v2_x1_0', *args, **kwargs)
+
+
+@export
+def deeplabv3_shufflenet_v2_x2_0(*args, **kwargs: Any):
+    return create_deeplabv3('shufflenet_v2_x2_0', *args, **kwargs)
+
+
+@export
+def deeplabv3_sd_shufflenet_v2_x2_0(*args, **kwargs: Any):
+    return create_deeplabv3('sd_shufflenet_v2_x2_0', *args, **kwargs)
+
+
+@export
 def deeplabv3_efficientnet_b0(*args, **kwargs: Any):
     return create_deeplabv3('efficientnet_b0', *args, **kwargs)
+
+
+@export
+def deeplabv3_sd_efficientnet_b0(*args, **kwargs: Any):
+    return create_deeplabv3('sd_efficientnet_b0', *args, **kwargs)

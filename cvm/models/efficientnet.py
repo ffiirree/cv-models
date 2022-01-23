@@ -2,7 +2,7 @@ from functools import partial
 import math
 import torch
 import torch.nn as nn
-from .core import blocks, export, load_from_local_or_url
+from .core import blocks, export, load_from_local_or_url, config
 from typing import Any, OrderedDict, List, Type, Union
 
 _BN_EPSILON = 1e-3
@@ -35,6 +35,7 @@ class EfficientNet(nn.Module):
     c = [32, 16, 24, 40, 80, 112, 192, 320, 1280]  # channels
     n = [1,   2,  2,  3,  3,   4,   1]  # repeats
     k = [3,   3,  3,  3,  3,   3,   3]  # kernel_size
+    # k = [3,   3,  5,  3,  5,   5,   3]  # kernel_size
 
     @blocks.se(partial(nn.SiLU, inplace=True))
     @blocks.nonlinear(partial(nn.SiLU, inplace=True))
@@ -54,13 +55,13 @@ class EfficientNet(nn.Module):
     ):
         super().__init__()
 
-        dilations = dilations or [1, 1, 1, 1]
-        assert len(dilations) == 4, ''
+        dilations = [1] + (dilations or [1, 1, 1, 1])
+        assert len(dilations) == 5, ''
 
         FRONT_S = 1 if thumbnail else 2
 
         self.s = [1, FRONT_S, 2, 2, 1, 2, 1]  # stride
-        self.stages = [0, 1, 1, 1, 0, 1, 0]   # stages
+        stages = [0, 1, 1, 1, 0, 1, 0]   # stages
         ratios = [7/8, 7/8, 6/8, 5/8, 4/8, 4/8, 1/16]
 
         self.survival_prob = 1 - drop_path_rate
@@ -92,11 +93,11 @@ class EfficientNet(nn.Module):
                 self.s[i],
                 self.k[i],
                 se_ratio,
-                dilations[max(0, len(self.features) - 2)],
+                dilations[len(self.features) + (stages[i] - 1)],
                 ratios[i]
             )
 
-            if self.stages[i]:
+            if stages[i]:
                 self.features.add_module(f'stage{len(self.features)}', blocks.Stage(layers))
             else:
                 self.features[-1].append(layers)
@@ -177,24 +178,13 @@ def _effnet(arch, pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1-effnets-weights/efficientnet_b0-002f2cdf.pth')
 def efficientnet_b0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)
 
 
 @export
-def efficientnet_b0_wo_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    kwargs['se_ratio'] = None
-    return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)
-
-
-@export
-def sd_efficientnet_b0_wo_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    kwargs['block'] = blocks.SDInvertedResidualBlock
-    kwargs['se_ratio'] = None
-    return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)
-
-
-@export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1-effnets-weights/sd_efficientnet_b0-7e8d17dc.pth')
 def sd_efficientnet_b0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['block'] = blocks.SDInvertedResidualBlock
     return _effnet('efficientnet-b0', pretrained, pth, progress, **kwargs)

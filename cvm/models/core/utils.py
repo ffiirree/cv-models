@@ -25,7 +25,7 @@ def config(url='', **settings):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             kwargs['url'] = url
-            kwargs['arch'] = func.__name__
+            # kwargs['arch'] = func.__name__
             return func(*args, **{**settings, **kwargs})
         return wrapper
 

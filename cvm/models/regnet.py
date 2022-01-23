@@ -102,16 +102,15 @@ class RegStage(nn.Sequential):
         super().__init__()
 
         for i in range(depth):
-            stride = stride if i == 0 and dilation == 1 else 1
             self.add_module(
                 f'stage{stage_index}-{i}',
                 ResBottleneckBlock(
                     in_width if i == 0 else out_width,
                     out_width,
-                    stride,
+                    stride if (i == 0 and dilation == 1) else 1,
                     group_widths,
                     bottleneck_multiplier,
-                    max(dilation // stride, 1),
+                    max(dilation // (stride if i == 0 else 1), 1),
                     se_ratio
                 )
             )
@@ -158,7 +157,7 @@ class RegNet(nn.Module):
         sj = torch.round(torch.log(uj / w0) / math.log(wm))
 
         widths = (torch.round((w0 * torch.pow(wm, sj)) / 8) * 8).int().tolist()
-        widths = [int(make_divisible(w * b, min(g, w * b)) / b) for w in widths] # Adjusts the compatibility of widths and groups
+        widths = [int(make_divisible(w * b, min(g, w * b)) / b) for w in widths]  # Adjusts the compatibility of widths and groups
         num_stages = len(set(widths))
         stage_depths = [(torch.tensor(widths) == w).sum().item() for w in torch.unique(torch.tensor(widths))]
         stage_widths = torch.unique(torch.tensor(widths)).numpy().tolist()
