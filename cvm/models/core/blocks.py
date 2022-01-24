@@ -1204,6 +1204,8 @@ class SemanticallyDeterminedDepthwiseConv2d(nn.Module):
         self.ratio = ratio
 
         self.edge_chs = make_divisible(self.in_channels * ratio, 6)
+        if self.edge_chs > self.in_channels:
+            self.edge_chs -= 6
         self.gaussian_chs = self.in_channels - self.edge_chs
 
         self.l4 = nn.Parameter(torch.tensor(1.0))
@@ -1253,7 +1255,7 @@ class SemanticallyDeterminedDepthwiseConv2d(nn.Module):
         ])
 
     def extra_repr(self):
-        s = ('{in_channels}, {out_channels}, ratio={ratio}, kernel_size={kernel_size}'
+        s = ('{in_channels}, {out_channels}, ratio={ratio}({edge_chs}:{gaussian_chs}), kernel_size={kernel_size}'
              ', stride={stride}')
         if self.padding != (0,) * len(self.padding):
             s += ', padding={padding}'

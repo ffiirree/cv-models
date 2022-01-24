@@ -175,5 +175,6 @@ def mobilenet_v1_x1_0_wo_dwrelubn(pretrained: bool = False, pth: str = None, pro
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/sd_mobilenet_v1_x1_0-c5bd0c22.pth')
 def sd_mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v1(1.0, SDBlock, pretrained, pth, progress, **kwargs)
