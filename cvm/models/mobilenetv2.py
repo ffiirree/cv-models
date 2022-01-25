@@ -107,6 +107,7 @@ def mobilenet_v2_x1_0(pretrained: bool = False, pth: str = None, progress: bool 
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/sd_mobilenet_v2_x1_0-ab1411c3.pth')
 def sd_mobilenet_v2_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['block'] = blocks.SDInvertedResidualBlock
     return _mobilenet_v2(1.0, pretrained, pth, progress, **kwargs)
