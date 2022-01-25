@@ -52,7 +52,7 @@ class SDBlock(nn.Sequential):
         groups: int = 1,
         ratio: float = 0.75
     ):
-        if stride > 1:
+        if ratio is None or stride > 1:
             super().__init__(
                 blocks.GaussianBlurBlock(inp, kernel_size, stride, padding=padding, dilation=dilation),
                 blocks.PointwiseBlock(inp, oup, groups=groups)
@@ -110,7 +110,7 @@ class MobileNet(nn.Module):
                     oup,
                     stride=stride if (i == 0 and dilations[stage] == 1) else 1,
                     dilation=max(dilations[stage] // (stride if i == 0 else 1), 1),
-                    ratio=ratios[stage+1]
+                    ratio=None if stride != 1 and i == 0 else ratios[stage+1]
                 ) for i in range(layers[stage])]
             ))
 

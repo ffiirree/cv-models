@@ -70,7 +70,7 @@ class MobileNetV2(nn.Module):
 
     def make_layers(self, inp: int, t: int, oup: int, n: int, stride: int, dilation: int, ratio: float):
         layers = [self.block(inp, oup, t, stride=stride if dilation == 1 else 1,
-                             dilation=max(dilation // stride, 1), ratio=ratio)]
+                             dilation=max(dilation // stride, 1), ratio=ratio if stride == 1 else None)]
 
         for _ in range(n - 1):
             layers.append(self.block(oup, oup, t, dilation=dilation, ratio=ratio))
@@ -101,6 +101,7 @@ def _mobilenet_v2(
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v2_x1_0-bf342af4.pth')
 def mobilenet_v2_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _mobilenet_v2(1.0, pretrained, pth, progress, **kwargs)
 

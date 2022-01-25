@@ -134,7 +134,7 @@ class EfficientNet(nn.Module):
                     inp, oup, t,
                     kernel_size=kernel_size, stride=stride if dilation == 1 else 1,
                     dilation=max(dilation // stride, 1), survival_prob=survival_prob, se_ratio=se_ratio,
-                    ratio=ratio
+                    ratio=ratio if stride == 1 else None
                 )
             )
 
