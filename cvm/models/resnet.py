@@ -84,13 +84,13 @@ class ResNet(nn.Module):
         self.features = nn.Sequential(OrderedDict([
             ('stem', stem),
             ('stage1', stage1),
-            ('stage2', self.make_layers(64, 128, 2, layers[1], 3, dilations[1])),
-            ('stage3', self.make_layers(128, 256, 2, layers[2], 4, dilations[2])),
-            ('stage4', self.make_layers(256, 512, 2, layers[3], 5, dilations[3])),
+            ('stage2', blocks.Stage(self.make_layers(64, 128, 2, layers[1], 3, dilations[1]))),
+            ('stage3', blocks.Stage(self.make_layers(128, 256, 2, layers[2], 4, dilations[2]))),
+            ('stage4', blocks.Stage(self.make_layers(256, 512, 2, layers[3], 5, dilations[3]))),
         ]))
         
         if self.version == 2:
-            self.features.stage4.append(blocks.norm_activation(512 * self.block.expansion))
+            self.features[-1].append(blocks.norm_activation(512 * self.block.expansion))
             
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
@@ -150,7 +150,7 @@ class ResNet(nn.Module):
             )
             inp = oup * self.block.expansion
             stride = 1
-        return blocks.Stage(layers)
+        return layers
 
 
 def _resnet(
