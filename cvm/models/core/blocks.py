@@ -864,7 +864,7 @@ class SDInvertedResidualBlock(nn.Module):
         if t != 1:
             layers.append(Conv2d1x1Block(inp, self.planes, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
 
-        if stride > 1:
+        if ratio is None or stride > 1:
             layers.append(GaussianBlurBlock(self.planes, kernel_size, stride=self.stride, padding=padding,
                                             dilation=dilation, normalizer_fn=normalizer_fn, activation_fn=activation_fn))
         else:

@@ -130,6 +130,10 @@ class ShuffleNetV2(nn.Module):
             nn.Linear(channels[4], num_classes)
         )
 
+        self.features[-1].out_channels = channels[-1]
+        self.features[-2].out_channels = channels[-3]
+        self.features[-3].out_channels = channels[-4]
+
     def make_layers(self, repeat, inp, oup, dilation, ratios):
         layers = [self.block(inp, oup, stride=2, dilation=dilation)]
         ratios = torch.linspace(ratios[0], ratios[1], steps=repeat-1)
