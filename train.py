@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument('--bn-momentum', type=float, default=None)
 
     # optimizer
-    parser.add_argument('--optim', type=str, default='sgd', choices=['sgd', 'rmsprop'],
+    parser.add_argument('--optim', type=str, default='sgd', choices=['sgd', 'rmsprop', 'adam', 'adamw'],
                         help='optimizer. (default: sgd)')
     parser.add_argument('--weight-decay', '--wd', type=float, default=1e-4,
                         help='weight decay. (default: 1e-4)')
@@ -89,16 +89,17 @@ def parse_args():
                         help='use label smoothing or not in training. (default: 0.0)')
     parser.add_argument("--ra-repetitions", default=0, type=int,
                         help="number of repetitions for Repeated Augmentation (default: 0)")
-    parser.add_argument('--augment', type=str, default=None,
-                        choices=['randaugment', 'autoaugment'])
-    parser.add_argument('--randaugment-n', type=int, default=2, metavar='N',
-                        help='RandAugment n.')
-    parser.add_argument('--randaugment-m', type=int, default=10, metavar='M',
-                        help='RandAugment m.')
+    parser.add_argument('--augment', type=str, default=None)
     parser.add_argument('--dropout-rate', type=float, default=0., metavar='P',
                         help='dropout rate. (default: 0.0)')
     parser.add_argument('--drop-path-rate', type=float, default=0., metavar='P',
                         help='drop path rate. (default: 0.0)')
+
+    # model exponential moving average
+    parser.add_argument('--model-ema', action='store_true', default=False,
+                        help='Enable tracking moving average of model weights')
+    parser.add_argument('--model-ema-decay', type=float, default=0.9999,
+                        help='decay factor for model weights moving average (default: 0.9999)')
 
     parser.add_argument('--seed', type=int, default=0, metavar='S',
                         help='random seed (default: 0)')
@@ -119,7 +120,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args, mixupcutmix_fn=None):
+def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args, mixupcutmix_fn=None, model_ema: ExponentialMovingAverage=None):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -145,6 +146,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
         scaler.update()
 
         scheduler.step()
+
+        if model_ema is not None:
+            model_ema.update_parameters(model)
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
@@ -216,6 +220,10 @@ if __name__ == '__main__':
         local_rank=args.local_rank
     )
 
+    model_ema = None
+    if args.model_ema:
+        model_ema = ExponentialMovingAverage(model.module if args.distributed else model, device='cuda', decay=args.model_ema_decay)
+
     optimizer = create_optimizer(args.optim, model, **dict(vars(args)))
     criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
 
@@ -274,10 +282,11 @@ if __name__ == '__main__':
             scaler,
             epoch,
             args,
-            mixupcutmix_fn
+            mixupcutmix_fn,
+            model_ema
         )
 
-        validate(val_loader, model, criterion)
+        validate(val_loader, model if model_ema is None else model_ema, criterion)
 
         train_loader.reset()
         val_loader.reset()

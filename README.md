@@ -41,7 +41,7 @@
 - [ ] `NFNet` - [High-Performance Large-Scale Image Recognition Without Normalization](https://arxiv.org/abs/2102.06171), 2021
 - [ ] `NF-ResNets` - [Characterizing signal propagation to close the performance gap in unnormalized ResNets](https://arxiv.org/abs/2101.08692), 2021
 - [x] `ConvMixer` - [Patches are all you need?](https://openreview.net/forum?id=TVHS5Y4dNvM), 2021
-- [x] `ConvNeXt` - [A ConvNet for the 2020s](https://arxiv.org/abs/2201.03545), 2022, FAIR
+- [x] `ConvNeXt` - [A ConvNet for the 2020s](https://arxiv.org/abs/2201.03545), 2022, CVPR
 
 ### Transformer
 

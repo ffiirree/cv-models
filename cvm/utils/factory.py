@@ -9,8 +9,11 @@ import torchvision
 from torchvision import datasets
 import torchvision.transforms as T
 
+from PIL import Image
+
 import cvm
 from cvm.data.samplers import RASampler
+from cvm.utils.augment import *
 from cvm.utils.coco import get_coco
 from . import seg_transforms as ST
 from .utils import group_params, list_datasets, get_world_size
@@ -232,6 +235,12 @@ def create_optimizer(
             lr=lr,
             betas=kwargs['adam_betas'],
         )
+    elif name == 'adamw':
+        return optim.AdamW(
+            params,
+            lr=lr,
+            betas=kwargs['adam_betas']
+        )
     else:
         raise ValueError(f'Invalid optimizer: {name}.')
 
@@ -292,17 +301,19 @@ def _get_dataset_mean_or_std(name, attr):
     return IMAGE_MEAN if attr == 'mean' else IMAGE_STD
 
 
-def _get_autoaugment_policy(name):
-    name = _get_name(name).lower()
+_pil_interpolation_to_str = {
+    Image.NEAREST: 'nearest',
+    Image.BILINEAR: 'bilinear',
+    Image.BICUBIC: 'bicubic',
+    Image.BOX: 'box',
+    Image.HAMMING: 'hamming',
+    Image.LANCZOS: 'lanczos',
+}
+_str_to_pil_interpolation = {b: a for a, b in _pil_interpolation_to_str.items()}
 
-    if name == 'imagenet':
-        return T.AutoAugmentPolicy.IMAGENET
-    if name.startswith('cifar'):
-        return T.AutoAugmentPolicy.CIFAR10
-    if name.startswith('svhn'):
-        return T.AutoAugmentPolicy.SVHN
 
-    ValueError(f'Unknown AutoAugmentPolicy: {name}.')
+def str_to_pil_interp(mode_str):
+    return _str_to_pil_interpolation[mode_str]
 
 
 def _to_dali_interpolation(interpolation):
@@ -335,9 +346,6 @@ def create_transforms(
     vflip: float = 0.0,
     color_jitter=None,
     augment: str = None,
-    randaugment_n: int = 2,
-    randaugment_m: int = 5,
-    autoaugment_policy='imagenet',
     random_erasing: float = 0.,
     dataset_image_size: int = 0
 ):
@@ -367,20 +375,33 @@ def create_transforms(
             ops.append(T.RandomHorizontalFlip(hflip))
         if vflip > 0.0:
             ops.append(T.RandomVerticalFlip(vflip))
+
+        if isinstance(crop_size, (tuple, list)):
+            img_size_min = min(crop_size)
+        else:
+            img_size_min = crop_size
+        aug_hparams = dict(
+            translate_const=int(img_size_min * 0.45),
+            img_mean=tuple([min(255, round(255 * x)) for x in mean]),
+        )
+        aug_hparams['interpolation'] = str_to_pil_interp(interpolation.value)
+        if augment:
+            if augment.startswith("rand"):
+                ops.append(rand_augment_transform(augment, aug_hparams))
+            elif augment.startwith("augmix"):
+                ops.append(augment_and_mix_transform(augment, aug_hparams))
+            else:
+                ops.append(auto_augment_transform(augment, aug_hparams))
+
         if color_jitter > 0.0:
             ops.append(T.ColorJitter(*((color_jitter, ) * 3)))  # no hue
-
-        if augment == 'randaugment':
-            ops.append(T.RandAugment(randaugment_n, randaugment_m, interpolation=interpolation))
-        elif augment == 'autoaugment':
-            ops.append(T.AutoAugment(autoaugment_policy, interpolation=interpolation))
 
     ops.append(T.PILToTensor())
     ops.append(T.ConvertImageDtype(torch.float))
     ops.append(T.Normalize(mean, std))
 
     if is_training and random_erasing > 0.0:
-        ops.append(T.RandomErasing(random_erasing))
+        ops.append(T.RandomErasing(random_erasing, inplace=True))
 
     return T.Compose(ops)
 
@@ -468,8 +489,6 @@ def create_loader(
     dali: bool = False,
     dali_cpu: bool = True,
     augment: str = None,
-    randaugment_n: int = 2,
-    randaugment_m=5,
     local_rank: int = 0,
     root: str = None,
     distributed: bool = False,
@@ -523,9 +542,6 @@ def create_loader(
                 color_jitter=color_jitter,
                 random_erasing=random_erasing,
                 augment=augment,
-                randaugment_n=randaugment_n,
-                randaugment_m=randaugment_m,
-                autoaugment_policy=_get_autoaugment_policy(dataset),
                 mean=kwargs.get('mean', _get_dataset_mean_or_std(dataset, 'mean')),
                 std=kwargs.get('std', _get_dataset_mean_or_std(dataset, 'std')),
                 random_crop=crop_size <= 128,
