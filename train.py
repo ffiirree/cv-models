@@ -232,6 +232,7 @@ if __name__ == '__main__':
         is_training=True,
         **(dict(vars(args)))
     )
+    
     val_loader = create_loader(
         root=args.data_dir,
         is_training=False,
@@ -262,8 +263,9 @@ if __name__ == '__main__':
 
     if args.local_rank == 0:
         logger.info(f'Model: \n{model}')
-        if not args.dali:
+        if train_loader.type != "dali":
             logger.info(f'Training: \n{train_loader.dataset.transform}')
+        if val_loader.type != "dali":
             logger.info(f'Validation: \n{val_loader.dataset.transform}')
         logger.info(f'Mixup/CutMix: \n{mixupcutmix_fn}')
         logger.info(f'Optimizer: \n{optimizer}')

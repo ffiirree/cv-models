@@ -658,10 +658,10 @@ class RandAugment:
         return img
 
     def __repr__(self):
-        fs = self.__class__.__name__ + f'(n={self.num_layers}, ops='
+        fs = self.__class__.__name__ + f'(n={self.num_layers}, ops@{len(self.ops)}='
         for op in self.ops:
-            fs += f'\n\t{op}'
-        fs += ')'
+            fs += f'\n        {op}'
+        fs += '\n    )'
         return fs
 
 

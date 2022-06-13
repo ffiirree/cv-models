@@ -5,11 +5,11 @@ from cvm.utils import list_models, create_model
 from fvcore.nn import FlopCountAnalysis, flop_count_str, flop_count_table
 
 
-def print_model(model, str: bool = False):
+def print_model(model, str: bool = False, max_depth: int = 3):
     model.eval()
     flops = FlopCountAnalysis(model, input)
 
-    print(flop_count_str(flops) if str else flop_count_table(flops))
+    print(flop_count_str(flops) if str else flop_count_table(flops, max_depth=max_depth))
 
 
 if __name__ == '__main__':
@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--list-models', type=str, default=None)
     parser.add_argument('--num-classes', type=int, default=1000)
     parser.add_argument('--image-size', type=int, default=224)
+    parser.add_argument('--max-depth', type=int, default=3)
 
     args = parser.parse_args()
 
@@ -36,5 +37,6 @@ if __name__ == '__main__':
                 num_classes=args.num_classes,
                 cuda=False,
             ),
-            args.str
+            args.str,
+            args.max_depth
         )

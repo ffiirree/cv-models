@@ -129,12 +129,8 @@ def group_params(model, wd: float, no_bias_bn_decay: bool = False, lr: float = 0
         no_wd_params = []
         groups = []
         for m, n, p in module_parameters(model):
-            if isinstance(m, (nn.modules.batchnorm._BatchNorm)) or n == 'bias':
+            if isinstance(m, (nn.modules.batchnorm._BatchNorm, blocks.SemanticallyDeterminedDepthwiseConv2d, blocks.GaussianBlur)) or n == 'bias':
                 no_wd_params.append(p)
-            elif isinstance(m, (blocks.SemanticallyDeterminedDepthwiseConv2d)):
-                groups.append({'params': p, 'weight_decay': 0.0, 'lr': lr / (m.in_channels // 8)})
-            elif isinstance(m, (blocks.GaussianBlur)):
-                groups.append({'params': p, 'weight_decay': 0.0, 'lr': lr / m.channels})
             else:
                 wd_params.append(p)
         return [
