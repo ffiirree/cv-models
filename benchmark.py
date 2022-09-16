@@ -16,7 +16,7 @@ class InferenceBenchmarkRunner():
         self.input = input.to(self.device)
 
     def timestamp(self, sync=False):
-        if sync:
+        if sync and self.device == 'cuda':
             torch.cuda.synchronize(device=self.device)
 
         return time.perf_counter()
@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', '-m', type=str)
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--amp', action='store_true')
+    parser.add_argument('--device', type=str, default='cuda')
 
     args = parser.parse_args()
     print(args)
@@ -42,7 +43,7 @@ if __name__ == '__main__':
 
     input = torch.randn(args.batch_size, 3, 224, 224)
 
-    runner = InferenceBenchmarkRunner(model, input, 'cuda', args.amp)
+    runner = InferenceBenchmarkRunner(model, input, args.device, args.amp)
 
     with torch.no_grad():
         for _ in range(50):

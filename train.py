@@ -98,8 +98,10 @@ def parse_args():
     # model exponential moving average
     parser.add_argument('--model-ema', action='store_true', default=False,
                         help='Enable tracking moving average of model weights')
-    parser.add_argument('--model-ema-decay', type=float, default=0.9999,
-                        help='decay factor for model weights moving average (default: 0.9999)')
+    parser.add_argument('--model-ema-decay', type=float, default=0.99998,
+                        help='decay factor for model weights moving average (default: 0.99998)')
+    parser.add_argument('--model-ema-steps', type=int, default=32,
+                        help='the number of iterations that controls how often to update the EMA model (default: 32)')
 
     parser.add_argument('--seed', type=int, default=0, metavar='S',
                         help='random seed (default: 0)')
@@ -147,8 +149,10 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
 
         scheduler.step()
 
-        if model_ema is not None:
+        if model_ema is not None and i % args.model_ema_steps == 0:
             model_ema.update_parameters(model)
+            if epoch < args.warmup_epochs:
+                model_ema.n_averaged.fill_(0)
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
@@ -222,7 +226,10 @@ if __name__ == '__main__':
 
     model_ema = None
     if args.model_ema:
-        model_ema = ExponentialMovingAverage(model.module if args.distributed else model, device='cuda', decay=args.model_ema_decay)
+        adjust = args.world_size * args.batch_size * args.model_ema_steps / args.epochs
+        alpha = 1.0 - args.model_ema_decay
+        alpha = min(1.0, alpha * adjust)
+        model_ema = ExponentialMovingAverage(model.module if args.distributed else model, device='cuda', decay=1.0 - alpha)
 
     optimizer = create_optimizer(args.optim, model, **dict(vars(args)))
     criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
