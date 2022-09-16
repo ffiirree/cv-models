@@ -89,7 +89,8 @@ def parse_args():
                         help='use label smoothing or not in training. (default: 0.0)')
     parser.add_argument("--ra-repetitions", default=0, type=int,
                         help="number of repetitions for Repeated Augmentation (default: 0)")
-    parser.add_argument('--augment', type=str, default=None)
+    parser.add_argument('--augment', type=str, default=None,
+                        help="'torch/autoaug-imagenet', 'torch/autoaug-svhn', 'torch/autoaug-cifar10', 'augmix-m5-w4-d2', 'rand-m9-n3-mstd0.5', ... (default: None)")
     parser.add_argument('--dropout-rate', type=float, default=0., metavar='P',
                         help='dropout rate. (default: 0.0)')
     parser.add_argument('--drop-path-rate', type=float, default=0., metavar='P',
@@ -202,7 +203,7 @@ if __name__ == '__main__':
         torch.use_deterministic_algorithms(True)
 
     logger = make_logger(
-        f'imagenet_{args.model}', f'{args.output_dir}/{args.model}',
+        f'{args.dataset.lower()}_{args.model}', f'{args.output_dir}/{args.model}',
         rank=args.local_rank
     )
     if args.local_rank == 0:

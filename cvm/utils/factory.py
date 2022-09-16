@@ -51,6 +51,7 @@ def create_dali_pipeline(
     num_shards,
     random_scale=[0.08, 1.0],
     interpolation=types.INTERP_TRIANGULAR,
+    antialias=True,
     dali_cpu=False,
     is_training=True,
     hflip=0.5,
@@ -94,7 +95,8 @@ def create_dali_pipeline(
             device=dali_device,
             resize_x=crop_size,
             resize_y=crop_size,
-            interp_type=interpolation
+            interp_type=interpolation,
+            antialias=antialias
         )
 
         if color_jitter > 0.0:
@@ -123,7 +125,8 @@ def create_dali_pipeline(
             device=dali_device,
             size=resize_size,
             mode="not_smaller",
-            interp_type=interpolation
+            interp_type=interpolation,
+            antialias=antialias
         )
 
         mirror = False
@@ -319,14 +322,14 @@ def str_to_pil_interp(mode_str):
 def _to_dali_interpolation(interpolation):
     interp_types = {
         'nearest': types.INTERP_NN,
-        'linear': types.INTERP_LINEAR,
+        'linear': types.INTERP_LINEAR,          # (2d data) = bilinear
         'cubic': types.INTERP_CUBIC,
-        'triangular': types.INTERP_TRIANGULAR,
+        'triangular': types.INTERP_LINEAR,
         'gaussian': types.INTERP_GAUSSIAN,
         'lanczos': types.INTERP_LANCZOS3,
 
         # For pytorch compatibility
-        'bilinear': types.INTERP_TRIANGULAR,
+        'bilinear': types.INTERP_LINEAR,
     }
 
     return interp_types[interpolation]
@@ -388,8 +391,15 @@ def create_transforms(
         if augment:
             if augment.startswith("rand"):
                 ops.append(rand_augment_transform(augment, aug_hparams))
-            elif augment.startwith("augmix"):
+            elif augment.startswith("augmix"):
                 ops.append(augment_and_mix_transform(augment, aug_hparams))
+            elif augment.startswith('torch/autoaug'):
+                if augment == 'torch/autoaug-cifar10':
+                    ops.append(T.AutoAugment(T.AutoAugmentPolicy.CIFAR10))
+                elif augment == 'torch/autoaug-imagenet':
+                    ops.append(T.AutoAugment(T.AutoAugmentPolicy.IMAGENET))
+                elif augment == 'torch/autoaug-svhn':
+                    ops.append(T.AutoAugment(T.AutoAugmentPolicy.SVHN))
             else:
                 ops.append(auto_augment_transform(augment, aug_hparams))
 
