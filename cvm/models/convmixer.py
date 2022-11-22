@@ -1,7 +1,9 @@
 from functools import partial
 import torch
 import torch.nn as nn
-from .core import blocks, Conv2dBlock, Conv2d1x1Block, export, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any
 
 
@@ -29,13 +31,13 @@ class ConvMixer(nn.Module):
         super().__init__()
 
         self.features = nn.Sequential(
-            Conv2dBlock(in_channels, h, patch_size, stride=patch_size),
+            blocks.Conv2dBlock(in_channels, h, patch_size, stride=patch_size),
 
             *[nn.Sequential(
                 Residual(
-                    Conv2dBlock(h, h, kernel_size, groups=h, padding='same')
+                    blocks.Conv2dBlock(h, h, kernel_size, groups=h, padding='same')
                 ),
-                Conv2d1x1Block(h, h)
+                blocks.Conv2d1x1Block(h, h)
             ) for _ in range(depth)]
         )
 
@@ -70,54 +72,54 @@ def _conv_mixer(
 
 
 @export
-@blocks.nonlinear(nn.GELU)
+@blocks.activation(nn.GELU)
 def conv_mixer_1536_20_k9_p7(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(1536, 20, 9, 7, pretrained, pth, progress, **kwargs)
 
 
 @export
-@blocks.nonlinear(nn.GELU)
+@blocks.activation(nn.GELU)
 def conv_mixer_1536_20_k3_p7(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(1536, 20, 3, 7, pretrained, pth, progress, **kwargs)
 
 
 @export
-@blocks.nonlinear(nn.GELU)
+@blocks.activation(nn.GELU)
 def conv_mixer_1024_20_k9_p14(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(1024, 20, 9, 14, pretrained, pth, progress, **kwargs)
 
 
 @export
-@blocks.nonlinear(nn.GELU)
+@blocks.activation(nn.GELU)
 def conv_mixer_1024_16_k9_p7(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(1024, 16, 9, 7, pretrained, pth, progress, **kwargs)
 
 
 @export
-@blocks.nonlinear(nn.GELU)
+@blocks.activation(nn.GELU)
 def conv_mixer_1024_12_k8_p7(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(1024, 12, 8, 7, pretrained, pth, progress, **kwargs)
 
 
 @export
-@blocks.nonlinear(partial(nn.ReLU, inplace=True))
+@blocks.activation(partial(nn.ReLU, inplace=True))
 def conv_mixer_768_32_k7_p7(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(768, 32, 7, 7, pretrained, pth, progress, **kwargs)
 
 
 @export
-@blocks.nonlinear(partial(nn.ReLU, inplace=True))
+@blocks.activation(partial(nn.ReLU, inplace=True))
 def conv_mixer_768_32_k3_p14(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(768, 32, 3, 14, pretrained, pth, progress, **kwargs)
 
 
 @export
-@blocks.nonlinear(nn.GELU)
+@blocks.activation(nn.GELU)
 def conv_mixer_512_16_k8_p7(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(512, 16, 8, 7, pretrained, pth, progress, **kwargs)
 
 
 @export
-@blocks.nonlinear(nn.GELU)
+@blocks.activation(nn.GELU)
 def conv_mixer_512_12_k8_p7(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     return _conv_mixer(512, 12, 8, 7, pretrained, pth, progress, **kwargs)

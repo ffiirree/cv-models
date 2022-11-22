@@ -1,9 +1,38 @@
 from functools import partial
-import os
 import torch
 import torch.nn as nn
-from .core import blocks, export, config
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any, List, OrderedDict
+
+
+class SharedDepthwiseConv2d(nn.Module):
+    def __init__(
+        self,
+        channels,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: int = None,
+        dilation: int = 1,
+        t: int = 2,
+        bias: bool = False
+    ):
+        super().__init__()
+
+        self.channels = channels // t
+        self.t = t
+
+        if padding is None:
+            padding = ((kernel_size - 1) * (dilation - 1) + kernel_size) // 2
+
+        self.mux = blocks.DepthwiseConv2d(self.channels, self.channels, kernel_size,
+                                          stride, padding, dilation, bias=bias)
+
+    def forward(self, x):
+        x = torch.chunk(x, self.t, dim=1)
+        x = [self.mux(xi) for xi in x]
+        return torch.cat(x, dim=1)
 
 
 class HalfIdentityBlock(nn.Module):
@@ -14,7 +43,7 @@ class HalfIdentityBlock(nn.Module):
     ):
         super().__init__()
 
-        self.half3x3 = blocks.Conv2d3x3(inp // 2, inp // 2, groups=(inp // 2))
+        self.half3x3 = blocks.DepthwiseConv2d(inp // 2, inp // 2)
         self.combine = blocks.Combine('CONCAT')
         self.conv1x1 = blocks.PointwiseBlock(inp, inp // 2)
 
@@ -47,13 +76,13 @@ class DownsamplingBlock(nn.Module):
         elif method == 'maxpool':
             self.downsample = nn.MaxPool2d(kernel_size=3, stride=stride)
         elif method == 'blur':
-            self.downsample = blocks.GaussianBlur(inp, stride=stride, sigma=1.1, learnable=False)
+            self.downsample = blocks.GaussianBlur(inp, stride=stride, learnable=False)
         else:
             ValueError(f'Unknown downsampling method: {method}.')
 
         split_chs = 0 if inp > oup else min(oup // 2, inp)
 
-        self.split = blocks.ChannelSplit([inp - split_chs, split_chs])
+        self.split = None if inp == split_chs else blocks.ChannelSplit([inp - split_chs, split_chs])
         self.conv1x1 = blocks.PointwiseBlock(inp, oup - split_chs)
 
         if se_ratio > 0.0:
@@ -71,12 +100,16 @@ class DownsamplingBlock(nn.Module):
 
     def forward(self, x):
         x = self.downsample(x)
-        _, x2 = self.split(x)
-        return self.halve([x2, self.conv1x1(x)])
+        if self.split is None:
+            return self.halve([x, self.conv1x1(x)])
+        else:
+            _, x2 = self.split(x)
+            return self.halve([x2, self.conv1x1(x)])
 
 
 class VGNet(nn.Module):
     @blocks.normalizer(position='after')
+    @blocks.activation(partial(nn.SiLU, inplace=True))
     def __init__(
         self,
         in_channels: int = 3,
@@ -85,6 +118,7 @@ class VGNet(nn.Module):
         downsamplings: List[str] = None,
         layers: List[int] = None,
         se_ratio: float = 0.0,
+        dropout_rate: float = 0.2,
         thumbnail: bool = False,
         **kwargs: Any
     ):
@@ -113,8 +147,8 @@ class VGNet(nn.Module):
             )
 
         self.features.stage4.append(nn.Sequential(
-            # blocks.DepthwiseConv2d(channels[-1], channels[-1]),
-            blocks.SharedDepthwiseConv2d(channels[-1], t=8),
+            blocks.DepthwiseConv2d(channels[-1], channels[-1]),
+            # blocks.SharedDepthwiseConv2d(channels[-1], t=8),
             blocks.PointwiseBlock(channels[-1], channels[-1]),
         ))
 
@@ -148,20 +182,28 @@ def _vgnet(
     model = VGNet(**kwargs)
 
     if pretrained:
-        if pth is not None:
-            state_dict = torch.load(os.path.expanduser(pth))
-        else:
-            assert 'url' in kwargs and kwargs['url'] != '', 'Invalid URL.'
-            state_dict = torch.hub.load_state_dict_from_url(
-                kwargs['url'],
-                progress=progress
-            )
-        model.load_state_dict(state_dict)
+        load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model
 
 
 @export
-@blocks.nonlinear(partial(nn.SiLU, inplace=True))
+def vgnetc_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [28, 56, 112, 224, 368]
+    kwargs['downsamplings'] = ['dwconv', 'dwconv', 'dwconv', 'dwconv']
+    kwargs['layers'] = [4, 7, 13, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+def vgnetg_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [28, 56, 112, 224, 368]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [4, 7, 13, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+@blocks.se(partial(nn.SiLU, inplace=True))
 def vgnetg_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -171,7 +213,15 @@ def vgnetg_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = 
 
 
 @export
-@blocks.nonlinear(partial(nn.SiLU, inplace=True))
+def vgnetg_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 64, 128, 256, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 7, 14, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+@blocks.se(partial(nn.SiLU, inplace=True))
 def vgnetg_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -181,7 +231,15 @@ def vgnetg_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = 
 
 
 @export
-@blocks.nonlinear(partial(nn.SiLU, inplace=True))
+def vgnetg_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 72, 168, 376, 512]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 6, 13, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+@blocks.se(partial(nn.SiLU, inplace=True))
 def vgnetg_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 72, 168, 376, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -191,7 +249,15 @@ def vgnetg_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = 
 
 
 @export
-@blocks.nonlinear(partial(nn.SiLU, inplace=True))
+def vgnetg_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 80, 192, 400, 544]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [3, 6, 16, 2]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+@blocks.se(partial(nn.SiLU, inplace=True))
 def vgnetg_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 80, 192, 400, 544]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -201,7 +267,15 @@ def vgnetg_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = 
 
 
 @export
-@blocks.nonlinear(partial(nn.SiLU, inplace=True))
+def vgnetg_5_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    kwargs['channels'] = [32, 88, 216, 456, 856]
+    kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
+    kwargs['layers'] = [4, 7, 15, 5]
+    return _vgnet(pretrained, pth, progress, **kwargs)
+
+
+@export
+@blocks.se(partial(nn.SiLU, inplace=True))
 def vgnetg_5_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 88, 216, 456, 856]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']

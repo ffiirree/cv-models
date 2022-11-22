@@ -2,7 +2,7 @@ from functools import partial
 import pytest
 import torch
 import torch.nn as nn
-from cvm.models.core import blocks
+from cvm.models.ops import blocks
 
 
 def test_se_block_forward():

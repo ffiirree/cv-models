@@ -2,7 +2,10 @@
 import math
 import torch
 import torch.nn as nn
-from .core import blocks, export, make_divisible, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
+from .ops.functional import make_divisible
 from typing import Any, List
 
 

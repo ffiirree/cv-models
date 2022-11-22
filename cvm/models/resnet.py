@@ -11,7 +11,9 @@ Tsung-Yi Lin, Jonathon Shlens, Barret Zoph
 """
 import torch
 import torch.nn as nn
-from .core import blocks, export, load_from_local_or_url, config
+
+from .ops import blocks
+from .utils import export, load_from_local_or_url, config
 from typing import Any, List, OrderedDict
 
 
@@ -257,12 +259,12 @@ def resnet152_v2(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 def se_resnet18_v1(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _resnet([2, 2, 2, 2], blocks.ResBasicBlockV1, None, pretrained, pth, progress, **kwargs)
+    return _resnet([2, 2, 2, 2], blocks.ResBasicBlockV1, 1/16, pretrained, pth, progress, **kwargs)
 
 
 @export
 def se_resnet34_v1(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _resnet([3, 4, 6, 3], blocks.ResBasicBlockV1, None, pretrained, pth, progress, **kwargs)
+    return _resnet([3, 4, 6, 3], blocks.ResBasicBlockV1, 1/16, pretrained, pth, progress, **kwargs)
 
 
 @export

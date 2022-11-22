@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
-from .core import blocks, export, config, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any, OrderedDict, Type, Union, List
 
 
@@ -13,8 +15,7 @@ class MobileBlock(nn.Sequential):
         stride: int = 1,
         padding: int = None,
         dilation: int = 1,
-        groups: int = 1,
-        ratio: float = 0.75  # unused
+        groups: int = 1
     ):
         super().__init__(
             blocks.DepthwiseBlock(inp, inp, kernel_size, stride, padding, dilation=dilation),
@@ -22,7 +23,7 @@ class MobileBlock(nn.Sequential):
         )
 
 
-class DepthSepBlock(nn.Sequential):
+class DepthwiseSeparableBlock(nn.Sequential):
     def __init__(
         self,
         inp,
@@ -31,37 +32,12 @@ class DepthSepBlock(nn.Sequential):
         stride: int = 1,
         padding: int = None,
         dilation: int = 1,
-        groups: int = 1,
-        ratio: float = 0.75  # unused
+        groups: int = 1
     ):
         super().__init__(
             blocks.DepthwiseConv2d(inp, inp, kernel_size, stride, padding, dilation=dilation),
             blocks.PointwiseBlock(inp, oup, groups=groups)
         )
-
-
-class SDBlock(nn.Sequential):
-    def __init__(
-        self,
-        inp,
-        oup,
-        kernel_size: int = 3,
-        stride: int = 1,
-        padding: int = None,
-        dilation: int = 1,
-        groups: int = 1,
-        ratio: float = 0.75
-    ):
-        if ratio is None or stride > 1:
-            super().__init__(
-                blocks.GaussianBlurBlock(inp, kernel_size, stride, padding=padding, dilation=dilation),
-                blocks.PointwiseBlock(inp, oup, groups=groups)
-            )
-        else:
-            super().__init__(
-                blocks.SDDCBlock(inp, stride, dilation=dilation, ratio=ratio),
-                blocks.PointwiseBlock(inp, oup, groups=groups)
-            )
 
 
 @export
@@ -73,7 +49,7 @@ class MobileNet(nn.Module):
         in_channels: int = 3,
         num_classes: int = 1000,
         base_width: int = 32,
-        block: Type[Union[MobileBlock, DepthSepBlock]] = MobileBlock,
+        block: Type[Union[MobileBlock, DepthwiseSeparableBlock]] = MobileBlock,
         depth_multiplier: float = 1.0,
         dropout_rate: float = 0.2,
         dilations: List[int] = None,
@@ -91,12 +67,11 @@ class MobileNet(nn.Module):
 
         layers = [2, 2, 6, 2]
         strides = [FRONT_S, 2, 2, 2]
-        ratios = [7/8, 6/8, 4/8, 4/8, 1/16]
 
         self.features = nn.Sequential(OrderedDict([
             ('stem', blocks.Stage(
                 blocks.Conv2dBlock(in_channels, depth(base_width), stride=FRONT_S),
-                block(depth(base_width), depth(base_width) * 2, ratio=ratios[0])
+                block(depth(base_width), depth(base_width) * 2)
             ))
         ]))
 
@@ -109,8 +84,7 @@ class MobileNet(nn.Module):
                     inp if i == 0 else oup,
                     oup,
                     stride=stride if (i == 0 and dilations[stage] == 1) else 1,
-                    dilation=max(dilations[stage] // (stride if i == 0 else 1), 1),
-                    ratio=None if stride != 1 and i == 0 else ratios[stage+1]
+                    dilation=max(dilations[stage] // (stride if i == 0 else 1), 1)
                 ) for i in range(layers[stage])]
             ))
 
@@ -130,7 +104,7 @@ class MobileNet(nn.Module):
 
 def _mobilenet_v1(
     depth_multiplier: float = 1.0,
-    block: Type[Union[MobileBlock, DepthSepBlock]] = MobileBlock,
+    block: Type[Union[MobileBlock, DepthwiseSeparableBlock]] = MobileBlock,
     pretrained: bool = False,
     pth: str = None,
     progress: bool = True,
@@ -171,10 +145,4 @@ def mobilenet_v1_x0_35(pretrained: bool = False, pth: str = None, progress: bool
 @config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/mobilenet_v1_x1_0_wo_dwrelubn-2956d795.pth')
 @blocks.normalizer(position='after')
 def mobilenet_v1_x1_0_wo_dwrelubn(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs):
-    return _mobilenet_v1(1.0, DepthSepBlock, pretrained, pth, progress, **kwargs)
-
-
-@export
-@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.1/sd_mobilenet_v1_x1_0-c5bd0c22.pth')
-def sd_mobilenet_v1_x1_0(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _mobilenet_v1(1.0, SDBlock, pretrained, pth, progress, **kwargs)
+    return _mobilenet_v1(1.0, DepthwiseSeparableBlock, pretrained, pth, progress, **kwargs)

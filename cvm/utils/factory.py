@@ -19,7 +19,7 @@ from . import seg_transforms as ST
 from .utils import group_params, list_datasets, get_world_size
 from cvm.data.constants import *
 from cvm.data.loader import DataIterator
-from cvm.models.core import blocks
+from cvm.models.ops import blocks
 from functools import partial
 
 from torch.nn.parallel import DistributedDataParallel as DDP

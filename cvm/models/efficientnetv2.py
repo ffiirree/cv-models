@@ -1,7 +1,9 @@
 from functools import partial
 import torch
 import torch.nn as nn
-from .core import blocks, export, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any, List
 
 _BN_EPSILON = 1e-3
@@ -42,7 +44,7 @@ efficientnetv2_params = {
 @export
 class EfficientNetV2(nn.Module):
     @blocks.se(partial(nn.SiLU, inplace=True))
-    @blocks.nonlinear(partial(nn.SiLU, inplace=True))
+    @blocks.activation(partial(nn.SiLU, inplace=True))
     def __init__(
         self,
         in_channels: int = 3,

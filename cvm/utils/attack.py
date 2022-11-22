@@ -47,6 +47,9 @@ class FGSM(Attacker):
 
         return torch.clamp(x, -1.0, 1.0)
 
+    def __repr__(self) -> str:
+        return f'FGSM(eps={self.epsilon})'
+
 
 class PGD(Attacker):
     def __init__(self, model, epsilon: float = 0.05, k: int = 7, alpha: float = 0.01):
@@ -81,3 +84,6 @@ class PGD(Attacker):
             x = torch.clamp(x, -1.0, 1.0)
 
         return x
+
+    def __repr__(self) -> str:
+        return f'PGD(eps={self.epsilon}, steps={self.k}, alpha={self.alpha})'

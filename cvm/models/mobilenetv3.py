@@ -1,7 +1,9 @@
 from functools import partial
 import torch
 import torch.nn as nn
-from .core import blocks, export, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any, OrderedDict, List
 
 _BN_EPSILON = 1e-3

@@ -89,8 +89,7 @@ def parse_args():
                         help='use label smoothing or not in training. (default: 0.0)')
     parser.add_argument("--ra-repetitions", default=0, type=int,
                         help="number of repetitions for Repeated Augmentation (default: 0)")
-    parser.add_argument('--augment', type=str, default=None,
-                        help="'torch/autoaug-imagenet', 'torch/autoaug-svhn', 'torch/autoaug-cifar10', 'augmix-m5-w4-d2', 'rand-m9-n3-mstd0.5', ... (default: None)")
+    parser.add_argument('--augment', type=str, default=None)
     parser.add_argument('--dropout-rate', type=float, default=0., metavar='P',
                         help='dropout rate. (default: 0.0)')
     parser.add_argument('--drop-path-rate', type=float, default=0., metavar='P',
@@ -123,7 +122,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args, mixupcutmix_fn=None, model_ema: ExponentialMovingAverage=None):
+def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, args, mixupcutmix_fn=None, model_ema: ExponentialMovingAverage = None):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -202,10 +201,13 @@ if __name__ == '__main__':
         manual_seed(args.seed + args.local_rank)
         torch.use_deterministic_algorithms(True)
 
+    model_name = args.model.replace('/', '-')
+    log_dir = f'{args.output_dir}/{model_name}_{time.strftime("%Y%m%d_%H%M%S", time.localtime())}'
     logger = make_logger(
-        f'{args.dataset.lower()}_{args.model}', f'{args.output_dir}/{args.model}',
+        f'{args.dataset.lower()}_{model_name}', log_dir,
         rank=args.local_rank
     )
+
     if args.local_rank == 0:
         logger.info(f'Args: \n{json.dumps(vars(args), indent=4)}')
 
@@ -230,6 +232,7 @@ if __name__ == '__main__':
         adjust = args.world_size * args.batch_size * args.model_ema_steps / args.epochs
         alpha = 1.0 - args.model_ema_decay
         alpha = min(1.0, alpha * adjust)
+        logger.info(f'EMA Decay: {1.0 - alpha}')
         model_ema = ExponentialMovingAverage(model.module if args.distributed else model, device='cuda', decay=1.0 - alpha)
 
     optimizer = create_optimizer(args.optim, model, **dict(vars(args)))
@@ -240,7 +243,7 @@ if __name__ == '__main__':
         is_training=True,
         **(dict(vars(args)))
     )
-    
+
     val_loader = create_loader(
         root=args.data_dir,
         is_training=False,
@@ -302,7 +305,7 @@ if __name__ == '__main__':
         val_loader.reset()
 
         if args.rank == 0 and epoch > (args.epochs - 10):
-            model_name = f'{args.output_dir}/{args.model}/{args.model}_{epoch:0>3}_{time.time()}.pth'
-            torch.save(model.module.state_dict(), model_name)
-            logger.info(f'Saved: {model_name}!')
+            model_path = f'{log_dir}/{model_name}_{epoch:0>3}_{time.time()}.pth'
+            torch.save(model.module.state_dict(), model_path)
+            logger.info(f'Saved: {model_path}!')
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

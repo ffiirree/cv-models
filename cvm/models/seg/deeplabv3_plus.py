@@ -2,9 +2,11 @@ from typing import Any
 import torch
 import torch.nn as nn
 from cvm import models
-from ..core import blocks, export, SegmentationModel, get_out_channels, load_from_local_or_url
+from ..ops import blocks
+from ..utils import export, get_out_channels, load_from_local_or_url
 from torch.nn import functional as F
 from .heads import FCNHead, ClsHead
+from .segmentation_model import SegmentationModel
 
 
 class DeepLabPlusHead(nn.Module):

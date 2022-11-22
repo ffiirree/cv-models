@@ -16,7 +16,10 @@ Notice:
 import math
 import torch
 import torch.nn as nn
-from .core import blocks, export, make_divisible, config, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
+from .ops.functional import make_divisible
 from typing import Any, List
 
 
@@ -76,14 +79,14 @@ class ResBottleneckBlock(nn.Module):
             se_ratio,
         )
 
-        self.activation = blocks.activation_fn()
+        self.act = blocks.activation_fn()
 
     def forward(self, x):
         if self.proj is not None:
             x = self.proj(x) + self.f(x)
         else:
             x = x + self.f(x)
-        return self.activation(x)
+        return self.act(x)
 
 
 class RegStage(nn.Sequential):

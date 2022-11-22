@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from typing import List, Optional
-from cvm.models.core import blocks
+from ..ops.blocks.stage import Stage
 
 from torchvision.models.feature_extraction import create_feature_extractor
 
@@ -27,7 +27,7 @@ class SegmentationModel(nn.Module):
         self.backbone = create_feature_extractor(
             backbone,
             return_nodes=[f'stage{i}' for i in out_stages],
-            tracer_kwargs={'leaf_modules': [blocks.Stage]}
+            tracer_kwargs={'leaf_modules': [Stage]}
         )
         self.out_stages = out_stages
         self.decode_head = decode_head

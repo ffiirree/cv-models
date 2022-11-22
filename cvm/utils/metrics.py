@@ -1,6 +1,6 @@
 import torch
 
-__all__ = ['accuracy', 'ConfusionMatrix']
+__all__ = ['accuracy', 'accuracy_k', 'ConfusionMatrix']
 
 
 def accuracy(output, target, topk=(1,)):
@@ -20,6 +20,18 @@ def accuracy(output, target, topk=(1,)):
             correct_k = correct[:k].flatten().sum(dtype=torch.float32)
             res.append(correct_k * (100.0 / batch_size))
         return res
+
+
+def accuracy_k(output: torch.Tensor, target):
+
+    with torch.inference_mode():
+        output = output.max(dim=1)[1]
+        if target.ndim == 2:
+            target = target.max(dim=1)[1]
+
+        mask = output.eq(target)
+
+        return target[mask]
 
 
 class ConfusionMatrix:

@@ -4,3 +4,4 @@ __pycache__/
 test.py
 build/
 *.egg-info/
+*.pth

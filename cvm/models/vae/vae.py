@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from ..core import blocks, export, load_from_local_or_url
+
+from ..utils import export, load_from_local_or_url
 from typing import Any
 
 

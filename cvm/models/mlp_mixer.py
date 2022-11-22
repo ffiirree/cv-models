@@ -1,8 +1,8 @@
 from functools import partial
 import torch
 import torch.nn as nn
-from .core.blocks import MlpBlock, DropPath
-from .core.utils import export, load_from_local_or_url
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any
 
 
@@ -19,12 +19,12 @@ class MixerBlock(nn.Module):
         super().__init__()
 
         self.norm1 = normalizer_fn(hidden_dim)
-        self.token_mixing = MlpBlock(sequence_len, int(hidden_dim * ratio[0]), dropout_rate=dropout_rate)
-        self.drop1 = DropPath(1. - drop_path_rate)
+        self.token_mixing = blocks.MlpBlock(sequence_len, int(hidden_dim * ratio[0]), dropout_rate=dropout_rate)
+        self.drop1 = blocks.DropPath(1. - drop_path_rate)
 
         self.norm2 = normalizer_fn(hidden_dim)
-        self.channel_mixing = MlpBlock(hidden_dim, int(hidden_dim * ratio[1]), dropout_rate=dropout_rate)
-        self.drop2 = DropPath(1. - drop_path_rate)
+        self.channel_mixing = blocks.MlpBlock(hidden_dim, int(hidden_dim * ratio[1]), dropout_rate=dropout_rate)
+        self.drop2 = blocks.DropPath(1. - drop_path_rate)
 
     def forward(self, x):
         x = x + self.drop1(self.token_mixing(self.norm1(x).transpose(1, 2)).transpose(1, 2))

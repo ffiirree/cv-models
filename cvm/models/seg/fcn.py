@@ -1,7 +1,8 @@
-from ..core import SegmentationModel, export, load_from_local_or_url, get_out_channels
+from cvm import models
+from ..utils import export, get_out_channels, load_from_local_or_url
 from .heads import ClsHead, FCNHead
-import cvm.models as models
 from typing import Any
+from .segmentation_model import SegmentationModel
 
 
 @export

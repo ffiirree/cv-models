@@ -1,7 +1,9 @@
 from functools import partial
 import torch
 import torch.nn as nn
-from .core import blocks, export, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any
 
 
@@ -34,7 +36,7 @@ class InvertedResidualBlock(blocks.InvertedResidualBlock):
 @export
 class ReXNet(nn.Module):
 
-    @blocks.nonlinear(partial(nn.SiLU, inplace=True))
+    @blocks.activation(partial(nn.SiLU, inplace=True))
     @blocks.se(divisor=1, use_norm=True)
     def __init__(
         self,

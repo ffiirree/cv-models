@@ -8,7 +8,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.normalization import LayerNorm
-from .core import blocks, export, config, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any, OrderedDict, List
 
 
@@ -166,7 +168,7 @@ class ConvNeXt(nn.Module):
 
 
 @export
-def convnext_tiny(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def convnext_t(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ConvNeXt(layers=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
@@ -174,7 +176,7 @@ def convnext_tiny(pretrained: bool = False, pth: str = None, progress: bool = Tr
 
 
 @export
-def convnext_small(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+def convnext_s(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ConvNeXt(layers=[3, 3, 27, 3], dims=[96, 192, 384, 768], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
@@ -182,7 +184,7 @@ def convnext_small(pretrained: bool = False, pth: str = None, progress: bool = T
 
 
 @export
-def convnext_base(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
+def convnext_b(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ConvNeXt(layers=[3, 3, 27, 3], dims=[128, 256, 512, 1024], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
@@ -190,7 +192,7 @@ def convnext_base(pretrained: bool = False, in_22k=False, pth: str = None, progr
 
 
 @export
-def convnext_large(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
+def convnext_l(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ConvNeXt(layers=[3, 3, 27, 3], dims=[192, 384, 768, 1536], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
@@ -198,7 +200,7 @@ def convnext_large(pretrained: bool = False, in_22k=False, pth: str = None, prog
 
 
 @export
-def convnext_xlarge(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
+def convnext_xl(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ConvNeXt(layers=[3, 3, 27, 3], dims=[256, 512, 1024, 2048], **kwargs)
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)

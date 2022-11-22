@@ -7,9 +7,83 @@ Others:
 '''
 import torch
 import torch.nn as nn
-from .core import blocks, export, load_from_local_or_url
+
+from .ops import blocks
+from .utils import export, config, load_from_local_or_url
 from typing import Any
 from functools import partial
+
+
+class MultiHeadDotProductAttention(nn.Module):
+    def __init__(
+        self,
+        dim,
+        num_heads=8,
+        qkv_bias: bool = False,
+        attn_dropout_rate: float = 0.,
+        proj_dropout_rate: float = 0.
+    ):
+        super().__init__()
+
+        self.num_heads = num_heads
+        head_dim = dim // num_heads
+        self.scale = head_dim ** -0.5
+
+        self.w_qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.drop = nn.Dropout(attn_dropout_rate)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(proj_dropout_rate)
+
+    def forward(self, x):
+        # 1. The first step is to calculate the Query, Key, and Value matrices.
+        #    We do that by packing our embeddings into a matrix X, and multiplying it by the weight matrices we’ve trained(WQ, WK, WV)
+        B, N, C = x.shape
+        qkv = self.w_qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # B heads N head_dim
+
+        # self-attention
+        score = torch.einsum('bnqd, bnkd -> bnqk', q, k) * self.scale
+        score = score.softmax(-1)
+        score = self.drop(score)
+        out = torch.einsum('bnsd, bndv -> bnsv', score, v)
+        out = out.permute(0, 2, 1, 3).reshape(B, N, C)  # concat
+
+        return self.proj_drop(self.proj(out))
+
+
+class EncoderBlock(nn.Module):
+    def __init__(
+        self,
+        embed_dim,
+        num_heads: int = 8,
+        qkv_bias: bool = False,
+        mlp_ratio: float = 4.0,
+        dropout_rate: float = 0.,
+        attn_dropout_rate: float = 0.,
+        drop_path_rate: float = 0.,
+        normalizer_fn: nn.Module = nn.LayerNorm,
+    ):
+        super().__init__()
+
+        self.msa = nn.Sequential(
+            normalizer_fn(embed_dim),
+            MultiHeadDotProductAttention(
+                embed_dim, num_heads, qkv_bias,
+                attn_dropout_rate=attn_dropout_rate, proj_dropout_rate=dropout_rate
+            ),
+            blocks.DropPath(1 - drop_path_rate)
+        )
+
+        self.mlp = nn.Sequential(
+            normalizer_fn(embed_dim),
+            blocks.MlpBlock(embed_dim, int(embed_dim * mlp_ratio), dropout_rate=dropout_rate),
+            blocks.DropPath(1 - drop_path_rate)
+        )
+
+    def forward(self, x):
+        x = x + self.msa(x)
+        x = x + self.mlp(x)
+        return x
 
 
 @export
@@ -49,7 +123,7 @@ class VisionTransformer(nn.Module):
 
         # encoder
         self.encoder = nn.Sequential(*[
-            blocks.EncoderBlock(
+            EncoderBlock(
                 hidden_dim, num_heads, qkv_bias=qkv_bias, mlp_ratio=mlp_ratio,
                 dropout_rate=dropout_rate, attn_dropout_rate=attn_dropout_rate, drop_path_rate=drop_path_rate
             ) for _ in range(num_blocks)

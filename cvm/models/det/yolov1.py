@@ -1,5 +1,7 @@
 import torch.nn as nn
-from ..core import blocks, export, load_from_local_or_url, get_out_channels
+
+from ..ops import blocks
+from ..utils import export, get_out_channels, load_from_local_or_url
 import cvm.models as models
 from typing import Any, List
 
