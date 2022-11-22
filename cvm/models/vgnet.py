@@ -76,7 +76,7 @@ class DownsamplingBlock(nn.Module):
         elif method == 'maxpool':
             self.downsample = nn.MaxPool2d(kernel_size=3, stride=stride)
         elif method == 'blur':
-            self.downsample = blocks.GaussianBlur(inp, stride=stride, learnable=False)
+            self.downsample = blocks.GaussianBlur(inp, stride=stride, sigma=1.0, normalize=True)
         else:
             ValueError(f'Unknown downsampling method: {method}.')
 
@@ -153,7 +153,10 @@ class VGNet(nn.Module):
         ))
 
         self.avg = nn.AdaptiveAvgPool2d((1, 1))
-        self.classifier = nn.Linear(channels[-1], num_classes)
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout_rate, inplace=True),
+            nn.Linear(channels[-1], num_classes)
+        )
 
     def make_layers(self, inp, oup, s, m, n, se_ratio):
         layers = [
@@ -195,6 +198,7 @@ def vgnetc_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_0mp-0f87bf6c.pth')
 def vgnetg_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -204,6 +208,7 @@ def vgnetg_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_0mp_se-914a9c4a.pth')
 def vgnetg_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -213,6 +218,7 @@ def vgnetg_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = 
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_5mp-1ea464de.pth')
 def vgnetg_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -222,6 +228,7 @@ def vgnetg_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_5mp_se-6d9ebf3b.pth')
 def vgnetg_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -231,6 +238,7 @@ def vgnetg_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = 
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_0mp-4594e276.pth')
 def vgnetg_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 72, 168, 376, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -240,6 +248,7 @@ def vgnetg_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_0mp_se-132bc3af.pth')
 def vgnetg_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 72, 168, 376, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -249,6 +258,7 @@ def vgnetg_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = 
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_5mp-d38ca7ae.pth')
 def vgnetg_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 80, 192, 400, 544]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
@@ -258,6 +268,7 @@ def vgnetg_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_5mp_se-ed87bdb1.pth')
 def vgnetg_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 80, 192, 400, 544]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']

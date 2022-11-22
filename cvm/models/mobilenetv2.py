@@ -5,7 +5,7 @@ import torch.nn as nn
 from .ops import blocks
 from .utils import export, config, load_from_local_or_url
 from .ops.functional import make_divisible
-from typing import Any, OrderedDict, Type, Union, List
+from typing import Any, OrderedDict, List
 
 
 @export
