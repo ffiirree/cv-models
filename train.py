@@ -170,7 +170,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
                         f'l={losses.avg:>.3f}')
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, log_suffix=''):
     top1 = AverageMeter()
     top5 = AverageMeter()
     losses = AverageMeter()
@@ -187,7 +187,7 @@ def validate(val_loader, model, criterion):
         top5.update(acc5.item(), input.size(0))
         losses.update(loss.item(), input.size(0))
 
-    logger.info(f'loss={losses.avg:>.5f}, top1={top1.avg:>6.3f}, top5={top5.avg:>6.3f}')
+    logger.info(f'{log_suffix}loss={losses.avg:>.5f}, top1={top1.avg:>6.3f}, top5={top5.avg:>6.3f}')
 
 
 if __name__ == '__main__':
@@ -299,7 +299,9 @@ if __name__ == '__main__':
             model_ema
         )
 
-        validate(val_loader, model if model_ema is None else model_ema, criterion)
+        validate(val_loader, model, criterion, log_suffix='<VAL> ')
+        if model_ema is not None:
+            validate(val_loader, model_ema.module, criterion, log_suffix='<EMA> ')
 
         train_loader.reset()
         val_loader.reset()
@@ -308,4 +310,8 @@ if __name__ == '__main__':
             model_path = f'{log_dir}/{model_name}_{epoch:0>3}_{time.time()}.pth'
             torch.save(model.module.state_dict(), model_path)
             logger.info(f'Saved: {model_path}!')
+            
+            if model_ema is not None:
+                torch.save(model_ema.module.state_dict(), f'{log_dir}/{model_name}_EMA_{epoch:0>3}_{time.time()}.pth')
+            
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')
