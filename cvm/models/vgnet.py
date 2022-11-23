@@ -76,7 +76,7 @@ class DownsamplingBlock(nn.Module):
         elif method == 'maxpool':
             self.downsample = nn.MaxPool2d(kernel_size=3, stride=stride)
         elif method == 'blur':
-            self.downsample = blocks.GaussianBlur(inp, stride=stride, sigma=1.0, normalize=True)
+            self.downsample = blocks.GaussianBlur(inp, stride=stride, sigma_range=(1.0, 1.0), normalize=True)
         else:
             ValueError(f'Unknown downsampling method: {method}.')
 

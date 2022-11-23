@@ -2,7 +2,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from . import norm_act
-from ..functional import get_gaussian_kernel2d
+from ..functional import get_gaussian_kernels2d
+from typing import Tuple
 
 
 class GaussianBlur(nn.Module):
@@ -10,7 +11,7 @@ class GaussianBlur(nn.Module):
         self,
         channels: int,
         kernel_size: int = 3,
-        sigma: float = 1.0,
+        sigma_range: Tuple[float, float] = (1.0, 1.0),
         normalize: bool = True,
         stride: int = 1,
         padding: int = None,
@@ -26,10 +27,17 @@ class GaussianBlur(nn.Module):
         self.stride = (stride, stride)
         self.dilation = (dilation, dilation)
         self.padding_mode = 'zeros'
-        self.sigma = sigma
+        self.sigma_range = sigma_range
         self.normalize = normalize
 
-        self.register_buffer('weight', get_gaussian_kernel2d(kernel_size, sigma, normalize).repeat(channels, 1, 1, 1))
+        self.register_buffer(
+            'weight',
+            get_gaussian_kernels2d(
+                kernel_size,
+                torch.linspace(self.sigma_range[0], self.sigma_range[1], self.channels).view(-1, 1, 1, 1),
+                True
+            )
+        )
 
     def forward(self, x):
         return F.conv2d(x, self.weight, None, self.stride, self.padding, self.dilation, self.channels)
@@ -40,7 +48,7 @@ class GaussianBlur(nn.Module):
 
     def extra_repr(self):
         s = ('{channels}, kernel_size={kernel_size}'
-             ', sigma={sigma}, normalize={normalize}, stride={stride}')
+             ', sigma_range={sigma_range}, normalize={normalize}, stride={stride}')
         if self.padding != (0,) * len(self.padding):
             s += ', padding={padding}'
         if self.dilation != (1,) * len(self.dilation):
@@ -55,7 +63,7 @@ class GaussianBlurBN(nn.Sequential):
         self,
         channels,
         kernel_size: int = 3,
-        sigma: float = 1.0,
+        sigma_range: Tuple[float, float] = (1.0, 1.0),
         normalize: bool = True,
         stride: int = 1,
         padding: int = None,
@@ -65,7 +73,8 @@ class GaussianBlurBN(nn.Sequential):
         normalizer_fn = normalizer_fn or norm_act._NORMALIZER
 
         super().__init__(
-            GaussianBlur(channels, kernel_size, sigma, normalize, stride=stride, padding=padding, dilation=dilation),
+            GaussianBlur(channels, kernel_size, sigma_range, normalize,
+                         stride=stride, padding=padding, dilation=dilation),
             normalizer_fn(channels)
         )
 
@@ -75,7 +84,7 @@ class GaussianBlurBlock(nn.Sequential):
         self,
         channels,
         kernel_size: int = 3,
-        sigma: float = 1.0,
+        sigma_range: Tuple[float, float] = (1.0, 1.0),
         normalize: bool = True,
         stride: int = 1,
         padding: int = None,
@@ -85,6 +94,7 @@ class GaussianBlurBlock(nn.Sequential):
         norm_position: str = None
     ):
         super().__init__(
-            GaussianBlur(channels, kernel_size, sigma, normalize, stride=stride, padding=padding, dilation=dilation),
+            GaussianBlur(channels, kernel_size, sigma_range, normalize,
+                         stride=stride, padding=padding, dilation=dilation),
             *norm_act.norm_activation(channels, normalizer_fn, activation_fn, norm_position)
         )

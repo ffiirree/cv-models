@@ -1,6 +1,8 @@
 import torch
 
-__all__ = ['channel_shuffle', 'make_divisible', 'get_gaussian_kernel1d', 'get_gaussian_kernel2d']
+__all__ = ['channel_shuffle', 'make_divisible',
+           'get_gaussian_kernel1d', 'get_gaussian_kernel2d',
+           'get_gaussian_bandpass_kernel2d', 'get_gaussian_kernels2d']
 
 
 def channel_shuffle(x, groups):
@@ -39,5 +41,40 @@ def get_gaussian_kernel1d(kernel_size, sigma: float, normalize: bool = True):
 
 
 def get_gaussian_kernel2d(kernel_size, sigma: float, normalize: bool = True):
-    kernel1d = get_gaussian_kernel1d(kernel_size, sigma, normalize)
-    return torch.mm(kernel1d[:, None], kernel1d[None, :])
+    ksize_half = (kernel_size - 1) * 0.5
+
+    xs = torch.linspace(-ksize_half, ksize_half, steps=kernel_size)
+    ys = torch.linspace(-ksize_half, ksize_half, steps=kernel_size)
+
+    x, y = torch.meshgrid(xs, ys, indexing='xy')
+
+    pdf = torch.exp(-0.5 * ((x * x + y * y) / (sigma * sigma)))
+
+    return pdf / pdf.sum() if normalize else pdf
+
+
+def get_gaussian_bandpass_kernel2d(kernel_size, sigma: float,  W: float):
+    ksize_half = (kernel_size - 1) * 0.5
+
+    xs = torch.linspace(-ksize_half, ksize_half, steps=kernel_size)
+    ys = torch.linspace(-ksize_half, ksize_half, steps=kernel_size)
+
+    x, y = torch.meshgrid(xs, ys, indexing='xy')
+
+    d2 = x * x + y * y
+    d = torch.sqrt(d2)
+
+    return 1.0 - torch.exp(-((d2 - sigma * sigma) / (d * W)).pow(2))
+
+
+def get_gaussian_kernels2d(kernel_size, sigma: torch.Tensor, normalize: bool = True):
+    ksize_half = (kernel_size - 1) * 0.5
+
+    xs = torch.linspace(-ksize_half, ksize_half, steps=kernel_size)
+    ys = torch.linspace(-ksize_half, ksize_half, steps=kernel_size)
+
+    x, y = torch.meshgrid(xs, ys, indexing='xy')
+
+    pdf = torch.exp(-0.5 * ((x * x + y * y).repeat(sigma.shape) / torch.pow(sigma, 2)))
+
+    return  pdf / pdf.sum([-2, -1], keepdim=True) if normalize else pdf
