@@ -8,8 +8,13 @@ __all__ = ['FGSM', 'PGD']
 
 
 class Attacker(abc.ABC):
-    def __init__(self):
+    def __init__(self, model, epsilon: float = 0.03):
         super().__init__()
+
+        self.model = model
+        self.model.eval()
+
+        self.epsilon = epsilon
 
     @staticmethod
     def prepare_input(x: torch.Tensor):
@@ -23,12 +28,7 @@ class Attacker(abc.ABC):
 
 class FGSM(Attacker):
     def __init__(self, model, epsilon: float = 0.05):
-        super().__init__()
-
-        self.model = model
-        self.model.eval()
-
-        self.epsilon = epsilon
+        super().__init__(model, epsilon=epsilon)
 
     def perturb(self, x: torch.Tensor, y: torch.Tensor = None, targeted: bool = False):
         super().prepare_input(x)
@@ -53,12 +53,8 @@ class FGSM(Attacker):
 
 class PGD(Attacker):
     def __init__(self, model, epsilon: float = 0.05, k: int = 7, alpha: float = 0.01):
-        super().__init__()
+        super().__init__(model, epsilon=epsilon)
 
-        self.model = model
-        self.model.eval()
-
-        self.epsilon = epsilon
         self.k = k
         self.alpha = alpha
 
