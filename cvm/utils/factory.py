@@ -38,7 +38,8 @@ except ImportError:
 
 __all__ = [
     'create_model', 'create_optimizer', 'create_scheduler',
-    'create_transforms', 'create_dataset', 'create_loader'
+    'create_transforms', 'create_dataset', 'create_loader',
+    'get_dataset_mean', 'get_dataset_std'
 ]
 
 
@@ -286,6 +287,14 @@ def _get_dataset_image_size(name):
     if 'mnist' in name:
         return MNIST_IMAGE_SIZE
     return 0
+
+
+def get_dataset_mean(name):
+    return _get_dataset_mean_or_std(name, 'mean')
+
+
+def get_dataset_std(name):
+    return _get_dataset_mean_or_std(name, 'std')
 
 
 def _get_dataset_mean_or_std(name, attr):

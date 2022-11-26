@@ -5,6 +5,7 @@ import torch
 from tqdm import tqdm
 
 from cvm.utils import *
+from cvm.attacks import *
 
 
 def parse_args():
@@ -28,8 +29,8 @@ def parse_args():
     parser.add_argument('--dali-cpu', action='store_true',
                         help='runs CPU based version of DALI pipeline. (default: false)')
     parser.add_argument('--method', type=str, default='PGD', choices=['FGSM', 'PGD'])
-    parser.add_argument('--attack-steps', type=int, default=3, metavar='N')
     parser.add_argument('--attack-eps', type=float, default=0.03, metavar='E')
+    parser.add_argument('--attack-steps', type=int, default=3, metavar='N')
     parser.add_argument('--attack-alpha', type=float, default=0.01, metavar='A')
     parser.add_argument('--attack-target', type=int, default=-1, metavar='T')
     return parser.parse_args()
@@ -81,6 +82,8 @@ if __name__ == '__main__':
         attacker = PGD(model, args.attack_eps, args.attack_steps, args.attack_alpha)
     else:
         raise ValueError(f'Invalid attacker: {args.method}.')
+
+    attacker.set_nomarlized(get_dataset_mean(args.dataset), get_dataset_std(args.dataset))
 
     if args.local_rank == 0:
         print(f'Attacker: {attacker}')

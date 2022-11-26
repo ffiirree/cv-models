@@ -91,4 +91,14 @@
 - [x] `VAE` - [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114), 2013
 - [ ] `β-VAE` - [beta-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework](https://openreview.net/forum?id=Sy2fzU9gl), ICLR, 2017
 
+
+### Diffusion Models
+
+
 ### Flow-based
+
+
+## Adversarial Attacks
+
+ - [x] `FGSM` - [Explaining and Harnessing Adversarial Examples](https://arxiv.org/abs/1412.6572), 2014
+ - [x] `PGD` - [Towards Deep Learning Models Resistant to Adversarial Attacks](https://arxiv.org/abs/1706.06083), ICLR, 2017
