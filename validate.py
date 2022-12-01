@@ -16,6 +16,7 @@ def parse_args():
                         help='type of model to use. (default: mobilenet_v1_x1_0)')
     parser.add_argument('--real-labels', type=str, default=None)
     parser.add_argument('--model-path', type=str, default=None)
+    parser.add_argument('--model-weights', type=str, default='DEFAULT')
     parser.add_argument('--workers', '-j', type=int, default=8, metavar='N',
                         help='number of data loading workers pre GPU. (default: 4)')
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
@@ -66,7 +67,8 @@ if __name__ == '__main__':
     model = create_model(
         args.model,
         pretrained=True,
-        pth=args.model_path
+        pth=args.model_path,
+        weights=args.model_weights
     )
 
     val_loader = create_loader(

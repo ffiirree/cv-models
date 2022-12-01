@@ -153,6 +153,7 @@ def create_model(
     sync_bn: bool = False,
     distributed: bool = False,
     local_rank: int = 0,
+    weights: str='DEFAULT',
     **kwargs
 ):
     if name.startswith('torch/'):
@@ -163,7 +164,10 @@ def create_model(
             _models = torchvision.models.__dict__[name.split('/')[0]]
             name = name.split('/')[1]
 
-        model = _models.__dict__[name](pretrained=pretrained)
+        if pretrained:
+            model = _models.__dict__[name](weights=weights)
+        else:
+            model = _models.__dict__[name]()
     elif name.startswith('timm/'):
         assert has_timm, 'Please install timm first.'
         name = name.replace('timm/', '')
