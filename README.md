@@ -43,14 +43,11 @@
 
 ### Attention Blocks
 
+- [x] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
 - [x] `Squeeze-and-Excitation` - [Squeeze-and-Excitation Networks](https://arxiv.org/abs/1709.01507), CVPR, 2017
 - [x] `Gather-Excite` - [Gather-Excite: Exploiting Feature Context in Convolutional Neural Networks](https://arxiv.org/abs/1810.12348), NeurIPS, 2018
+- [x] `CBAM` - [CBAM: Convolutional Block Attention Module](https://arxiv.org/abs/1807.06521), ECCV, 2018
 - [x] `SKNets` - [Selective Kernel Networks](https://arxiv.org/abs/1903.06586), CVPR, 2019
-
-### Self-Attention
-
-- [x] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
-
 
 ### Transformer
 
