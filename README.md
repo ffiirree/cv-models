@@ -16,7 +16,7 @@
 - [x] `DenseNet` - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993), 2016
 - [ ] `DLA` - [Deep Layer Aggregation](https://arxiv.org/abs/1707.06484), CVPR, 2017
 - [ ] `DPN` - [Dual Path Networks](https://arxiv.org/abs/1707.01629), 2017
-- [ ] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
+- [x] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
 - [ ] `NASNet-A` - [Learning Transferable Architectures for Scalable Image Recognition](https://arxiv.org/abs/1707.07012), 2017
 - [ ] `PNasNet` - [Progressive Neural Architecture Search](https://arxiv.org/abs/1712.00559), 2017
 - [x] `MobileNets` - [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861), 2017
