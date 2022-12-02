@@ -256,7 +256,7 @@ def create_optimizer(
 def create_scheduler(
     name: str = 'cosine',
     optimizer: torch.optim.Optimizer = None,
-    step_per_epoch: int = 0,
+    step_per_epoch: int = 1,
     **kwargs
 ):
     if name == 'step':

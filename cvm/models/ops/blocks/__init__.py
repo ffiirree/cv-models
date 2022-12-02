@@ -15,3 +15,5 @@ from .gaussian_blur import GaussianBlur, GaussianBlurBN, GaussianBlurBlock
 from .aspp import ASPP, ASPPPooling
 from .adder import adder2d, adder, adder2d_function
 from .non_local import NonLocalBlock
+from .interpolate import Interpolate
+from .gather_excite import GatherExciteBlock

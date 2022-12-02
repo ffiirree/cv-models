@@ -16,7 +16,6 @@
 - [x] `DenseNet` - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993), 2016
 - [ ] `DLA` - [Deep Layer Aggregation](https://arxiv.org/abs/1707.06484), CVPR, 2017
 - [ ] `DPN` - [Dual Path Networks](https://arxiv.org/abs/1707.01629), 2017
-- [x] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
 - [ ] `NASNet-A` - [Learning Transferable Architectures for Scalable Image Recognition](https://arxiv.org/abs/1707.07012), 2017
 - [ ] `PNasNet` - [Progressive Neural Architecture Search](https://arxiv.org/abs/1712.00559), 2017
 - [x] `MobileNets` - [MobileNets: Efficient Convolutional Neural Networks for Mobile Vision Applications](https://arxiv.org/abs/1704.04861), 2017
@@ -42,6 +41,12 @@
 - [ ] `NF-ResNets` - [Characterizing signal propagation to close the performance gap in unnormalized ResNets](https://arxiv.org/abs/2101.08692), 2021
 - [x] `ConvMixer` - [Patches are all you need?](https://openreview.net/forum?id=TVHS5Y4dNvM), 2021
 - [x] `ConvNeXt` - [A ConvNet for the 2020s](https://arxiv.org/abs/2201.03545), 2022, CVPR
+
+### Attention Blocks
+
+- [x] `Squeeze-and-Excitation` - [Squeeze-and-Excitation Networks](https://arxiv.org/abs/1709.01507), CVPR, 2017
+- [x] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
+- [x] [Gather-Excite: Exploiting Feature Context in Convolutional Neural Networks](https://arxiv.org/abs/1810.12348), NeurIPS, 2018
 
 ### Transformer
 

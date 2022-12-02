@@ -40,7 +40,7 @@ def se(
 
 
 class SEBlock(nn.Sequential):
-    """Squeeze excite block
+    """Squeeze-and-Excitation Block
     """
 
     def __init__(
