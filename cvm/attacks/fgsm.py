@@ -8,7 +8,7 @@ class FGSM(Attacker):
     'Explaining and Harnessing Adversarial Examples', https://arxiv.org/abs/1412.6572
     """
 
-    def __init__(self, model, epsilon: float = 0.05):
+    def __init__(self, model, epsilon: float = 6/255):
         super().__init__(model, epsilon=epsilon)
 
     def perturb(self, images: torch.Tensor, labels: torch.Tensor = None, targeted: bool = False):
@@ -31,4 +31,4 @@ class FGSM(Attacker):
         return self.unprepare_inputs(images_adv)
 
     def __repr__(self) -> str:
-        return f'FGSM(eps={self.epsilon}, normalized={self.normalized}, mean={self.mean}, std={self.std})'
+        return f'FGSM(eps={self.epsilon:>6.4f}, normalized={self.normalized}, mean={self.mean}, std={self.std})'

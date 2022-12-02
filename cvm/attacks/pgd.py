@@ -8,7 +8,7 @@ class PGD(Attacker):
     'Towards Deep Learning Models Resistant to Adversarial Attacks', https://arxiv.org/abs/1706.06083
     """
 
-    def __init__(self, model, epsilon: float = 0.05, steps: int = 7, alpha: float = 0.01):
+    def __init__(self, model, epsilon: float = 6/255, steps: int = 3, alpha: float = 2/255):
         super().__init__(model, epsilon=epsilon)
 
         self.steps = steps
@@ -39,4 +39,4 @@ class PGD(Attacker):
         return self.unprepare_inputs(images_adv)
 
     def __repr__(self) -> str:
-        return f'PGD(eps={self.epsilon}, steps={self.steps}, alpha={self.alpha}, normalized={self.normalized}, mean={self.mean}, std={self.std})'
+        return f'PGD(eps={self.epsilon:>6.4f}, steps={self.steps}, alpha={self.alpha:>6.4f}, normalized={self.normalized}, mean={self.mean}, std={self.std})'

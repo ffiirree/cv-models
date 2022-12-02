@@ -19,6 +19,7 @@ def parse_args():
     parser.add_argument('--num-classes', type=int, default=1000, metavar='N',
                         help='number of label classes')
     parser.add_argument('--model-path', type=str, default=None)
+    parser.add_argument('--model-weights', type=str, default='DEFAULT')
     parser.add_argument('--workers', '-j', type=int, default=8, metavar='N',
                         help='number of data loading workers pre GPU. (default: 3)')
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
@@ -29,9 +30,9 @@ def parse_args():
     parser.add_argument('--dali-cpu', action='store_true',
                         help='runs CPU based version of DALI pipeline. (default: false)')
     parser.add_argument('--method', type=str, default='PGD', choices=['FGSM', 'PGD'])
-    parser.add_argument('--attack-eps', type=float, default=0.03, metavar='E')
-    parser.add_argument('--attack-steps', type=int, default=3, metavar='N')
-    parser.add_argument('--attack-alpha', type=float, default=0.01, metavar='A')
+    parser.add_argument('--attack-eps', type=float, default=4/255, metavar='E')
+    parser.add_argument('--attack-steps', type=int, default=2, metavar='N')
+    parser.add_argument('--attack-alpha', type=float, default=2/255, metavar='A')
     parser.add_argument('--attack-target', type=int, default=-1, metavar='T')
     return parser.parse_args()
 
@@ -51,6 +52,7 @@ if __name__ == '__main__':
         pretrained=True,
         thumbnail=(args.crop_size < 128),
         pth=args.model_path,
+        weights=args.model_weights,
         distributed=args.distributed,
         local_rank=args.local_rank,
         num_classes=args.num_classes
