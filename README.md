@@ -25,7 +25,6 @@
 - [x] `ShuffleNet V2` - [ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design](https://arxiv.org/abs/1807.11164), 2018
 - [x] `MnasNet` - [MnasNet: Platform-Aware Neural Architecture Search for Mobile](https://arxiv.org/abs/1807.11626), 2018
 - [x] `GhostNet` - [GhostNet: More Features from Cheap Operations](https://arxiv.org/abs/1911.11907), CVPR, 2019
-- [ ] `SKNets` - [Selective Kernel Networks](https://arxiv.org/abs/1903.06586), CVPR, 2019
 - [ ] `ResNeSt` - [ResNeSt: Split-Attention Networks](https://arxiv.org/abs/2004.08955), 2020
 - [ ] `HRNet` - [Deep High-Resolution Representation Learning for Visual Recognition](https://arxiv.org/abs/1908.07919), 2019
 - [ ] `CSPNet` - [CSPNet: A New Backbone that can Enhance Learning Capability of CNN](https://arxiv.org/abs/1911.11929), 2019
@@ -45,8 +44,13 @@
 ### Attention Blocks
 
 - [x] `Squeeze-and-Excitation` - [Squeeze-and-Excitation Networks](https://arxiv.org/abs/1709.01507), CVPR, 2017
+- [x] `Gather-Excite` - [Gather-Excite: Exploiting Feature Context in Convolutional Neural Networks](https://arxiv.org/abs/1810.12348), NeurIPS, 2018
+- [x] `SKNets` - [Selective Kernel Networks](https://arxiv.org/abs/1903.06586), CVPR, 2019
+
+### Self-Attention
+
 - [x] `Non-Local` - [Non-local Neural Networks](https://arxiv.org/abs/1711.07971), CVPR, 2017
-- [x] [Gather-Excite: Exploiting Feature Context in Convolutional Neural Networks](https://arxiv.org/abs/1810.12348), NeurIPS, 2018
+
 
 ### Transformer
 
