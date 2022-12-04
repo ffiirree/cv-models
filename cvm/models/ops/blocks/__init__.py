@@ -20,3 +20,5 @@ from .gather_excite import GatherExciteBlock
 from .selective_kernel import SelectiveKernelBlock
 from .cbam import CBAM
 from .efficient_channel_attention import EfficientChannelAttention
+from .norm import LayerNorm2d
+from .global_context import GlobalContextBlock
