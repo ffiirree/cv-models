@@ -14,17 +14,10 @@ class MlpBlock(nn.Sequential):
         hidden_features = hidden_features or in_features
         out_features = out_features or in_features
 
-        layers = OrderedDict([
-            ('fc1', nn.Linear(in_features, hidden_features)),
-            ('act', activation_fn()),
-        ])
-
-        if dropout_rate != 0.:
-            layers['do1'] = nn.Dropout(dropout_rate)
-
-        layers['fc2'] = nn.Linear(hidden_features, out_features)
-
-        if dropout_rate != 0.:
-            layers['do2'] = nn.Dropout(dropout_rate)
-
-        super().__init__(layers)
+        super().__init__(
+            nn.Linear(in_features, hidden_features),
+            activation_fn(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_features, out_features),
+            nn.Dropout(dropout_rate)
+        )

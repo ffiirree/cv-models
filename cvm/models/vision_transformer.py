@@ -1,10 +1,3 @@
-'''
-Papers:
-    [ViT]  An Image is Worth 16x16 Words. Transformers for Image Recognition at Scale
-    [DeiT] Training data-efficient image transformers & distillation through attention
-Others:
-    https://github.com/google-research/vision_transformer
-'''
 import torch
 import torch.nn as nn
 
@@ -14,41 +7,10 @@ from typing import Any
 from functools import partial
 
 
-class MultiHeadDotProductAttention(nn.Module):
-    def __init__(
-        self,
-        dim,
-        num_heads=8,
-        qkv_bias: bool = False,
-        attn_dropout_rate: float = 0.,
-        proj_dropout_rate: float = 0.
-    ):
-        super().__init__()
-
-        self.num_heads = num_heads
-        head_dim = dim // num_heads
-        self.scale = head_dim ** -0.5
-
-        self.w_qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        self.drop = nn.Dropout(attn_dropout_rate)
-        self.proj = nn.Linear(dim, dim)
-        self.proj_drop = nn.Dropout(proj_dropout_rate)
-
+class MultiheadSelfAttention(nn.MultiheadAttention):
     def forward(self, x):
-        # 1. The first step is to calculate the Query, Key, and Value matrices.
-        #    We do that by packing our embeddings into a matrix X, and multiplying it by the weight matrices we’ve trained(WQ, WK, WV)
-        B, N, C = x.shape
-        qkv = self.w_qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[2]  # B heads N head_dim
-
-        # self-attention
-        score = torch.einsum('bnqd, bnkd -> bnqk', q, k) * self.scale
-        score = score.softmax(-1)
-        score = self.drop(score)
-        out = torch.einsum('bnsd, bndv -> bnsv', score, v)
-        out = out.permute(0, 2, 1, 3).reshape(B, N, C)  # concat
-
-        return self.proj_drop(self.proj(out))
+        x, _ = super().forward(x, x, x, need_weights=False)
+        return x
 
 
 class EncoderBlock(nn.Module):
@@ -61,16 +23,14 @@ class EncoderBlock(nn.Module):
         dropout_rate: float = 0.,
         attn_dropout_rate: float = 0.,
         drop_path_rate: float = 0.,
-        normalizer_fn: nn.Module = nn.LayerNorm,
+        normalizer_fn: nn.Module = partial(nn.LayerNorm, eps=1e-6),
     ):
         super().__init__()
 
         self.msa = nn.Sequential(
             normalizer_fn(embed_dim),
-            MultiHeadDotProductAttention(
-                embed_dim, num_heads, qkv_bias,
-                attn_dropout_rate=attn_dropout_rate, proj_dropout_rate=dropout_rate
-            ),
+            MultiheadSelfAttention(embed_dim, num_heads, dropout=attn_dropout_rate, bias=qkv_bias, batch_first=True),
+            nn.Dropout(dropout_rate),
             blocks.DropPath(1 - drop_path_rate)
         )
 
@@ -88,6 +48,9 @@ class EncoderBlock(nn.Module):
 
 @export
 class VisionTransformer(nn.Module):
+    r"""
+    Paper: An Image is Worth 16x16 Words. Transformers for Image Recognition at Scale, https://arxiv.org/abs/2010.11929
+    """
     def __init__(
         self,
         image_size: int = 224,
@@ -103,19 +66,16 @@ class VisionTransformer(nn.Module):
         attn_dropout_rate: float = 0.,
         drop_path_rate: float = 0.,
         classifier: str = 'token',
-        distilled: bool = False,
-        normalizer_fn: nn.Module = nn.LayerNorm,
+        normalizer_fn: nn.Module = partial(nn.LayerNorm, eps=1e-6),
         **kwargs: Any
     ):
         super().__init__()
 
         self.num_patches = (image_size // patch_size) ** 2
         self.classifier = classifier
-        self.distilled = distilled
 
-        self.cls_token = nn.Parameter(torch.randn(1, 1, hidden_dim))
-        self.dist_token = nn.Parameter(torch.randn(1, 1, hidden_dim)) if distilled else None
-        self.positions = nn.Parameter(torch.randn(self.num_patches + (1 if not distilled else 2), hidden_dim))
+        self.class_token = nn.Parameter(torch.zeros(1, 1, hidden_dim))
+        self.positions = nn.Parameter(torch.normal(mean=0.0, std=0.02, size=[1, self.num_patches + 1, hidden_dim]))
 
         self.embedding = nn.Conv2d(in_channels, hidden_dim, patch_size, stride=patch_size)
 
@@ -125,7 +85,8 @@ class VisionTransformer(nn.Module):
         self.encoder = nn.Sequential(*[
             EncoderBlock(
                 hidden_dim, num_heads, qkv_bias=qkv_bias, mlp_ratio=mlp_ratio,
-                dropout_rate=dropout_rate, attn_dropout_rate=attn_dropout_rate, drop_path_rate=drop_path_rate
+                dropout_rate=dropout_rate, attn_dropout_rate=attn_dropout_rate,
+                drop_path_rate=drop_path_rate, normalizer_fn=normalizer_fn
             ) for _ in range(num_blocks)
         ])
 
@@ -133,36 +94,23 @@ class VisionTransformer(nn.Module):
 
         self.head = nn.Linear(hidden_dim, num_classes)
 
-        if self.distilled:
-            self.head_dist = nn.Linear(hidden_dim, num_classes)
-
     def forward(self, x):
+        # NCHW -> (N, hidden_dim, NP_H, NP_W)
         x = self.embedding(x)
-        # BCHW -> BNC; N = patches; C = hidden_dim
-        x = x.flatten(2).transpose(1, 2)
+        # (N, hidden_dim, NP_H, NP_W) -> (N, hidden_dim, NP)
+        x = torch.flatten(x, start_dim=2)
+        # (N, hidden_dim, NP) -> (N, NP, hidden_dim)
+        x = x.permute(0, 2, 1)
 
-        cls_tokens = self.cls_token.repeat(x.shape[0], 1, 1)
-        if not self.distilled:
-            x = torch.cat([cls_tokens, x], dim=1) + self.positions
-        else:
-            dist_tokens = self.dist_token.repeat(x.shape[0], 1, 1)
-            x = torch.cat([cls_tokens, x, dist_tokens], dim=1) + self.positions
+        class_tokens = self.class_token.expand(x.shape[0], -1, -1)
+        x = torch.cat([class_tokens, x], dim=1) + self.positions
 
         x = self.drop(x)
-
         x = self.encoder(x)
-
         x = self.norm(x)
 
-        if not self.distilled:
-            x = x[:, 0] if self.classifier == 'token' else x.mean(dim=1)
-            return self.head(x)
-        else:
-            x, x_dist = self.head(x[:, 0]), self.head_dist(x[:, -1])
-            if self.training:
-                return x, x_dist
-            else:
-                return (x + x_dist) / 2
+        x = x[:, 0] if self.classifier == 'token' else x.mean(dim=1)
+        return self.head(x)
 
 
 def _vit(
@@ -171,14 +119,13 @@ def _vit(
     hidden_dim: int = 768,
     num_blocks: int = 12,
     num_heads: int = 12,
-    distilled: bool = False,
     pretrained: bool = False,
     pth: str = None,
     progress: bool = True,
     **kwargs: Any
 ):
     model = VisionTransformer(image_size, patch_size=patch_size, hidden_dim=hidden_dim,
-                              num_blocks=num_blocks, num_heads=num_heads, distilled=distilled, 
+                              num_blocks=num_blocks, num_heads=num_heads,
                               normalizer_fn=partial(nn.LayerNorm, eps=1e-6), **kwargs)
 
     if pretrained:
@@ -187,70 +134,32 @@ def _vit(
 
 
 @export
-def vit_b32_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 32, 768, 12, 12, False, pretrained, pth, progress, **kwargs)
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.1.1-vit-weights/torch-vit_b_32-f0b6fb13.pth')
+def vit_b_32(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _vit(224, 32, 768, 12, 12, pretrained, pth, progress, **kwargs)
 
 
 @export
-def vit_b16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 768, 12, 12, False, pretrained, pth, progress, **kwargs)
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.1.1-vit-weights/torch-vit_b_16-1d93d631.pth')
+def vit_b_16(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _vit(224, 16, 768, 12, 12, pretrained, pth, progress, **kwargs)
 
 
 @export
-def vit_l32_224(pretrained: bool = True, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 32, 1024, 24, 16, False, pretrained, pth, progress, **kwargs)
+def vit_l_32(pretrained: bool = True, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _vit(224, 32, 1024, 24, 16, pretrained, pth, progress, **kwargs)
 
 
 @export
-def vit_l16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 1024, 24, 16, False, pretrained, pth, progress, **kwargs)
+def vit_l_16(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _vit(224, 16, 1024, 24, 16, pretrained, pth, progress, **kwargs)
 
 
 @export
-def vit_h32_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 32, 1280, 32, 16, False, pretrained, pth, progress, **kwargs)
+def vit_h_32(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _vit(224, 32, 1280, 32, 16, pretrained, pth, progress, **kwargs)
 
 
 @export
-def vit_h16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 1280, 32, 16, False, pretrained, pth, progress, **kwargs)
-
-
-@export
-def deit_tiny_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 192, 12, 3, False, pretrained, pth, progress, **kwargs)
-
-
-@export
-def deit_small_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 384, 12, 6, False, pretrained, pth, progress, **kwargs)
-
-
-@export
-def deit_base_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 768, 12, 12, False, pretrained, pth, progress, **kwargs)
-
-
-@export
-def deit_tiny_distilled_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 192, 12, 3, True, pretrained, pth, progress, **kwargs)
-
-
-@export
-def deit_small_distilled_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 384, 12, 6, True, pretrained, pth, progress, **kwargs)
-
-
-@export
-def deit_base_distilled_patch16_224(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(224, 16, 768, 12, 12, True, pretrained, pth, progress, **kwargs)
-
-
-@export
-def deit_small_distilled_patch16_384(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(384, 16, 384, 12, 6, True, pretrained, pth, progress, **kwargs)
-
-
-@export
-def deit_base_distilled_patch16_384(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
-    return _vit(384, 16, 768, 12, 12, True, pretrained, pth, progress, **kwargs)
+def vit_h_16(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
+    return _vit(224, 16, 1280, 32, 16, pretrained, pth, progress, **kwargs)

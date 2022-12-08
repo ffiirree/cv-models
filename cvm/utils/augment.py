@@ -96,7 +96,7 @@ def rotate(img, degrees, **kwargs):
     if _PIL_VER >= (5, 2):
         return img.rotate(degrees, **kwargs)
     elif _PIL_VER >= (5, 0):
-        w, h = img.size
+        h, w = img.size
         post_trans = (0, 0)
         rotn_center = (w / 2.0, h / 2.0)
         angle = -math.radians(degrees)
@@ -886,8 +886,14 @@ class RandomMixup(torch.nn.Module):
 
     def __init__(self, num_classes: int, p: float = 0.5, alpha: float = 1.0, inplace: bool = False) -> None:
         super().__init__()
-        assert num_classes > 0, "Please provide a valid positive value for the num_classes."
-        assert alpha > 0, "Alpha param can't be zero."
+
+        if num_classes < 1:
+            raise ValueError(
+                f"Please provide a valid positive value for the num_classes. Got num_classes={num_classes}"
+            )
+
+        if alpha <= 0:
+            raise ValueError("Alpha param can't be zero.")
 
         self.num_classes = num_classes
         self.p = p
@@ -937,13 +943,15 @@ class RandomMixup(torch.nn.Module):
         return batch, target
 
     def __repr__(self) -> str:
-        s = self.__class__.__name__ + "("
-        s += "num_classes={num_classes}"
-        s += ", p={p}"
-        s += ", alpha={alpha}"
-        s += ", inplace={inplace}"
-        s += ")"
-        return s.format(**self.__dict__)
+        s = (
+            f"{self.__class__.__name__}("
+            f"num_classes={self.num_classes}"
+            f", p={self.p}"
+            f", alpha={self.alpha}"
+            f", inplace={self.inplace}"
+            f")"
+        )
+        return s
 
 
 class RandomCutmix(torch.nn.Module):
@@ -962,8 +970,10 @@ class RandomCutmix(torch.nn.Module):
 
     def __init__(self, num_classes: int, p: float = 0.5, alpha: float = 1.0, inplace: bool = False) -> None:
         super().__init__()
-        assert num_classes > 0, "Please provide a valid positive value for the num_classes."
-        assert alpha > 0, "Alpha param can't be zero."
+        if num_classes < 1:
+            raise ValueError("Please provide a valid positive value for the num_classes.")
+        if alpha <= 0:
+            raise ValueError("Alpha param can't be zero.")
 
         self.num_classes = num_classes
         self.p = p
@@ -1004,7 +1014,7 @@ class RandomCutmix(torch.nn.Module):
 
         # Implemented as on cutmix paper, page 12 (with minor corrections on typos).
         lambda_param = float(torch._sample_dirichlet(torch.tensor([self.alpha, self.alpha]))[0])
-        W, H = F.get_image_size(batch)
+        _, H, W = F.get_dimensions(batch)
 
         r_x = torch.randint(W, (1,))
         r_y = torch.randint(H, (1,))
@@ -1027,10 +1037,12 @@ class RandomCutmix(torch.nn.Module):
         return batch, target
 
     def __repr__(self) -> str:
-        s = self.__class__.__name__ + "("
-        s += "num_classes={num_classes}"
-        s += ", p={p}"
-        s += ", alpha={alpha}"
-        s += ", inplace={inplace}"
-        s += ")"
-        return s.format(**self.__dict__)
+        s = (
+            f"{self.__class__.__name__}("
+            f"num_classes={self.num_classes}"
+            f", p={self.p}"
+            f", alpha={self.alpha}"
+            f", inplace={self.inplace}"
+            f")"
+        )
+        return s

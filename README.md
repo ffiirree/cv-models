@@ -54,7 +54,7 @@
 ### Transformer
 
 - [x] `ViT` - [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929), ICLR, 2020
-- [x] `DeiT` - [Training data-efficient image transformers & distillation through attention](https://arxiv.org/abs/2012.12877), 2020
+- [ ] `DeiT` - [Training data-efficient image transformers & distillation through attention](https://arxiv.org/abs/2012.12877), 2020
 - [ ] `Swin Transformer` - [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030), ICCV, 2021
 - [ ] `Twins` - [Twins: Revisiting the Design of Spatial Attention in Vision Transformers](https://arxiv.org/abs/2104.13840), NeurIPS, 2021
 

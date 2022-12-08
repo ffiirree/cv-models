@@ -46,7 +46,7 @@ def convert_coco_poly_to_mask(segmentations, height, width):
 
 class ConvertCocoPolysToMask:
     def __call__(self, image, anno):
-        w, h = image.size
+        h, w = image.size
         segmentations = [obj["segmentation"] for obj in anno]
         cats = [obj["category_id"] for obj in anno]
         if segmentations:

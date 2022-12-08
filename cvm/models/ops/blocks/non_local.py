@@ -51,7 +51,7 @@ class NonLocalBlock(nn.Module):
                 nn.init.constant_(m.bias, 0.0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        N, _, W, H = x.size()
+        N, _, H, W = x.size()
 
         # self-attention: y = softmax((Q(x) @ K(x)) / N) @ V(x). @{
         t, p, g = torch.chunk(torch.flatten(self.W(x), start_dim=2), 3, dim=1)  # Q, K, V
@@ -61,6 +61,6 @@ class NonLocalBlock(nn.Module):
         s = torch.einsum('nqv, ncv -> ncq', s, g)
         # @}
 
-        z = self.Z(s.contiguous().view(N, -1, W, H))
+        z = self.Z(s.contiguous().view(N, -1, H, W))
 
         return z + x
