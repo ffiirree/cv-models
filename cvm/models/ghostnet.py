@@ -56,10 +56,10 @@ class GhostBottleneck(nn.Module):
         dw_kernel_size: int = 3,
         stride: int = 1,
         act_layer: nn.Module = nn.ReLU,
-        se_ratio: float = 0.
+        rd_ratio: float = 0.
     ):
         super(GhostBottleneck, self).__init__()
-        has_se = se_ratio is not None and se_ratio > 0.
+        has_attn = rd_ratio is not None and rd_ratio > 0.
         self.stride = stride
 
         # Point-wise expansion
@@ -73,8 +73,8 @@ class GhostBottleneck(nn.Module):
             self.bn_dw = nn.BatchNorm2d(mid_chs)
 
         # Squeeze-and-excitation
-        if has_se:
-            self.se = blocks.SEBlock(mid_chs, ratio=se_ratio)
+        if has_attn:
+            self.se = blocks.SEBlock(mid_chs, rd_ratio=rd_ratio)
         else:
             self.se = None
 
@@ -137,10 +137,10 @@ class GhostNet(nn.Module):
 
         for cfg in cfgs:
             stage = blocks.Stage()
-            for k, t, c, se_ratio, s in cfg:
+            for k, t, c, rd_ratio, s in cfg:
                 oup = make_divisible(c * multiplier, 4)
                 stage.append(GhostBottleneck(
-                    inp, make_divisible(t * multiplier, 4), oup, k, s, se_ratio=se_ratio
+                    inp, make_divisible(t * multiplier, 4), oup, k, s, rd_ratio=rd_ratio
                 ))
                 inp = oup
 

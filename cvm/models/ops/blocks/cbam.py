@@ -1,19 +1,21 @@
 import torch
 from torch import nn
 from .vanilla_conv2d import Conv2d1x1
-from .norm_act import normalizer_fn, activation_fn
+from .factory import normalizer_fn, activation_fn
+from ..functional import make_divisible
 
 
 class ChannelAttention(nn.Module):
     def __init__(
         self,
         in_channels,
-        rd_ratio,
+        rd_ratio: float = 1/8,
+        rd_divisor: int = 8,
         gate_fn: nn.Module = nn.Sigmoid
     ) -> None:
         super().__init__()
 
-        rd_channels = int(in_channels * rd_ratio)
+        rd_channels = make_divisible(in_channels * rd_ratio, rd_divisor)
 
         self.max_pool = nn.AdaptiveMaxPool2d((1, 1))
         self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))

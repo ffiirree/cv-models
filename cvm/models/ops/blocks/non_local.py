@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from .vanilla_conv2d import Conv2d1x1
+from ..functional import make_divisible
 
 
 class NonLocalBlock(nn.Module):
@@ -12,15 +13,16 @@ class NonLocalBlock(nn.Module):
     def __init__(
         self,
         in_channels,
-        ratio,
+        rd_ratio,
+        rd_divisor: int = 8,
         use_scale: bool = True,
         use_norm: bool = True
     ):
         super().__init__()
 
-        channels = int(in_channels * ratio)
+        channels = make_divisible(in_channels * rd_ratio, rd_divisor)
 
-        self.ratio = ratio
+        self.ratio = rd_ratio
         self.scale = channels ** -0.5 if use_scale else 1.0
         self.use_scale = use_scale
 

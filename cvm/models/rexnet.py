@@ -15,12 +15,12 @@ class InvertedResidualBlock(blocks.InvertedResidualBlock):
         t, kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         se_ind: bool = True,
         dw_se_act: nn.Module = nn.ReLU6
     ):
         super().__init__(inp, oup, t, kernel_size=kernel_size, stride=stride,
-                         padding=padding, se_ratio=se_ratio, se_ind=se_ind, dw_se_act=dw_se_act)
+                         padding=padding, rd_ratio=rd_ratio, se_ind=se_ind, dw_se_act=dw_se_act)
 
         self.apply_residual = (stride == 1) and (inp <= oup)
         self.branch2 = nn.Identity() if self.apply_residual else None
@@ -53,7 +53,7 @@ class ReXNet(nn.Module):
 
         n = [2, 2, 3, 3, 5]  # repeats
         s = [FRONT_S, 2, 2, 1, 2]
-        se = [0, 1/12, 1/12, 1/12, 1/12]
+        ratios = [0, 1/12, 1/12, 1/12, 1/12]
 
         self.depth = (sum(n[:]) + 1) * 3
         increase = 180 / (self.depth // 3 * 1.0)
@@ -67,10 +67,11 @@ class ReXNet(nn.Module):
 
         inplanes, planes = 16, 16 + increase
         for i, layers in enumerate(n):
-            features.append(InvertedResidualBlock(multiplier(inplanes), multiplier(planes), 6, stride=s[i], se_ratio=se[i]))
+            features.append(InvertedResidualBlock(multiplier(inplanes),
+                            multiplier(planes), 6, stride=s[i], rd_ratio=ratios[i]))
             inplanes, planes = planes, planes + increase
             for _ in range(layers - 1):
-                features.append(InvertedResidualBlock(multiplier(inplanes), multiplier(planes), 6, se_ratio=se[i]))
+                features.append(InvertedResidualBlock(multiplier(inplanes), multiplier(planes), 6, rd_ratio=ratios[i]))
                 inplanes, planes = planes, planes + increase
 
         features.append(blocks.Conv2d1x1Block(multiplier(inplanes), multiplier(1280)))
@@ -191,7 +192,7 @@ class ReXNetPlain(nn.Module):
 @export
 def rexnet_plain(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ReXNetPlain(**kwargs)
-        
+
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)
     return model

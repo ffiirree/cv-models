@@ -1,5 +1,5 @@
 from torch import nn
-from . import norm_act
+from . import factory
 
 
 class Conv2d3x3(nn.Conv2d):
@@ -48,7 +48,7 @@ class Conv2d3x3BN(nn.Sequential):
         groups: int = 1,
         normalizer_fn: nn.Module = None
     ):
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
         padding = padding if padding is not None else dilation
 
         super().__init__(
@@ -70,7 +70,7 @@ class Conv2d1x1BN(nn.Sequential):
         groups: int = 1,
         normalizer_fn: nn.Module = None
     ):
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
 
         super().__init__(
             Conv2d1x1(in_channels, out_channels, stride=stride,
@@ -96,7 +96,7 @@ class Conv2d1x1Block(nn.Sequential):
         super().__init__(
             Conv2d1x1(in_channels, out_channels, stride=stride,
                       padding=padding, bias=bias, groups=groups),
-            *norm_act.norm_activation(out_channels, normalizer_fn, activation_fn, norm_position)
+            *factory.norm_activation(out_channels, normalizer_fn, activation_fn, norm_position)
         )
 
 
@@ -121,5 +121,5 @@ class Conv2dBlock(nn.Sequential):
         super().__init__(
             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
                       bias=bias, stride=stride, padding=padding, dilation=dilation, groups=groups),
-            *norm_act.norm_activation(out_channels, normalizer_fn, activation_fn, norm_position)
+            *factory.norm_activation(out_channels, normalizer_fn, activation_fn, norm_position)
         )

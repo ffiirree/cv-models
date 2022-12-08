@@ -1,9 +1,9 @@
 import torch.nn as nn
-from . import norm_act
+from . import factory
 from .vanilla_conv2d import Conv2d1x1Block, Conv2d1x1BN, Conv2dBlock
 from .depthwise_separable_conv2d import DepthwiseBlock, DepthwiseConv2dBN
 from .squeeze_excite import SEBlock
-from .channel_combine import Combine
+from .channel import Combine
 from .drop import DropPath
 
 
@@ -17,7 +17,7 @@ class InvertedResidualBlock(nn.Module):
         stride: int = 1,
         padding: int = None,
         dilation: int = 1,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         se_ind: bool = False,
         survival_prob: float = None,
         normalizer_fn: nn.Module = None,
@@ -31,11 +31,11 @@ class InvertedResidualBlock(nn.Module):
         self.oup = oup
         self.stride = stride
         self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (self.se_ratio > 0) and (self.se_ratio <= 1)
+        self.rd_ratio = rd_ratio if se_ind or rd_ratio is None else (rd_ratio / t)
+        self.has_attn = (self.rd_ratio is not None) and (self.rd_ratio > 0) and (self.rd_ratio <= 1)
 
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
-        activation_fn = activation_fn or norm_act._ACTIVATION
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
+        activation_fn = activation_fn or factory._ACTIVATION
 
         layers = []
         if t != 1:
@@ -48,8 +48,8 @@ class InvertedResidualBlock(nn.Module):
             layers.append(DepthwiseConv2dBN(self.planes, self.planes, kernel_size, stride=self.stride, padding=padding,
                                             dilation=dilation, normalizer_fn=normalizer_fn))
 
-        if self.has_se:
-            layers.append(SEBlock(self.planes, self.se_ratio))
+        if self.has_attn:
+            layers.append(SEBlock(self.planes, rd_ratio=self.rd_ratio))
 
         if dw_se_act:
             layers.append(dw_se_act())
@@ -79,7 +79,7 @@ class FusedInvertedResidualBlock(nn.Module):
         kernel_size: int = 3,
         stride: int = 1,
         padding: int = None,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         se_ind: bool = False,
         survival_prob: float = None,
         normalizer_fn: nn.Module = None,
@@ -93,19 +93,19 @@ class FusedInvertedResidualBlock(nn.Module):
         self.stride = stride
         self.padding = padding if padding is not None else (kernel_size // 2)
         self.apply_residual = (self.stride == 1) and (self.inp == self.oup)
-        self.se_ratio = se_ratio if se_ind or se_ratio is None else (se_ratio / t)
-        self.has_se = (self.se_ratio is not None) and (self.se_ratio > 0) and (self.se_ratio <= 1)
+        self.rd_ratio = rd_ratio if se_ind or rd_ratio is None else (rd_ratio / t)
+        self.has_attn = (self.rd_ratio is not None) and (self.rd_ratio > 0) and (self.rd_ratio <= 1)
 
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
-        activation_fn = activation_fn or norm_act._ACTIVATION
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
+        activation_fn = activation_fn or factory._ACTIVATION
 
         layers = [
             Conv2dBlock(inp, self.planes, kernel_size, stride=self.stride, padding=self.padding,
                         normalizer_fn=normalizer_fn, activation_fn=activation_fn)
         ]
 
-        if self.has_se:
-            layers.append(SEBlock(self.planes, self.se_ratio))
+        if self.has_attn:
+            layers.append(SEBlock(self.planes, rd_ratio=self.rd_ratio))
 
         layers.append(Conv2d1x1BN(
             self.planes, oup, normalizer_fn=normalizer_fn))

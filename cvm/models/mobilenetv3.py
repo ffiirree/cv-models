@@ -48,23 +48,23 @@ class MobileNetV3Small(nn.Module):
                 blocks.Conv2dBlock(in_channels, 16, 3, stride=FRONT_S, activation_fn=hs)
             )),
             ('stage1', blocks.Stage(
-                blocks.InvertedResidualBlock(16, 16, 1, kernel_size=3, stride=strides[0], se_ratio=0.5, se_ind=True)
+                blocks.InvertedResidualBlock(16, 16, 1, kernel_size=3, stride=strides[0], rd_ratio=0.5, se_ind=True)
             )),
             ('stage2', blocks.Stage(
                 blocks.InvertedResidualBlock(16, 24, 72/16, kernel_size=3, stride=strides[1], dilation=dilations[0]),
                 blocks.InvertedResidualBlock(24, 24, 88/24, kernel_size=3, dilation=dilations[1])
             )),
             ('stage3', blocks.Stage(
-                blocks.InvertedResidualBlock(24, 40, 4, kernel_size=5, stride=strides[2], dilation=dilations[1], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(40, 40, 6, kernel_size=5, dilation=dilations[2], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(40, 40, 6, kernel_size=5, dilation=dilations[2], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(40, 48, 3, kernel_size=5, dilation=dilations[2], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(48, 48, 3, kernel_size=5, dilation=dilations[2], se_ratio=0.25, se_ind=True, activation_fn=hs)
+                blocks.InvertedResidualBlock(24, 40, 4, kernel_size=5, stride=strides[2], dilation=dilations[1], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(40, 40, 6, kernel_size=5, dilation=dilations[2], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(40, 40, 6, kernel_size=5, dilation=dilations[2], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(40, 48, 3, kernel_size=5, dilation=dilations[2], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(48, 48, 3, kernel_size=5, dilation=dilations[2], rd_ratio=0.25, se_ind=True, activation_fn=hs)
             )),
             ('stage4', blocks.Stage(
-                blocks.InvertedResidualBlock(48, 96, 6, kernel_size=5, stride=strides[3], dilation=dilations[2], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(96, 96, 6, kernel_size=5, dilation=dilations[3], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(96, 96, 6, kernel_size=5, dilation=dilations[3], se_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(48, 96, 6, kernel_size=5, stride=strides[3], dilation=dilations[2], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(96, 96, 6, kernel_size=5, dilation=dilations[3], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(96, 96, 6, kernel_size=5, dilation=dilations[3], rd_ratio=0.25, se_ind=True, activation_fn=hs),
                 blocks.Conv2d1x1Block(96, 576, activation_fn=hs)
             ))
         ]))
@@ -125,22 +125,22 @@ class MobileNetV3Large(nn.Module):
                 blocks.InvertedResidualBlock(24, 24, t=3, kernel_size=3, dilation=dilations[0])
             )),
             ('stage2', blocks.Stage(
-                blocks.InvertedResidualBlock(24, 40, t=3, kernel_size=5, stride=strides[1], dilation=dilations[0], se_ratio=0.25, se_ind=True),
-                blocks.InvertedResidualBlock(40, 40, t=3, kernel_size=5, dilation=dilations[1], se_ratio=0.25, se_ind=True),
-                blocks.InvertedResidualBlock(40, 40, t=3, kernel_size=5, dilation=dilations[1], se_ratio=0.25, se_ind=True)
+                blocks.InvertedResidualBlock(24, 40, t=3, kernel_size=5, stride=strides[1], dilation=dilations[0], rd_ratio=0.25, se_ind=True),
+                blocks.InvertedResidualBlock(40, 40, t=3, kernel_size=5, dilation=dilations[1], rd_ratio=0.25, se_ind=True),
+                blocks.InvertedResidualBlock(40, 40, t=3, kernel_size=5, dilation=dilations[1], rd_ratio=0.25, se_ind=True)
             )),
             ('stage3', blocks.Stage(
                 blocks.InvertedResidualBlock(40, 80, t=6, kernel_size=3, stride=strides[2], dilation=dilations[1], activation_fn=hs),
                 blocks.InvertedResidualBlock(80, 80, t=200/80, kernel_size=3, dilation=dilations[2], activation_fn=hs),
                 blocks.InvertedResidualBlock(80, 80, t=184/80, kernel_size=3, dilation=dilations[2], activation_fn=hs),
                 blocks.InvertedResidualBlock(80, 80, t=184/80, kernel_size=3, dilation=dilations[2], activation_fn=hs),
-                blocks.InvertedResidualBlock(80, 112, t=6, kernel_size=3, dilation=dilations[2], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(112, 112, t=6, kernel_size=3, dilation=dilations[2], se_ratio=0.25, se_ind=True, activation_fn=hs)
+                blocks.InvertedResidualBlock(80, 112, t=6, kernel_size=3, dilation=dilations[2], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(112, 112, t=6, kernel_size=3, dilation=dilations[2], rd_ratio=0.25, se_ind=True, activation_fn=hs)
             )),
             ('stage4', blocks.Stage(
-                blocks.InvertedResidualBlock(112, 160, t=6, kernel_size=5, stride=strides[3], dilation=dilations[2], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(160, 160, t=6, kernel_size=5, dilation=dilations[3], se_ratio=0.25, se_ind=True, activation_fn=hs),
-                blocks.InvertedResidualBlock(160, 160, t=6, kernel_size=5, dilation=dilations[3], se_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(112, 160, t=6, kernel_size=5, stride=strides[3], dilation=dilations[2], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(160, 160, t=6, kernel_size=5, dilation=dilations[3], rd_ratio=0.25, se_ind=True, activation_fn=hs),
+                blocks.InvertedResidualBlock(160, 160, t=6, kernel_size=5, dilation=dilations[3], rd_ratio=0.25, se_ind=True, activation_fn=hs),
                 blocks.Conv2d1x1Block(160, 960, activation_fn=hs)
             ))
         ]))

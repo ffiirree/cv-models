@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from .vanilla_conv2d import Conv2d1x1
 from .norm import LayerNorm2d
+from ..functional import make_divisible
 
 
 class GlobalContextBlock(nn.Module):
@@ -12,11 +13,12 @@ class GlobalContextBlock(nn.Module):
     def __init__(
         self,
         in_channels,
-        rd_ratio
+        rd_ratio: float = 1/8,
+        rd_divisor: int = 8,
     ) -> None:
         super().__init__()
 
-        channels = int(in_channels * rd_ratio)
+        channels = make_divisible(in_channels * rd_ratio, rd_divisor)
 
         self.conv1x1 = Conv2d1x1(in_channels, 1, bias=True)
         self.softmax = nn.Softmax(dim=1)

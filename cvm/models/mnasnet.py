@@ -56,12 +56,12 @@ class MnasNet(nn.Module):
         n: int,
         stride: int,
         kernel_size: int = 3,
-        se_ratio: float = None
+        rd_ratio: float = None
     ):
-        layers = [blocks.InvertedResidualBlock(inp, oup, t, kernel_size, stride, se_ratio=se_ratio)]
+        layers = [blocks.InvertedResidualBlock(inp, oup, t, kernel_size, stride, rd_ratio=rd_ratio)]
 
         for _ in range(n - 1):
-            layers.append(blocks.InvertedResidualBlock(oup, oup, t, kernel_size, se_ratio=se_ratio))
+            layers.append(blocks.InvertedResidualBlock(oup, oup, t, kernel_size, rd_ratio=rd_ratio))
 
         return blocks.Stage(layers)
 

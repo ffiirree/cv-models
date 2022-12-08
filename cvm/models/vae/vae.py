@@ -18,6 +18,7 @@ class VAE(nn.Module):
         self.image_size = image_size
         self.nz = nz
 
+        # Q(z|X)
         self.encoder = nn.Sequential(
             nn.Flatten(1),
             nn.Linear(self.image_size ** 2, 512),
@@ -25,10 +26,11 @@ class VAE(nn.Module):
             nn.Linear(512, 512),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(512, 256),
-            nn.LeakyReLU(0.2, inplace=True), 
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256, self.nz * 2)
         )
 
+        # P(X|z)
         self.decoder = nn.Sequential(
             nn.Linear(self.nz, 256),
             nn.LeakyReLU(0.2, inplace=True),
@@ -41,13 +43,15 @@ class VAE(nn.Module):
             nn.Unflatten(1, (1, image_size, image_size))
         )
 
+    def sample_z(self, mu, logvar):
+        eps = torch.randn_like(logvar)
+
+        return mu + eps * torch.exp(0.5 * logvar)
+
     def forward(self, x):
         mu, logvar = torch.chunk(self.encoder(x), 2, dim=1)
 
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(logvar)
-
-        z = mu + eps * std
+        z = self.sample_z(mu, logvar)
 
         x = self.decoder(z)
         return x, mu, logvar

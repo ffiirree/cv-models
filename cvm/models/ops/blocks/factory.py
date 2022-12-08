@@ -2,10 +2,12 @@ from typing import List
 from contextlib import contextmanager
 from functools import partial
 import torch.nn as nn
+from .squeeze_excite import SEBlock
 
 _NORM_POSIITON: str = 'before'
 _NORMALIZER: nn.Module = nn.BatchNorm2d
 _ACTIVATION: nn.Module = partial(nn.ReLU, inplace=True)
+_ATTENTION: nn.Module = SEBlock
 
 
 class Nil:
@@ -46,12 +48,26 @@ def activation(fn: nn.Module):
     _ACTIVATION = _pre_activation
 
 
+@contextmanager
+def attention(fn: nn.Module):
+    global _ATTENTION
+
+    _pre_attn = _ATTENTION
+    _ATTENTION = fn
+    yield
+    _ATTENTION = _pre_attn
+
+
 def normalizer_fn(channels):
     return _NORMALIZER(channels)
 
 
 def activation_fn():
     return _ACTIVATION()
+
+
+def attention_fn(channels, **kwargs):
+    return _ATTENTION(channels, **kwargs)
 
 
 def norm_activation(

@@ -2,7 +2,8 @@ import torch
 from torch import nn
 from .vanilla_conv2d import Conv2d1x1, Conv2d1x1Block
 from .depthwise_separable_conv2d import DepthwiseBlock
-from .channel_combine import Combine
+from .channel import Combine
+from ..functional import make_divisible
 
 
 class SelectiveKernelBlock(nn.Module):
@@ -13,13 +14,14 @@ class SelectiveKernelBlock(nn.Module):
     def __init__(
         self,
         in_channels,
-        rd_ratio
+        rd_ratio: float = 1/8,
+        rd_divisor: int = 8,
     ) -> None:
         super().__init__()
 
         self.in_channels = in_channels
 
-        rd_channels = max(int(in_channels * rd_ratio), 32)
+        rd_channels = max(make_divisible(in_channels * rd_ratio, rd_divisor), 32)
 
         self.conv3x3 = DepthwiseBlock(in_channels, in_channels, kernel_size=3, dilation=1)
         self.conv5x5 = DepthwiseBlock(in_channels, in_channels, kernel_size=3, dilation=2)

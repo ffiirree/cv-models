@@ -1,5 +1,5 @@
 from torch import nn
-from . import norm_act
+from . import factory
 
 
 class DepthwiseConv2d(nn.Conv2d):
@@ -45,7 +45,7 @@ class DepthwiseConv2dBN(nn.Sequential):
         dilation: int = 1,
         normalizer_fn: nn.Module = None
     ):
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
 
         super().__init__(
             DepthwiseConv2d(inp, oup, kernel_size, stride=stride, padding=padding, dilation=dilation)
@@ -63,7 +63,7 @@ class PointwiseConv2dBN(nn.Sequential):
         stride: int = 1,
         normalizer_fn: nn.Module = None
     ):
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
 
         super().__init__(
             PointwiseConv2d(inp, oup, stride=stride)
@@ -88,7 +88,7 @@ class DepthwiseBlock(nn.Sequential):
     ):
         super().__init__(
             DepthwiseConv2d(inp, oup, kernel_size, stride, padding=padding, dilation=dilation),
-            *norm_act.norm_activation(oup, normalizer_fn, activation_fn, norm_position)
+            *factory.norm_activation(oup, normalizer_fn, activation_fn, norm_position)
         )
 
 
@@ -105,5 +105,5 @@ class PointwiseBlock(nn.Sequential):
     ):
         super().__init__(
             PointwiseConv2d(inp, oup, stride=stride, groups=groups),
-            *norm_act.norm_activation(oup, normalizer_fn, activation_fn, norm_position)
+            *factory.norm_activation(oup, normalizer_fn, activation_fn, norm_position)
         )

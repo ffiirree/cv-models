@@ -26,7 +26,7 @@ class ResNet(nn.Module):
         layers: List[int] = [2, 2, 2, 2],
         groups: int = 1,
         width_per_group: int = 64,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         dropout_rate: float = 0.0,
         drop_path_rate: float = None,
         block: nn.Module = blocks.ResBasicBlockV1,
@@ -50,7 +50,7 @@ class ResNet(nn.Module):
         self.groups = groups
         self.width_per_group = width_per_group
         self.block = block
-        self.ratio = se_ratio
+        self.ratio = rd_ratio
         self.drop_path_rate = drop_path_rate
         self.use_resnetd_shortcut = use_resnetd_shortcut
         self.version = 1
@@ -144,7 +144,7 @@ class ResNet(nn.Module):
                     stride=stride if dilation == 1 else 1,
                     groups=self.groups,
                     width_per_group=self.width_per_group,
-                    se_ratio=self.ratio,
+                    rd_ratio=self.ratio,
                     drop_path_rate=self.get_drop_path_rate(block_num),
                     use_resnetd_shortcut=self.use_resnetd_shortcut,
                     dilation=max(1, (dilation//stride))
@@ -158,13 +158,13 @@ class ResNet(nn.Module):
 def _resnet(
     layers: List[int],
     block: nn.Module,
-    se_ratio: float = None,
+    rd_ratio: float = None,
     pretrained: bool = False,
     pth: str = None,
     progress: bool = False,
     **kwargs: Any
 ):
-    model = ResNet(layers=layers, block=block, se_ratio=se_ratio, **kwargs)
+    model = ResNet(layers=layers, block=block, rd_ratio=rd_ratio, **kwargs)
 
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)

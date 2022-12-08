@@ -1,7 +1,7 @@
 from functools import partial
 from contextlib import contextmanager
 from torch import nn
-from . import norm_act
+from . import factory
 from .vanilla_conv2d import Conv2d1x1
 from ..functional import make_divisible
 from typing import OrderedDict
@@ -46,11 +46,11 @@ class SEBlock(nn.Sequential):
     def __init__(
         self,
         channels,
-        ratio,
+        rd_ratio,
         inner_activation_fn: nn.Module = None,
         gating_fn: nn.Module = None
     ):
-        squeezed_channels = make_divisible(int(channels * ratio), _SE_DIVISOR)
+        squeezed_channels = make_divisible(int(channels * rd_ratio), _SE_DIVISOR)
         inner_activation_fn = inner_activation_fn or _SE_INNER_NONLINEAR
         gating_fn = gating_fn or _SE_GATING_FN
 
@@ -59,7 +59,7 @@ class SEBlock(nn.Sequential):
         layers['pool'] = nn.AdaptiveAvgPool2d((1, 1))
         layers['reduce'] = Conv2d1x1(channels, squeezed_channels, bias=True)
         if _SE_USE_NORM:
-            layers['norm'] = norm_act.normalizer_fn(squeezed_channels)
+            layers['norm'] = factory.normalizer_fn(squeezed_channels)
         layers['act'] = inner_activation_fn()
         layers['expand'] = Conv2d1x1(squeezed_channels, channels, bias=True)
         layers['gate'] = gating_fn()

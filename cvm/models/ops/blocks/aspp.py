@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .vanilla_conv2d import Conv2d1x1, Conv2d1x1Block, Conv2dBlock
-from .channel_combine import Combine
+from .channel import Combine
 from typing import List
 
 

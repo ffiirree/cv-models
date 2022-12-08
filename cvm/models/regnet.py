@@ -33,7 +33,7 @@ class BottleneckTransform(nn.Sequential):
         group_width,
         bottleneck_multiplier,
         dilation,
-        se_ratio
+        rd_ratio
     ):
         super().__init__()
 
@@ -42,8 +42,8 @@ class BottleneckTransform(nn.Sequential):
         self.add_module('1x1-1', blocks.Conv2d1x1Block(inp, wb))
         self.add_module('3x3', blocks.Conv2dBlock(wb, wb, stride=stride, groups=(wb // group_width), dilation=dilation))
 
-        if se_ratio:
-            self.add_module('se', blocks.SEBlock(wb, (inp * se_ratio) / wb))  # se <-> inp
+        if rd_ratio:
+            self.add_module('se', blocks.SEBlock(wb, rd_ratio=(inp * rd_ratio) / wb))  # se <-> inp
 
         self.add_module('1x1-2', blocks.Conv2d1x1BN(wb, oup))
 
@@ -59,7 +59,7 @@ class ResBottleneckBlock(nn.Module):
         group_width: int = 1,
         bottleneck_multiplier: float = 1.0,
         dilation: int = 1,
-        se_ratio: float = None,
+        rd_ratio: float = None,
     ) -> None:
         super().__init__()
 
@@ -76,7 +76,7 @@ class ResBottleneckBlock(nn.Module):
             group_width,
             bottleneck_multiplier,
             dilation,
-            se_ratio,
+            rd_ratio,
         )
 
         self.act = blocks.activation_fn()
@@ -99,7 +99,7 @@ class RegStage(nn.Sequential):
         group_widths,
         bottleneck_multiplier,
         dilation: int,
-        se_ratio: float,
+        rd_ratio: float,
         stage_index: int
     ):
         super().__init__()
@@ -114,7 +114,7 @@ class RegStage(nn.Sequential):
                     group_widths,
                     bottleneck_multiplier,
                     max(dilation // (stride if i == 0 else 1), 1),
-                    se_ratio
+                    rd_ratio
                 )
             )
 
@@ -132,7 +132,7 @@ class RegNet(nn.Module):
         wm: float = None,
         b: float = None,
         g: int = None,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         dropout_rate: float = 0.0,
         dilations: List[int] = [1, 1, 1, 1],
         thumbnail: bool = False,
@@ -181,7 +181,7 @@ class RegNet(nn.Module):
                     group_widths[i],
                     bottleneck_multipliers[i],
                     dilations[i],
-                    se_ratio,
+                    rd_ratio,
                     i + 1
                 )
             )
@@ -207,13 +207,13 @@ def _regnet(
     wm: float,
     b: float = 1.0,
     g: int = None,
-    se_ratio: float = None,
+    rd_ratio: float = None,
     pretrained: bool = False,
     pth: str = None,
     progress: bool = True,
     **kwargs: Any
 ):
-    model = RegNet(d=d, w0=w0, wa=wa, wm=wm, b=b, g=g, se_ratio=se_ratio, **kwargs)
+    model = RegNet(d=d, w0=w0, wa=wa, wm=wm, b=b, g=g, rd_ratio=rd_ratio, **kwargs)
 
     if pretrained:
         load_from_local_or_url(model, pth, kwargs.get('url', None), progress)

@@ -56,7 +56,7 @@ class EfficientNetV2(nn.Module):
         filters: List[int] = [24, 24, 48, 64, 128, 160, 256, 1280],
         layers: List[int] = [2, 4, 5, 6, 9, 15],
         strides: List[int] = [1, 2, 2, 2, 1, 2],
-        se_ratio: List[float] = [0, 0, 0, 0.25, 0.25, 0.25],
+        rd_ratio: List[float] = [0, 0, 0, 0.25, 0.25, 0.25],
         thumbnail: bool = False,
         **kwargs: Any
     ):
@@ -76,7 +76,7 @@ class EfficientNetV2(nn.Module):
             features.append(
                 self.make_layers(
                     block_type[i], filters[i], expand_ratio[i], filters[i+1],
-                    n=layers[i], stride=strides[i], se_ratio=se_ratio[i]
+                    n=layers[i], stride=strides[i], rd_ratio=rd_ratio[i]
                 )
             )
 
@@ -98,7 +98,7 @@ class EfficientNetV2(nn.Module):
         oup: int,
         n: int,
         stride: int,
-        se_ratio: float = None
+        rd_ratio: float = None
     ):
         layers = []
         for i in range(n):
@@ -111,7 +111,7 @@ class EfficientNetV2(nn.Module):
                 block(
                     inp, oup, t,
                     stride=stride,
-                    survival_prob=survival_prob, se_ratio=se_ratio
+                    survival_prob=survival_prob, rd_ratio=rd_ratio
                 )
             )
 
@@ -136,7 +136,7 @@ def efficientnet_v2_s(pretrained: bool = False, pth: str = None, **kwargs: Any):
         filters=[24, 24, 48, 64, 128, 160, 256, 1280],
         layers=[2, 4, 5, 6, 9, 15],
         strides=[1, 2, 2, 2, 1, 2],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25],
+        rd_ratio=[0, 0, 0, 0.25, 0.25, 0.25],
         **kwargs
     )
 
@@ -155,7 +155,7 @@ def efficientnet_v2_m(pretrained: bool = False, pth: str = None, **kwargs: Any):
         filters=[24, 24, 48, 80, 160, 176, 304, 512, 1280],
         layers=[3, 5, 5, 7, 14, 18, 5],
         strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        rd_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
         **kwargs
     )
 
@@ -174,7 +174,7 @@ def efficientnet_v2_l(pretrained: bool = False, pth: str = None, **kwargs: Any):
         filters=[32, 32, 64, 96, 192, 224, 384, 640, 1280],
         layers=[4, 7, 7, 10, 19, 25, 7],
         strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        rd_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
         **kwargs
     )
 
@@ -193,7 +193,7 @@ def efficientnet_v2_xl(pretrained: bool = False, pth: str = None, **kwargs: Any)
         filters=[32, 32, 64, 96, 192, 256, 512, 640, 1280],
         layers=[4, 8, 8, 16, 24, 32, 8],
         strides=[1, 2, 2, 2, 1, 2, 1],
-        se_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
+        rd_ratio=[0, 0, 0, 0.25, 0.25, 0.25, 0.25],
         **kwargs
     )
 

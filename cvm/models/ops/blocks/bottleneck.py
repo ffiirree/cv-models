@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 
-from . import norm_act
+from . import factory
 from .squeeze_excite import SEBlock
 from .drop import DropPath
 from .vanilla_conv2d import Conv2d3x3, Conv2d1x1
-from .channel_combine import Combine
+from .channel import Combine
 
 from typing import OrderedDict
 
@@ -21,7 +21,7 @@ class ResBasicBlockV1(nn.Module):
         dilation: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         drop_path_rate: float = None,
         use_resnetd_shortcut: bool = False,
         normalizer_fn: nn.Module = None,
@@ -29,10 +29,10 @@ class ResBasicBlockV1(nn.Module):
     ):
         super().__init__()
 
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
-        activation_fn = activation_fn or norm_act._ACTIVATION
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
+        activation_fn = activation_fn or factory._ACTIVATION
 
-        self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
+        self.has_attn = rd_ratio is not None and rd_ratio > 0 and rd_ratio <= 1
         self.use_shortcut = stride != 1 or inp != oup * self.expansion
 
         if width_per_group != 64:
@@ -46,8 +46,8 @@ class ResBasicBlockV1(nn.Module):
             ('norm2', normalizer_fn(oup))
         ]))
 
-        if self.has_se:
-            self.branch1.add_module('se', SEBlock(oup, se_ratio))
+        if self.has_attn:
+            self.branch1.add_module('se', SEBlock(oup, rd_ratio=rd_ratio))
 
         if drop_path_rate:
             self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
@@ -90,7 +90,7 @@ class BottleneckV1(nn.Module):
         dilation: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         drop_path_rate: float = None,
         use_resnetd_shortcut: bool = False,
         normalizer_fn: nn.Module = None,
@@ -98,12 +98,12 @@ class BottleneckV1(nn.Module):
     ):
         super().__init__()
 
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
-        activation_fn = activation_fn or norm_act._ACTIVATION
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
+        activation_fn = activation_fn or factory._ACTIVATION
 
         width = int(oup * (width_per_group / 64)) * groups
 
-        self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
+        self.has_attn = rd_ratio is not None and rd_ratio > 0 and rd_ratio <= 1
         self.use_shortcut = stride != 1 or inp != oup * self.expansion
 
         self.branch1 = nn.Sequential(OrderedDict([
@@ -117,8 +117,8 @@ class BottleneckV1(nn.Module):
             ('norm3', normalizer_fn(oup * self.expansion,))
         ]))
 
-        if self.has_se:
-            self.branch1.add_module('se', SEBlock(oup * self.expansion, se_ratio))
+        if self.has_attn:
+            self.branch1.add_module('se', SEBlock(oup * self.expansion, rd_ratio=rd_ratio))
 
         if drop_path_rate:
             self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
@@ -161,7 +161,7 @@ class ResBasicBlockV2(nn.Module):
         dilation: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         drop_path_rate: float = None,
         use_resnetd_shortcut: bool = False,
         normalizer_fn: nn.Module = None,
@@ -169,10 +169,10 @@ class ResBasicBlockV2(nn.Module):
     ):
         super().__init__()
 
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
-        activation_fn = activation_fn or norm_act._ACTIVATION
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
+        activation_fn = activation_fn or factory._ACTIVATION
 
-        self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
+        self.has_attn = rd_ratio is not None and rd_ratio > 0 and rd_ratio <= 1
         self.use_shortcut = stride != 1 or inp != oup
 
         if width_per_group != 64:
@@ -187,8 +187,8 @@ class ResBasicBlockV2(nn.Module):
             ('conv2', Conv2d3x3(oup, oup))
         ]))
 
-        if self.has_se:
-            self.branch1.add_module('se', SEBlock(oup, se_ratio))
+        if self.has_attn:
+            self.branch1.add_module('se', SEBlock(oup, rd_ratio=rd_ratio))
 
         if drop_path_rate:
             self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
@@ -226,7 +226,7 @@ class BottleneckV2(nn.Module):
         dilation: int = 1,
         groups: int = 1,
         width_per_group: int = 64,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         drop_path_rate: float = None,
         use_resnetd_shortcut: bool = False,
         normalizer_fn: nn.Module = None,
@@ -234,12 +234,12 @@ class BottleneckV2(nn.Module):
     ):
         super().__init__()
 
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
-        activation_fn = activation_fn or norm_act._ACTIVATION
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
+        activation_fn = activation_fn or factory._ACTIVATION
 
         width = int(oup * (width_per_group / 64)) * groups
 
-        self.has_se = se_ratio is not None and se_ratio > 0 and se_ratio <= 1
+        self.has_attn = rd_ratio is not None and rd_ratio > 0 and rd_ratio <= 1
         self.use_shortcut = stride != 1 or inp != oup * self.expansion
 
         self.branch1 = nn.Sequential(OrderedDict([
@@ -254,9 +254,9 @@ class BottleneckV2(nn.Module):
             ('conv3', Conv2d1x1(width, oup * self.expansion))
         ]))
 
-        if self.has_se:
+        if self.has_attn:
             self.branch1.add_module('se', SEBlock(
-                oup * self.expansion, se_ratio))
+                oup * self.expansion, rd_ratio=rd_ratio))
 
         if drop_path_rate:
             self.branch1.add_module('drop', DropPath(1. - drop_path_rate))

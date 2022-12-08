@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from . import norm_act
+from . import factory
 from ..functional import get_gaussian_kernels2d
 from typing import Tuple
 
@@ -70,7 +70,7 @@ class GaussianBlurBN(nn.Sequential):
         dilation: int = 1,
         normalizer_fn: nn.Module = None
     ):
-        normalizer_fn = normalizer_fn or norm_act._NORMALIZER
+        normalizer_fn = normalizer_fn or factory._NORMALIZER
 
         super().__init__(
             GaussianBlur(channels, kernel_size, sigma_range, normalize,
@@ -96,5 +96,5 @@ class GaussianBlurBlock(nn.Sequential):
         super().__init__(
             GaussianBlur(channels, kernel_size, sigma_range, normalize,
                          stride=stride, padding=padding, dilation=dilation),
-            *norm_act.norm_activation(channels, normalizer_fn, activation_fn, norm_position)
+            *factory.norm_activation(channels, normalizer_fn, activation_fn, norm_position)
         )

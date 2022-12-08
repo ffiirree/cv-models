@@ -39,7 +39,7 @@ class HalfIdentityBlock(nn.Module):
     def __init__(
         self,
         inp: int,
-        se_ratio: float = 0.0
+        rd_ratio: float = 0.0
     ):
         super().__init__()
 
@@ -47,10 +47,10 @@ class HalfIdentityBlock(nn.Module):
         self.combine = blocks.Combine('CONCAT')
         self.conv1x1 = blocks.PointwiseBlock(inp, inp // 2)
 
-        if se_ratio > 0.0:
+        if rd_ratio > 0.0:
             self.conv1x1 = nn.Sequential(
                 blocks.PointwiseBlock(inp, inp // 2),
-                blocks.SEBlock(inp // 2, se_ratio)
+                blocks.attention_fn(inp // 2, rd_ratio=rd_ratio)
             )
 
     def forward(self, x):
@@ -65,7 +65,7 @@ class DownsamplingBlock(nn.Module):
         oup,
         stride: int = 2,
         method: str = 'blur',
-        se_ratio: float = 0.0
+        rd_ratio: float = 0.0
     ):
         assert method in ['blur', 'dwconv', 'maxpool'], f'{method}'
 
@@ -85,10 +85,10 @@ class DownsamplingBlock(nn.Module):
         self.split = None if inp == split_chs else blocks.ChannelSplit([inp - split_chs, split_chs])
         self.conv1x1 = blocks.PointwiseBlock(inp, oup - split_chs)
 
-        if se_ratio > 0.0:
+        if rd_ratio > 0.0:
             self.conv1x1 = nn.Sequential(
                 blocks.PointwiseBlock(inp, oup - split_chs),
-                blocks.SEBlock(oup - split_chs, se_ratio)
+                blocks.attention_fn(oup - split_chs, rd_ratio=rd_ratio)
             )
 
         self.halve = nn.Identity()
@@ -117,7 +117,7 @@ class VGNet(nn.Module):
         channels: List[int] = None,
         downsamplings: List[str] = None,
         layers: List[int] = None,
-        se_ratio: float = 0.0,
+        rd_ratio: List[float] = [0.0, 0.0, 0.0, 0.0],
         dropout_rate: float = 0.2,
         thumbnail: bool = False,
         **kwargs: Any
@@ -142,7 +142,7 @@ class VGNet(nn.Module):
                     strides[i],
                     downsamplings[i],
                     layers[i],
-                    se_ratio
+                    rd_ratio[i]
                 )
             )
 
@@ -158,12 +158,12 @@ class VGNet(nn.Module):
             nn.Linear(channels[-1], num_classes)
         )
 
-    def make_layers(self, inp, oup, s, m, n, se_ratio):
+    def make_layers(self, inp, oup, s, m, n, rd_ratio):
         layers = [
-            DownsamplingBlock(inp, oup, stride=s, method=m, se_ratio=se_ratio)
+            DownsamplingBlock(inp, oup, stride=s, method=m, rd_ratio=rd_ratio)
         ]
         for _ in range(n - 1):
-            layers.append(HalfIdentityBlock(oup, se_ratio))
+            layers.append(HalfIdentityBlock(oup, rd_ratio))
 
         layers.append(blocks.Combine('CONCAT'))
         return blocks.Stage(layers)
@@ -208,12 +208,13 @@ def vgnetg_1_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@blocks.attention(blocks.SEBlock)
 @config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_0mp_se-914a9c4a.pth')
 def vgnetg_1_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [28, 56, 112, 224, 368]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [4, 7, 13, 2]
-    kwargs['se_ratio'] = 0.25
+    kwargs['rd_ratio'] = [0.25, 0.25, 0.25, 0.25]
     return _vgnet(pretrained, pth, progress, **kwargs)
 
 
@@ -228,12 +229,13 @@ def vgnetg_1_5mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@blocks.attention(blocks.SEBlock)
 @config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_1_5mp_se-6d9ebf3b.pth')
 def vgnetg_1_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 64, 128, 256, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 7, 14, 2]
-    kwargs['se_ratio'] = 0.25
+    kwargs['rd_ratio'] = [0.25, 0.25, 0.25, 0.25]
     return _vgnet(pretrained, pth, progress, **kwargs)
 
 
@@ -248,12 +250,13 @@ def vgnetg_2_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@blocks.attention(blocks.SEBlock)
 @config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_0mp_se-132bc3af.pth')
 def vgnetg_2_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 72, 168, 376, 512]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 6, 13, 2]
-    kwargs['se_ratio'] = 0.25
+    kwargs['rd_ratio'] = [0.25, 0.25, 0.25, 0.25]
     return _vgnet(pretrained, pth, progress, **kwargs)
 
 
@@ -268,12 +271,13 @@ def vgnetg_2_5mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@blocks.attention(blocks.SEBlock)
 @config(url='https://github.com/ffiirree/cv-models/releases/download/v0.0.2-vgnets-weights/vgnetg_2_5mp_se-ed87bdb1.pth')
 def vgnetg_2_5mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 80, 192, 400, 544]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [3, 6, 16, 2]
-    kwargs['se_ratio'] = 0.25
+    kwargs['rd_ratio'] = [0.25, 0.25, 0.25, 0.25]
     return _vgnet(pretrained, pth, progress, **kwargs)
 
 
@@ -287,9 +291,10 @@ def vgnetg_5_0mp(pretrained: bool = False, pth: str = None, progress: bool = Tru
 
 @export
 @blocks.se(partial(nn.SiLU, inplace=True))
+@blocks.attention(blocks.SEBlock)
 def vgnetg_5_0mp_se(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     kwargs['channels'] = [32, 88, 216, 456, 856]
     kwargs['downsamplings'] = ['blur', 'blur', 'blur', 'blur']
     kwargs['layers'] = [4, 7, 15, 5]
-    kwargs['se_ratio'] = 0.25
+    kwargs['rd_ratio'] = [0.25, 0.25, 0.25, 0.25]
     return _vgnet(pretrained, pth, progress, **kwargs)

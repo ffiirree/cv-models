@@ -1,5 +1,6 @@
 import json
 import time
+import traceback
 import datetime
 import argparse
 import torch
@@ -285,33 +286,36 @@ if __name__ == '__main__':
         logger.info(f'Steps/Epoch: {len(train_loader)}')
 
     benchmark = Benchmark()
-    for epoch in range(0, args.epochs):
-        train(
-            train_loader,
-            model,
-            criterion,
-            optimizer,
-            scheduler,
-            scaler,
-            epoch,
-            args,
-            mixupcutmix_fn,
-            model_ema
-        )
+    try:
+        for epoch in range(0, args.epochs):
+            train(
+                train_loader,
+                model,
+                criterion,
+                optimizer,
+                scheduler,
+                scaler,
+                epoch,
+                args,
+                mixupcutmix_fn,
+                model_ema
+            )
 
-        validate(val_loader, model, criterion, log_suffix='<VAL> ')
-        if model_ema is not None:
-            validate(val_loader, model_ema.module, criterion, log_suffix='<EMA> ')
-
-        train_loader.reset()
-        val_loader.reset()
-
-        if args.rank == 0 and epoch > (args.epochs - 10):
-            model_path = f'{log_dir}/{model_name}_{epoch:0>3}_{time.time()}.pth'
-            torch.save(model.module.state_dict(), model_path)
-            logger.info(f'Saved: {model_path}!')
-            
+            validate(val_loader, model, criterion, log_suffix='<VAL> ')
             if model_ema is not None:
-                torch.save(model_ema.module.state_dict(), f'{log_dir}/{model_name}_EMA_{epoch:0>3}_{time.time()}.pth')
+                validate(val_loader, model_ema.module, criterion, log_suffix='<EMA> ')
+
+            train_loader.reset()
+            val_loader.reset()
+
+            if args.rank == 0 and epoch > (args.epochs - 10):
+                model_path = f'{log_dir}/{model_name}_{epoch:0>3}_{time.time()}.pth'
+                torch.save(model.module.state_dict(), model_path)
+                logger.info(f'Saved: {model_path}!')
+                
+                if model_ema is not None:
+                    torch.save(model_ema.module.state_dict(), f'{log_dir}/{model_name}_EMA_{epoch:0>3}_{time.time()}.pth')
+    except:
+        logger.error(traceback.format_exc())
             
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

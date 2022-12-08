@@ -46,7 +46,7 @@ class EfficientNet(nn.Module):
         num_classes: int = 1000,
         width_coefficient: float = 1,
         depth_coefficient: float = 1,
-        se_ratio: float = 0.25,
+        rd_ratio: float = 0.25,
         dropout_rate: float = 0.2,
         drop_path_rate: float = 0.2,
         dilations: List[int] = None,
@@ -91,7 +91,7 @@ class EfficientNet(nn.Module):
                 self.n[i],
                 self.s[i],
                 self.k[i],
-                se_ratio,
+                rd_ratio,
                 dilations[len(self.features) + (stages[i] - 1)]
             )
 
@@ -117,7 +117,7 @@ class EfficientNet(nn.Module):
         n: int,
         stride: int,
         kernel_size: int = 3,
-        se_ratio: float = None,
+        rd_ratio: float = None,
         dilation: int = 1
     ):
         layers = []
@@ -130,7 +130,7 @@ class EfficientNet(nn.Module):
                 self.block(
                     inp, oup, t,
                     kernel_size=kernel_size, stride=stride if dilation == 1 else 1,
-                    dilation=max(dilation // stride, 1), survival_prob=survival_prob, se_ratio=se_ratio
+                    dilation=max(dilation // stride, 1), survival_prob=survival_prob, rd_ratio=rd_ratio
                 )
             )
 
