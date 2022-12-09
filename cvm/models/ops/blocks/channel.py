@@ -63,3 +63,11 @@ class Combine(nn.Module):
 
     def extra_repr(self):
         return f'method=\'{self.method}\''
+
+
+class ConcatBranches(nn.Sequential):
+    def forward(self, x):
+        res = []
+        for module in self:
+            res.append(module(x))
+        return torch.cat(res, dim=1)

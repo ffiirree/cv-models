@@ -4,6 +4,7 @@ from .resnet import *
 from .squeezenet import *
 from .googlenet import *
 from .inception_v3 import *
+from .inception_v4 import *
 from .xception import *
 from .densenet import *
 from .mobilenet import *

@@ -3,7 +3,8 @@ from .stage import Stage
 from .affine import Affine
 from .vanilla_conv2d import Conv2d1x1, Conv2d3x3, Conv2d1x1BN, Conv2d3x3BN, Conv2d1x1Block, Conv2dBlock
 from .bottleneck import ResBasicBlockV1, BottleneckV1, ResBasicBlockV2, BottleneckV2
-from .channel import Combine, ChannelChunk, ChannelSplit, ChannelShuffle
+from .inception import InceptionA, InceptionB, InceptionC, ReductionA, ReductionB, ReductionC, InceptionResNetA, InceptionResNetB, InceptionResNetC
+from .channel import Combine, ChannelChunk, ChannelSplit, ChannelShuffle, ConcatBranches
 from .depthwise_separable_conv2d import DepthwiseConv2d, PointwiseConv2d, DepthwiseConv2dBN, PointwiseConv2dBN, DepthwiseBlock, PointwiseBlock
 from .inverted_residual_block import InvertedResidualBlock, FusedInvertedResidualBlock
 from .squeeze_excite import se, SEBlock

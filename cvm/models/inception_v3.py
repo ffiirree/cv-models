@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 from .ops import blocks
 from .utils import export, load_from_local_or_url
-from typing import Any, List
+from typing import Any, List, OrderedDict
 
 
 # Figure 5
-class InceptionBlockV5(nn.Module):
+class InceptionBlockV5(blocks.ConcatBranches):
     def __init__(
         self,
         inp,
@@ -15,127 +15,29 @@ class InceptionBlockV5(nn.Module):
         planes_3x3db: List[int],
         planes_pool: int
     ):
-        super().__init__()
-
-        self.branch_1x1 = blocks.Conv2d1x1Block(inp, planes_1x1)
-
-        self.branch_5x5 = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, planes_5x5[0]),
-            blocks.Conv2dBlock(planes_5x5[0], planes_5x5[1], kernel_size=5, padding=2)
-        )
-
-        self.branch_3x3db = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, planes_3x3db[0]),
-            blocks.Conv2dBlock(planes_3x3db[0], planes_3x3db[1]),
-            blocks.Conv2dBlock(planes_3x3db[1], planes_3x3db[1])
-        )
-
-        self.branch_pool = nn.Sequential(
-            nn.AvgPool2d(3, stride=1, padding=1),
-            blocks.Conv2d1x1Block(inp, planes_pool)
-        )
-
-        self.cat = blocks.Combine('CONCAT')
-
-    def forward(self, x):
-        return self.cat([self.branch_1x1(x), self.branch_5x5(x), self.branch_3x3db(x), self.branch_pool(x)])
+        super().__init__(OrderedDict([
+            ('branch-1x1', blocks.Conv2d1x1Block(inp, planes_1x1)),
+            ('branch-5x5', nn.Sequential(
+                blocks.Conv2d1x1Block(inp, planes_5x5[0]),
+                blocks.Conv2dBlock(planes_5x5[0], planes_5x5[1], kernel_size=5, padding=2)
+            )),
+            ('branch-3x3db', nn.Sequential(
+                blocks.Conv2d1x1Block(inp, planes_3x3db[0]),
+                blocks.Conv2dBlock(planes_3x3db[0], planes_3x3db[1]),
+                blocks.Conv2dBlock(planes_3x3db[1], planes_3x3db[1])
+            )),
+            ('branch-pool', nn.Sequential(
+                nn.AvgPool2d(3, stride=1, padding=1),
+                blocks.Conv2d1x1Block(inp, planes_pool)
+            ))
+        ]))
 
 
-class InceptionBlockV5Subsample(nn.Module):
-    def __init__(
-        self,
-        inp,
-        planes_3x3: int,
-        planes_3x3db: List[int]
-    ):
-        super().__init__()
-
-        self.branch_3x3 = blocks.Conv2dBlock(inp, planes_3x3, kernel_size=3, stride=2, padding=0)
-
-        self.branch_3x3db = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, planes_3x3db[0]),
-            blocks.Conv2dBlock(planes_3x3db[0], planes_3x3db[1]),
-            blocks.Conv2dBlock(planes_3x3db[1], planes_3x3db[1], stride=2, padding=0)
-        )
-
-        self.branch_pool = nn.MaxPool2d(3, stride=2)
-
-        self.cat = blocks.Combine('CONCAT')
-
-    def forward(self, x):
-        return self.cat([self.branch_3x3(x), self.branch_3x3db(x), self.branch_pool(x)])
-
-
-# Figure 6
-class InceptionBlockV6(nn.Module):
-    def __init__(
-        self,
-        inp,
-        planes_1x1: int,
-        planes_7x7: List[int],
-        planes_7x7db: List[int],
-        planes_pool: int
-    ) -> None:
-        super().__init__()
-
-        self.branch_1x1 = blocks.Conv2d1x1Block(inp, planes_1x1)
-
-        self.branch_7x7 = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, planes_7x7[0]),
-            blocks.Conv2dBlock(planes_7x7[0], planes_7x7[0], kernel_size=(1, 7), padding=(0, 3)),
-            blocks.Conv2dBlock(planes_7x7[0], planes_7x7[1], kernel_size=(7, 1), padding=(3, 0)),
-        )
-
-        self.branch_7x7db = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, planes_7x7db[0]),
-            blocks.Conv2dBlock(planes_7x7db[0], planes_7x7db[0], kernel_size=(1, 7), padding=(0, 3)),
-            blocks.Conv2dBlock(planes_7x7db[0], planes_7x7db[0], kernel_size=(7, 1), padding=(3, 0)),
-            blocks.Conv2dBlock(planes_7x7db[0], planes_7x7db[0], kernel_size=(1, 7), padding=(0, 3)),
-            blocks.Conv2dBlock(planes_7x7db[0], planes_7x7db[1], kernel_size=(7, 1), padding=(3, 0)),
-        )
-
-        self.branch_pool = nn.Sequential(
-            nn.AvgPool2d(3, stride=1, padding=1),
-            blocks.Conv2d1x1Block(inp, planes_pool)
-        )
-
-        self.cat = blocks.Combine('CONCAT')
-
-    def forward(self, x):
-        return self.cat([self.branch_1x1(x), self.branch_7x7(x), self.branch_7x7db(x), self.branch_pool(x)])
-
-
-class InceptionBlockV6Subsample(nn.Module):
-    def __init__(
-        self,
-        inp,
-        planes_3x3: List[int],
-        planes_7x7x3: List[int]
-    ) -> None:
-        super().__init__()
-
-        self.branch_3x3 = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, planes_3x3[0]),
-            blocks.Conv2dBlock(planes_3x3[0], planes_3x3[1], kernel_size=3, stride=2, padding=0),
-        )
-
-        self.branch_7x7x3 = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, planes_7x7x3[0]),
-            blocks.Conv2dBlock(planes_7x7x3[0], planes_7x7x3[0], kernel_size=(1, 7), padding=(0, 3)),
-            blocks.Conv2dBlock(planes_7x7x3[0], planes_7x7x3[0], kernel_size=(7, 1), padding=(3, 0)),
-            blocks.Conv2dBlock(planes_7x7x3[0], planes_7x7x3[1], kernel_size=3, stride=2, padding=0)
-        )
-
-        self.branch_pool = nn.MaxPool2d(3, stride=2)
-
-        self.cat = blocks.Combine('CONCAT')
-
-    def forward(self, x):
-        return self.cat([self.branch_3x3(x), self.branch_7x7x3(x), self.branch_pool(x)])
+# Figure 6: blocks.InceptionB
 
 
 # Figure 7
-class InceptionBlockV7(nn.Module):
+class InceptionBlockV7(blocks.ConcatBranches):
     def __init__(
         self,
         inp,
@@ -144,37 +46,36 @@ class InceptionBlockV7(nn.Module):
         planes_3x3db: List[int],
         planes_pool
     ) -> None:
-        super().__init__()
-
-        self.branch_1x1 = blocks.Conv2d1x1Block(inp, planes_1x1)
-
-        self.branch_3x3 = blocks.Conv2d1x1Block(inp, planes_3x3[0])
-        self.branch_3x3_1 = blocks.Conv2dBlock(planes_3x3[0], planes_3x3[1], kernel_size=(1, 3), padding=(0, 1))
-        self.branch_3x3_2 = blocks.Conv2dBlock(planes_3x3[0], planes_3x3[1], kernel_size=(3, 1), padding=(1, 0))
-
-        self.branch_3x3db = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, planes_3x3db[0]),
-            blocks.Conv2dBlock(planes_3x3db[0], planes_3x3db[1])
-        )
-        self.branch_3x3db_1 = blocks.Conv2dBlock(planes_3x3db[1], planes_3x3db[1], kernel_size=(1, 3), padding=(0, 1))
-        self.branch_3x3db_2 = blocks.Conv2dBlock(planes_3x3db[1], planes_3x3db[1], kernel_size=(3, 1), padding=(1, 0))
-
-        self.branch_pool = nn.Sequential(
-            nn.AvgPool2d(3, stride=1, padding=1),
-            blocks.Conv2d1x1Block(inp, planes_pool)
-        )
-
-        self.cat = blocks.Combine('CONCAT')
-
-    def forward(self, x):
-        x_3x3 = self.branch_3x3(x)
-        x_3x3db = self.branch_3x3db(x)
-        return self.cat([
-            self.branch_1x1(x),
-            self.branch_3x3_1(x_3x3), self.branch_3x3_2(x_3x3),
-            self.branch_3x3db_1(x_3x3db), self.branch_3x3db_2(x_3x3db),
-            self.branch_pool(x)
-        ])
+        super().__init__(OrderedDict([
+            ('branch_1x1', blocks.Conv2d1x1Block(inp, planes_1x1)),
+            ('branch-3x3', nn.Sequential(
+                blocks.Conv2d1x1Block(inp, planes_3x3[0]),
+                blocks.ConcatBranches(OrderedDict([
+                    ('branch-3x3-1', blocks.Conv2dBlock(
+                        planes_3x3[0], planes_3x3[1], kernel_size=(1, 3), padding=(0, 1)
+                    )),
+                    ('branch-3x3-2', blocks.Conv2dBlock(
+                        planes_3x3[0], planes_3x3[1], kernel_size=(3, 1), padding=(1, 0)
+                    ))
+                ]))
+            )),
+            ('branch-3x3db', nn.Sequential(
+                blocks.Conv2d1x1Block(inp, planes_3x3db[0]),
+                blocks.Conv2dBlock(planes_3x3db[0], planes_3x3db[1]),
+                blocks.ConcatBranches(OrderedDict([
+                    ('branch-3x3db-1', blocks.Conv2dBlock(
+                        planes_3x3db[1], planes_3x3db[1], kernel_size=(1, 3), padding=(0, 1)
+                    )),
+                    ('branch-3x3db-2', blocks.Conv2dBlock(
+                        planes_3x3db[1], planes_3x3db[1], kernel_size=(3, 1), padding=(1, 0)
+                    ))
+                ]))
+            )),
+            ('branch-pool', nn.Sequential(
+                nn.AvgPool2d(3, stride=1, padding=1),
+                blocks.Conv2d1x1Block(inp, planes_pool)
+            ))
+        ]))
 
 
 class InceptionV3(nn.Module):
@@ -208,23 +109,23 @@ class InceptionV3(nn.Module):
         )
 
         self.stage3 = blocks.Stage(
-            InceptionBlockV5(192, 64, [48, 64], [64, 96], 32),          # mix 0: 35 x 35 x 256
-            InceptionBlockV5(256, 64, [48, 64], [64, 96], 64),          # mix 1: 35 x 35 x 288
-            InceptionBlockV5(288, 64, [48, 64], [64, 96], 64),          # mix 2: 35 x 35 x 288
-            InceptionBlockV5Subsample(288, 384, [64, 96])               # mix 3: 17 x 17 x 768
+            InceptionBlockV5(192, 64, [48, 64], [64, 96], 32),                      # mix 0: 35 x 35 x 256
+            InceptionBlockV5(256, 64, [48, 64], [64, 96], 64),                      # mix 1: 35 x 35 x 288
+            InceptionBlockV5(288, 64, [48, 64], [64, 96], 64),                      # mix 2: 35 x 35 x 288
+            blocks.ReductionA(288, 384, [64, 96, 96])                               # mix 3: 17 x 17 x 768
         )
 
         self.stage4 = blocks.Stage(
-            InceptionBlockV6(768, 192, [128, 192], [128, 192], 192),    # mix 4: 17 x 17 x 768
-            InceptionBlockV6(768, 192, [160, 192], [160, 192], 192),    # mix 5: 17 x 17 x 768
-            InceptionBlockV6(768, 192, [160, 192], [160, 192], 192),    # mix 6: 17 x 17 x 768
-            InceptionBlockV6(768, 192, [192, 192], [192, 192], 192),    # mix 7: 17 x 17 x 768
-            InceptionBlockV6Subsample(768, [192, 320], [192, 192])      # mix 8: 17 x 17 x 1280
+            blocks.InceptionB(768, 192, [128, 128, 192], [128, 128, 192], 192),     # mix 4: 17 x 17 x 768
+            blocks.InceptionB(768, 192, [160, 160, 192], [160, 160, 192], 192),     # mix 5: 17 x 17 x 768
+            blocks.InceptionB(768, 192, [160, 160, 192], [160, 160, 192], 192),     # mix 6: 17 x 17 x 768
+            blocks.InceptionB(768, 192, [192, 192, 192], [192, 192, 192], 192),     # mix 7: 17 x 17 x 768
+            blocks.ReductionB(768, [192, 320], [192, 192])                          # mix 8: 17 x 17 x 1280
         )
 
         self.stage5 = blocks.Stage(
-            InceptionBlockV7(1280, 320, [384, 384], [448, 384], 192),   # mixed 9: 8 x 8 x 2048
-            InceptionBlockV7(2048, 320, [384, 384], [448, 384], 192),   # mixed 9: 8 x 8 x 2048
+            InceptionBlockV7(1280, 320, [384, 384], [448, 384], 192),               # mixed 9: 8 x 8 x 2048
+            InceptionBlockV7(2048, 320, [384, 384], [448, 384], 192),               # mixed 9: 8 x 8 x 2048
         )
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
