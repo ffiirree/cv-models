@@ -3,50 +3,35 @@ import torch.nn as nn
 
 from .ops import blocks
 from .utils import export, load_from_local_or_url
-from typing import Any
+from typing import Any, List, OrderedDict
 
 __all__ = ['inception_v1']
 
 
-class InceptionBlock(nn.Module):
+class InceptionBlock(blocks.ConcatBranches):
     def __init__(
         self,
         inp,
-        oup1x1: int,
-        oup3x3_r: int,
-        oup3x3: int,
-        oup5x5_r: int,
-        oup5x5: int,
-        pool_proj: int
+        planes_1x1: int,
+        planes_3x3: List[int],
+        planes_5x5: List[int],
+        planes_pool: int
     ):
-        super().__init__()
-
-        self.branch1 = blocks.Conv2d1x1Block(inp, oup1x1)
-
-        self.branch2 = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, oup3x3_r),
-            blocks.Conv2dBlock(oup3x3_r, oup3x3)
-        )
-        self.branch3 = nn.Sequential(
-            blocks.Conv2d1x1Block(inp, oup5x5_r),
-            blocks.Conv2dBlock(oup5x5_r, oup5x5, kernel_size=5, padding=2)
-        )
-        self.branch4 = nn.Sequential(
-            nn.MaxPool2d(3, stride=1, padding=1),
-            blocks.Conv2d1x1Block(inp, pool_proj)
-        )
-
-        self.combine = blocks.Combine('CONCAT')
-
-    def forward(self, x):
-        x = self.combine([
-            self.branch1(x),
-            self.branch2(x),
-            self.branch3(x),
-            self.branch4(x)
-        ])
-
-        return x
+        super().__init__(OrderedDict([
+            ('branch-1x1', blocks.Conv2d1x1Block(inp, planes_1x1)),
+            ('branch-3x3', nn.Sequential(
+                blocks.Conv2d1x1Block(inp, planes_3x3[0]),
+                blocks.Conv2dBlock(planes_3x3[0], planes_3x3[1])
+            )),
+            ('branch-5x5', nn.Sequential(
+                blocks.Conv2d1x1Block(inp, planes_5x5[0]),
+                blocks.Conv2dBlock(planes_5x5[0], planes_5x5[1], kernel_size=5, padding=2)
+            )),
+            ('branch-pool', nn.Sequential(
+                nn.MaxPool2d(3, stride=1, padding=1),
+                blocks.Conv2d1x1Block(inp, planes_pool)
+            ))
+        ]))
 
 
 class InceptionAux(nn.Sequential):
@@ -87,30 +72,36 @@ class GoogLeNet(nn.Module):
 
         FRONT_S = 1 if thumbnail else 2
 
-        self.conv1 = blocks.Conv2dBlock(
-            in_channels, 64, 7, stride=FRONT_S, padding=3)
-        self.maxpool1 = nn.Identity() if thumbnail else nn.MaxPool2d(3, 2, ceil_mode=True)
+        self.stem = nn.Sequential(
+            blocks.Conv2dBlock(in_channels, 64, 7, stride=FRONT_S, padding=3),
+            nn.Identity() if thumbnail else nn.MaxPool2d(3, 2, ceil_mode=True)
+        )
 
-        self.conv2 = blocks.Conv2d1x1Block(64, 64)
-        self.conv3 = blocks.Conv2dBlock(64, 192, 3, padding=1)
+        self.stage1 = nn.Sequential(
+            blocks.Conv2d1x1Block(64, 64),
+            blocks.Conv2dBlock(64, 192, 3, padding=1),
+            nn.MaxPool2d(3, 2, ceil_mode=True)
+        )
 
-        self.maxpool2 = nn.MaxPool2d(3, 2, ceil_mode=True)
+        self.stage2 = nn.Sequential(OrderedDict([
+            ('inception_3a', InceptionBlock(192, 64, [96, 128], [16, 32], 32)),
+            ('inception_3b', InceptionBlock(256, 128, [128, 192], [32, 96], 64)),
+            ('max_pool', nn.MaxPool2d(3, 2, ceil_mode=True))
+        ]))
 
-        self.inception_3a = InceptionBlock(192, 64, 96, 128, 16, 32, 32)
-        self.inception_3b = InceptionBlock(256, 128, 128, 192, 32, 96, 64)
+        self.stage3 = nn.Sequential(OrderedDict([
+            ('inception_4a', InceptionBlock(480, 192, [96, 208], [16, 48], 64)),
+            ('inception_4b', InceptionBlock(512, 160, [112, 224], [24, 64], 64)),
+            ('inception_4c', InceptionBlock(512, 128, [128, 256], [24, 64], 64)),
+            ('inception_4d', InceptionBlock(512, 112, [144, 288], [32, 64], 64)),
+            ('inception_4e', InceptionBlock(528, 256, [160, 320], [32, 128], 128)),
+            ('max_pool', nn.MaxPool2d(3, 2, ceil_mode=True))
+        ]))
 
-        self.maxpool3 = nn.MaxPool2d(3, 2, ceil_mode=True)
-
-        self.inception_4a = InceptionBlock(480, 192, 96, 208, 16, 48, 64)
-        self.inception_4b = InceptionBlock(512, 160, 112, 224, 24, 64, 64)
-        self.inception_4c = InceptionBlock(512, 128, 128, 256, 24, 64, 64)
-        self.inception_4d = InceptionBlock(512, 112, 144, 288, 32, 64, 64)
-        self.inception_4e = InceptionBlock(528, 256, 160, 320, 32, 128, 128)
-
-        self.maxpool4 = nn.MaxPool2d(3, 2, ceil_mode=True)
-
-        self.inception_5a = InceptionBlock(832, 256, 160, 320, 32, 128, 128)
-        self.inception_5b = InceptionBlock(832, 384, 192, 384, 48, 128, 128)
+        self.stage4 = nn.Sequential(OrderedDict([
+            ('inception_5a', InceptionBlock(832, 256, [160, 320], [32, 128], 128)),
+            ('inception_5b', InceptionBlock(832, 384, [192, 384], [48, 128], 128))
+        ]))
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
@@ -123,31 +114,22 @@ class GoogLeNet(nn.Module):
         self.aux2 = InceptionAux(528, num_classes)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.maxpool1(x)
+        x = self.stem(x)
 
-        x = self.conv2(x)
-        x = self.conv3(x)
+        x = self.stage1(x)
+        x = self.stage2(x)
 
-        x = self.maxpool2(x)
-
-        x = self.inception_3a(x)
-        x = self.inception_3b(x)
-
-        x = self.maxpool3(x)
-
-        x = self.inception_4a(x)
+        x = self.stage3.inception_4a(x)
         aux1 = self.aux1(x) if self.training else None
-        x = self.inception_4b(x)
-        x = self.inception_4c(x)
-        x = self.inception_4d(x)
+        x = self.stage3.inception_4b(x)
+        x = self.stage3.inception_4c(x)
+        x = self.stage3.inception_4d(x)
         aux2 = self.aux2(x) if self.training else None
-        x = self.inception_4e(x)
+        x = self.stage3.inception_4e(x)
 
-        x = self.maxpool4(x)
+        x = self.stage3.max_pool(x)
 
-        x = self.inception_5a(x)
-        x = self.inception_5b(x)
+        x = self.stage4(x)
 
         x = self.pool(x)
         x = torch.flatten(x, 1)
