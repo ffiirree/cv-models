@@ -4,7 +4,7 @@ from .vanilla_conv2d import Conv2d1x1Block, Conv2d1x1BN, Conv2dBlock
 from .depthwise_separable_conv2d import DepthwiseBlock, DepthwiseConv2dBN
 from .squeeze_excite import SEBlock
 from .channel import Combine
-from .drop import DropPath
+from .drop import StochasticDepth
 
 
 class InvertedResidualBlock(nn.Module):
@@ -57,7 +57,7 @@ class InvertedResidualBlock(nn.Module):
         layers.append(Conv2d1x1BN(self.planes, oup, normalizer_fn=normalizer_fn))
 
         if self.apply_residual and survival_prob:
-            layers.append(DropPath(survival_prob))
+            layers.append(StochasticDepth(survival_prob))
 
         self.branch1 = nn.Sequential(*layers)
         self.branch2 = nn.Identity() if self.apply_residual else None
@@ -111,7 +111,7 @@ class FusedInvertedResidualBlock(nn.Module):
             self.planes, oup, normalizer_fn=normalizer_fn))
 
         if self.apply_residual and survival_prob:
-            layers.append(DropPath(survival_prob))
+            layers.append(StochasticDepth(survival_prob))
 
         self.branch1 = nn.Sequential(*layers)
         self.branch2 = nn.Identity() if self.apply_residual else None

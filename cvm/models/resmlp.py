@@ -31,12 +31,12 @@ class ResMlpBlock(nn.Module):
         self.affine_1 = Affine(hidden_dim)
         self.linear_patches = nn.Linear(sequence_len, sequence_len)
         self.layerscale_1 = nn.Parameter(layerscale_init * torch.ones(hidden_dim))
-        self.drop1 = blocks.DropPath(1.0 - drop_path_rate)
+        self.drop1 = blocks.StochasticDepth(1.0 - drop_path_rate)
 
         self.affine_2 = Affine(hidden_dim)
         self.mlp_channels = blocks.MlpBlock(hidden_dim, hidden_dim * 4, dropout_rate=dropout_rate)
         self.layerscale_2 = nn.Parameter(layerscale_init * torch.ones(hidden_dim))
-        self.drop2 = blocks.DropPath(1.0 - drop_path_rate)
+        self.drop2 = blocks.StochasticDepth(1.0 - drop_path_rate)
 
     def forward(self, x):
         x = x + self.drop1(self.layerscale_1 * self.linear_patches(self.affine_1(x).transpose(1, 2)).transpose(1, 2))

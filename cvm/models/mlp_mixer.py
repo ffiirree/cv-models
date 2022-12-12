@@ -20,11 +20,11 @@ class MixerBlock(nn.Module):
 
         self.norm1 = normalizer_fn(hidden_dim)
         self.token_mixing = blocks.MlpBlock(sequence_len, int(hidden_dim * ratio[0]), dropout_rate=dropout_rate)
-        self.drop1 = blocks.DropPath(1. - drop_path_rate)
+        self.drop1 = blocks.StochasticDepth(1. - drop_path_rate)
 
         self.norm2 = normalizer_fn(hidden_dim)
         self.channel_mixing = blocks.MlpBlock(hidden_dim, int(hidden_dim * ratio[1]), dropout_rate=dropout_rate)
-        self.drop2 = blocks.DropPath(1. - drop_path_rate)
+        self.drop2 = blocks.StochasticDepth(1. - drop_path_rate)
 
     def forward(self, x):
         x = x + self.drop1(self.token_mixing(self.norm1(x).transpose(1, 2)).transpose(1, 2))

@@ -2,8 +2,12 @@ import torch
 from torch import nn
 
 
-class DropPath(nn.Module):
-    """Stochastic Depth: Drop paths per sample (when applied in main path of residual blocks)"""
+class StochasticDepth(nn.Module):
+    r"""Stochastic Depth: Drop paths per sample (when applied in main path of residual blocks)
+    
+    Paper:
+        Deep Networks with Stochastic Depth, https://arxiv.org/abs/1603.09382
+    """
 
     def __init__(self, survival_prob: float):
         super().__init__()

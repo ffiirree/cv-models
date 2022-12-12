@@ -31,13 +31,13 @@ class EncoderBlock(nn.Module):
             normalizer_fn(embed_dim),
             MultiheadSelfAttention(embed_dim, num_heads, dropout=attn_dropout_rate, bias=qkv_bias, batch_first=True),
             nn.Dropout(dropout_rate),
-            blocks.DropPath(1 - drop_path_rate)
+            blocks.StochasticDepth(1 - drop_path_rate)
         )
 
         self.mlp = nn.Sequential(
             normalizer_fn(embed_dim),
             blocks.MlpBlock(embed_dim, int(embed_dim * mlp_ratio), dropout_rate=dropout_rate),
-            blocks.DropPath(1 - drop_path_rate)
+            blocks.StochasticDepth(1 - drop_path_rate)
         )
 
     def forward(self, x):

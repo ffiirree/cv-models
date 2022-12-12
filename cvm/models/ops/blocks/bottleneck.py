@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from . import factory
 from .squeeze_excite import SEBlock
-from .drop import DropPath
+from .drop import StochasticDepth
 from .vanilla_conv2d import Conv2d3x3, Conv2d1x1
 from .channel import Combine
 
@@ -50,7 +50,7 @@ class ResBasicBlockV1(nn.Module):
             self.branch1.add_module('se', SEBlock(oup, rd_ratio=rd_ratio))
 
         if drop_path_rate:
-            self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
+            self.branch1.add_module('drop', StochasticDepth(1. - drop_path_rate))
 
         self.branch2 = nn.Identity()
 
@@ -121,7 +121,7 @@ class BottleneckV1(nn.Module):
             self.branch1.add_module('se', SEBlock(oup * self.expansion, rd_ratio=rd_ratio))
 
         if drop_path_rate:
-            self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
+            self.branch1.add_module('drop', StochasticDepth(1. - drop_path_rate))
 
         self.branch2 = nn.Identity()
 
@@ -191,7 +191,7 @@ class ResBasicBlockV2(nn.Module):
             self.branch1.add_module('se', SEBlock(oup, rd_ratio=rd_ratio))
 
         if drop_path_rate:
-            self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
+            self.branch1.add_module('drop', StochasticDepth(1. - drop_path_rate))
 
         self.branch2 = nn.Identity()
 
@@ -259,7 +259,7 @@ class BottleneckV2(nn.Module):
                 oup * self.expansion, rd_ratio=rd_ratio))
 
         if drop_path_rate:
-            self.branch1.add_module('drop', DropPath(1. - drop_path_rate))
+            self.branch1.add_module('drop', StochasticDepth(1. - drop_path_rate))
 
         self.branch2 = nn.Identity()
 

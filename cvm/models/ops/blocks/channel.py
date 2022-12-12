@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from ..functional import channel_shuffle
+from typing import List
 
 
 class ChannelChunk(nn.Module):
@@ -71,3 +72,15 @@ class ConcatBranches(nn.Sequential):
         for module in self:
             res.append(module(x))
         return torch.cat(res, dim=1)
+
+
+class Permute(nn.Module):
+    def __init__(self, dims: List[int]):
+        super().__init__()
+        self.dims = dims
+
+    def forward(self, x):
+        return x.permute(*self.dims)
+
+    def extra_repr(self):
+        return ', '.join([str(dim) for dim in self.dims])

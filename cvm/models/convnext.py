@@ -6,73 +6,9 @@ official code :
 '''
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.modules.normalization import LayerNorm
-
 from .ops import blocks
 from .utils import export, config, load_from_local_or_url
 from typing import Any, OrderedDict, List
-
-
-class LayerNorm(nn.Module):
-    r""" LayerNorm that supports two data formats: channels_last (default) or channels_first. 
-    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with 
-    shape (batch_size, height, width, channels) while channels_first corresponds to inputs 
-    with shape (batch_size, channels, height, width).
-    """
-
-    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(normalized_shape))
-        self.bias = nn.Parameter(torch.zeros(normalized_shape))
-        self.eps = eps
-        self.data_format = data_format
-        if self.data_format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError
-        self.normalized_shape = (normalized_shape, )
-
-    def forward(self, x):
-        if self.data_format == "channels_last":
-            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
-        elif self.data_format == "channels_first":
-            u = x.mean(1, keepdim=True)
-            s = (x - u).pow(2).mean(1, keepdim=True)
-            x = (x - u) / torch.sqrt(s + self.eps)
-            x = self.weight[:, None, None] * x + self.bias[:, None, None]
-            return x
-
-    def extra_repr(self):
-        return f'{self.normalized_shape}, eps={self.eps}, data_format={self.data_format}'
-
-
-class Permute(nn.Module):
-    def __init__(self, dims: List[int]):
-        super().__init__()
-        self.dims = dims
-
-    def forward(self, x):
-        return x.permute(*self.dims)
-
-    def extra_repr(self):
-        return ', '.join([str(dim) for dim in self.dims])
-
-
-class Scale(nn.Module):
-    def __init__(
-        self,
-        dim: int,
-        gamma: float = 1e-6
-    ):
-        super().__init__()
-
-        self.dim = dim
-        self.gamma = nn.Parameter(gamma * torch.ones((dim))) if gamma > 0 else None
-
-    def forward(self, x):
-        return self.gamma * x if self.gamma is not None else x
-
-    def extra_repr(self):
-        return f'{self.dim}'
 
 
 class ConvNetBlock(nn.Module):
@@ -85,19 +21,18 @@ class ConvNetBlock(nn.Module):
         layer_scale: float = 1e-6
     ):
         super().__init__()
+
         self.branch1 = nn.Sequential(
             blocks.DepthwiseConv2d(dim, dim, kernel_size, padding=padding, bias=True),
-            Permute([0, 2, 3, 1]),
-            LayerNorm(dim, eps=1e-6),
+            blocks.Permute([0, 2, 3, 1]),
+            nn.LayerNorm(dim, eps=1e-6),
             nn.Linear(dim, 4 * dim),
             nn.GELU(),
             nn.Linear(4 * dim, dim),
-            Scale(dim, layer_scale),
-            Permute([0, 3, 1, 2])
+            blocks.Permute([0, 3, 1, 2]),
+            blocks.Scale(dim, layer_scale),
+            blocks.StochasticDepth(survival_prob)
         )
-
-        if survival_prob > 0:
-            self.branch1.add_module(str(len(self.branch1)), blocks.DropPath(survival_prob))
 
         self.branch2 = nn.Identity()
         self.combine = blocks.Combine('ADD')
@@ -113,7 +48,7 @@ class DownsamplingBlock(nn.Sequential):
         oup
     ):
         super().__init__(
-            LayerNorm(inp, eps=1e-6, data_format="channels_first"),
+            blocks.LayerNorm2d(inp, eps=1e-6),
             nn.Conv2d(inp, oup, 2, stride=2)
         )
 
@@ -138,7 +73,7 @@ class ConvNeXt(nn.Module):
         self.features = nn.Sequential(OrderedDict([
             ('stem', blocks.Stage(
                 nn.Conv2d(in_channels, dims[0], kernel_size=4, stride=FRONT_S),
-                LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
+                blocks.LayerNorm2d(dims[0], eps=1e-6)
             ))
         ]))
 
@@ -155,19 +90,20 @@ class ConvNeXt(nn.Module):
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
-            nn.LayerNorm(dims[-1], eps=1e-6),
+            blocks.LayerNorm2d(dims[-1], eps=1e-6),
+            nn.Flatten(1),
             nn.Linear(dims[-1], num_classes)
         )
 
     def forward(self, x):
         x = self.features(x)
         x = self.pool(x)
-        x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.1.2-convnext-weights/torch-convnext_t-98aeea18.pth')
 def convnext_t(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ConvNeXt(layers=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
     if pretrained:
@@ -176,6 +112,7 @@ def convnext_t(pretrained: bool = False, pth: str = None, progress: bool = True,
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.1.2-convnext-weights/torch-convnext_s-0ebda7c5.pth')
 def convnext_s(pretrained: bool = False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ConvNeXt(layers=[3, 3, 27, 3], dims=[96, 192, 384, 768], **kwargs)
     if pretrained:
@@ -184,6 +121,7 @@ def convnext_s(pretrained: bool = False, pth: str = None, progress: bool = True,
 
 
 @export
+@config(url='https://github.com/ffiirree/cv-models/releases/download/v0.1.2-convnext-weights/torch-convnext_b-1e0fb038.pth')
 def convnext_b(pretrained: bool = False, in_22k=False, pth: str = None, progress: bool = True, **kwargs: Any):
     model = ConvNeXt(layers=[3, 3, 27, 3], dims=[128, 256, 512, 1024], **kwargs)
     if pretrained:
