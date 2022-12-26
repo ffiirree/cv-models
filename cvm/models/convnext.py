@@ -44,12 +44,12 @@ class ConvNetBlock(nn.Module):
 class DownsamplingBlock(nn.Sequential):
     def __init__(
         self,
-        inp,
-        oup
+        inp: int,
+        oup: int
     ):
         super().__init__(
             blocks.LayerNorm2d(inp, eps=1e-6),
-            nn.Conv2d(inp, oup, 2, stride=2)
+            nn.Conv2d(inp, oup, kernel_size=2, stride=2)
         )
 
 

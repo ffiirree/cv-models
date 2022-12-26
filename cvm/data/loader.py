@@ -17,7 +17,7 @@ class DataIterator:
         return self
 
     def __next__(self):
-        batch = self.itor.next()
+        batch = next(self.itor)
 
         if self.type == 'dali':
             input = batch[0]["data"]

@@ -37,6 +37,7 @@
 - [ ] `NFNet` - [High-Performance Large-Scale Image Recognition Without Normalization](https://arxiv.org/abs/2102.06171), ICML, 2021
 - [ ] `NF-ResNets` - [Characterizing signal propagation to close the performance gap in unnormalized ResNets](https://arxiv.org/abs/2101.08692), ICLR, 2021
 - [x] [`ConvMixer`](cvm/models/convmixer.py) - [Patches are all you need?](https://openreview.net/forum?id=TVHS5Y4dNvM), 2021
+- [x] [`VGNets`](cvm/models/vgnet.py) - [Efficient CNN Architecture Design Guided by Visualization](https://arxiv.org/abs/2207.10318), ICME, 2022
 - [x] [`ConvNeXt`](cvm/models/convnext.py) - [A ConvNet for the 2020s](https://arxiv.org/abs/2201.03545), CVPR, 2022
 
 ### Attention Blocks
