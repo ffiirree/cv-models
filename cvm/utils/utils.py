@@ -184,7 +184,8 @@ def reduce_across_processes(val):
 def _filter_models(module, prefix='', sort=True):
     name_list = module.__dict__
     models = [prefix + name for name in name_list
-              if name.islower() and not name.startswith("__")
+              if name.islower() and not name.startswith("__") 
+              and name not in  ['get_model', 'get_model_builder', 'get_model_weights', 'get_weight', 'list_models']
               and callable(name_list[name])]
     return models if not sort else sorted(models)
 
@@ -203,6 +204,7 @@ def list_models(lib: str = 'all'):
 
     torch_models = [
         *_filter_models(torchvision.models, 'torch/'),
+        *_filter_models(torchvision.models.quantization, 'torch/quantization/'),
         *_filter_models(torchvision.models.segmentation, 'torch/segmentation/'),
         *_filter_models(torchvision.models.detection, 'torch/detection/'),
         *_filter_models(torchvision.models.video, 'torch/video/'),

@@ -23,9 +23,6 @@ class FilterAndRemapCocoCategories:
             obj["category_id"] = self.categories.index(obj["category_id"])
         return image, anno
 
-    def __repr__(self) -> str:
-        return self.__class__.__name__ + f'()'
-
 
 def convert_coco_poly_to_mask(segmentations, height, width):
     masks = []
@@ -46,7 +43,7 @@ def convert_coco_poly_to_mask(segmentations, height, width):
 
 class ConvertCocoPolysToMask:
     def __call__(self, image, anno):
-        h, w = image.size
+        w, h = image.size
         segmentations = [obj["segmentation"] for obj in anno]
         cats = [obj["category_id"] for obj in anno]
         if segmentations:
@@ -62,9 +59,6 @@ class ConvertCocoPolysToMask:
         target = Image.fromarray(target.numpy())
         return image, target
 
-    def __repr__(self) -> str:
-        return self.__class__.__name__ + f'()'
-
 
 def _coco_remove_images_without_annotations(dataset, cat_list=None):
     def _has_valid_annotation(anno):
@@ -74,7 +68,11 @@ def _coco_remove_images_without_annotations(dataset, cat_list=None):
         # if more than 1k pixels occupied in the image
         return sum(obj["area"] for obj in anno) > 1000
 
-    assert isinstance(dataset, torchvision.datasets.CocoDetection)
+    if not isinstance(dataset, torchvision.datasets.CocoDetection):
+        raise TypeError(
+            f"This function expects dataset of type torchvision.datasets.CocoDetection, instead  got {type(dataset)}"
+        )
+
     ids = []
     for ds_idx, img_id in enumerate(dataset.ids):
         ann_ids = dataset.coco.getAnnIds(imgIds=img_id, iscrowd=None)

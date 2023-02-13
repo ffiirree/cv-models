@@ -199,17 +199,6 @@ if __name__ == '__main__':
         local_rank=args.local_rank
     )
 
-    params_to_optimize = [
-        {"params": [p for p in model.module.backbone.parameters() if p.requires_grad]},
-        {"params": [p for p in model.module.decode_head.parameters() if p.requires_grad]},
-    ]
-    if args.aux_loss:
-        params = [p for p in model.module.aux_head.parameters() if p.requires_grad]
-        params_to_optimize.append({"params": params, "lr": args.lr * 10})
-
-    optimizer = create_optimizer(args.optim, params_to_optimize, **dict(vars(args)))
-    criterion = nn.CrossEntropyLoss(ignore_index=255)
-
     train_loader = create_loader(
         root=args.data_dir,
         is_training=True,
@@ -229,6 +218,17 @@ if __name__ == '__main__':
     if args.validate:
         validate(val_loader, model, args)
         exit(0)
+
+    params_to_optimize = [
+        {"params": [p for p in model.module.backbone.parameters() if p.requires_grad]},
+        {"params": [p for p in model.module.decode_head.parameters() if p.requires_grad]},
+    ]
+    if args.aux_loss:
+        params = [p for p in model.module.aux_head.parameters() if p.requires_grad]
+        params_to_optimize.append({"params": params, "lr": args.lr * 10})
+
+    optimizer = create_optimizer(args.optim, params_to_optimize, **dict(vars(args)))
+    criterion = nn.CrossEntropyLoss(ignore_index=255)
 
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
 
