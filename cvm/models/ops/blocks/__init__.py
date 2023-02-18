@@ -1,4 +1,4 @@
-from .factory import normalizer, activation, normalizer_fn, activation_fn, norm_activation, attention, attention_fn
+from .factory import normalizer, activation, normalizer_fn, activation_fn, norm_activation, attention, attention_fn, Nil
 from .stage import Stage
 from .affine import Affine, Scale
 from .vanilla_conv2d import Conv2d1x1, Conv2d3x3, Conv2d1x1BN, Conv2d3x3BN, Conv2d1x1Block, Conv2dBlock

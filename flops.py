@@ -17,13 +17,14 @@ if __name__ == '__main__':
     parser.add_argument('--model', '-m', type=str)
     parser.add_argument('--str', action='store_true')
     parser.add_argument('--list-models', type=str, default=None)
+    parser.add_argument('--in-channels', type=int, default=3)
     parser.add_argument('--num-classes', type=int, default=1000)
     parser.add_argument('--image-size', type=int, default=224)
     parser.add_argument('--max-depth', type=int, default=3)
 
     args = parser.parse_args()
 
-    input = torch.randn(1, 3, args.image_size, args.image_size)
+    input = torch.randn(1, args.in_channels, args.image_size, args.image_size)
 
     thumbnail = True if args.image_size < 100 else False
 
@@ -34,6 +35,7 @@ if __name__ == '__main__':
             create_model(
                 args.model,
                 thumbnail=thumbnail,
+                in_channels=args.in_channels,
                 num_classes=args.num_classes,
                 cuda=False,
             ),

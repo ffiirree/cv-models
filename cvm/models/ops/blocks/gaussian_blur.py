@@ -35,7 +35,7 @@ class GaussianBlur(nn.Module):
             get_gaussian_kernels2d(
                 kernel_size,
                 torch.linspace(self.sigma_range[0], self.sigma_range[1], self.channels).view(-1, 1, 1, 1),
-                True
+                self.normalize
             )
         )
 

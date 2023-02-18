@@ -18,6 +18,7 @@ def parse_args():
                         help='type of model to use. (default: mobilenet_v1_x1_0)')
     parser.add_argument('--num-classes', type=int, default=1000, metavar='N',
                         help='number of label classes')
+    parser.add_argument('--in-channels', type=int, default=3, metavar='N')
     parser.add_argument('--model-path', type=str, default=None)
     parser.add_argument('--model-weights', type=str, default='DEFAULT')
     parser.add_argument('--workers', '-j', type=int, default=8, metavar='N',
@@ -55,6 +56,7 @@ if __name__ == '__main__':
         weights=args.model_weights,
         distributed=args.distributed,
         local_rank=args.local_rank,
+        in_channels=args.in_channels,
         num_classes=args.num_classes
     )
 

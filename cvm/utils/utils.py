@@ -23,7 +23,8 @@ __all__ = [
     'named_layers', 'AverageMeter',
     'module_parameters', 'group_params', 'list_models',
     'list_datasets', 'is_dist_avail_and_initialized', 'get_world_size',
-    'init_distributed_mode', 'mask_to_label', 'seg_collate_fn'
+    'init_distributed_mode', 'mask_to_label', 'seg_collate_fn',
+    'reduce_across_processes'
 ]
 
 
