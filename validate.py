@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
     parser.add_argument('--crop-size', type=int, default=224)
-    parser.add_argument('--resize-size', type=int, default=256)
+    parser.add_argument('--resize-size', type=int, default=232)
     parser.add_argument('--dali', action='store_true', help='use nvidia dali.')
     parser.add_argument('--dali-cpu', action='store_true',
                         help='runs CPU based version of DALI pipeline. (default: false)')

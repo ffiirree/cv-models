@@ -12,11 +12,12 @@ setup(
     author_email='zhliangqi@gmail.com',
     python_requires='>=3.8',
     install_requires=[
-        'torch >= 1.10',
+        'torch >= 1.12',
         'torchvision',
         'fvcore',
         'torchinfo',
         'tqdm',
+        'pycocotools',
         'nvidia-dali-cuda110 >= 1.16'
     ],
     packages=find_packages(exclude=['tests'])
