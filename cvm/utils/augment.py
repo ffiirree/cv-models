@@ -17,6 +17,7 @@ Papers:
 
 Hacked together by / Copyright 2019, Ross Wightman
 """
+import warnings
 import random
 import math
 import re
@@ -27,8 +28,11 @@ import torch
 from torch import Tensor
 from torchvision.transforms import functional as F
 from typing import Tuple
+from torch import fft
+from cvm.models.ops.functional import get_gaussian_kernel2d
 
-__all__ = ['RandomMixup', 'RandomCutmix', 'auto_augment_transform', 'rand_augment_transform', 'augment_and_mix_transform']
+__all__ = ['RandomMixup', 'RandomCutmix', 'RandomFrequencyErasing',
+           'auto_augment_transform', 'rand_augment_transform', 'augment_and_mix_transform']
 
 
 _PIL_VER = tuple([int(x) for x in PIL.__version__.split('.')[:2]])
@@ -950,6 +954,119 @@ class RandomMixup(torch.nn.Module):
             f", alpha={self.alpha}"
             f", inplace={self.inplace}"
             f")"
+        )
+        return s
+
+
+class RandomFrequencyErasing(torch.nn.Module):
+    """Randomly selects a rectangle region in an torch Tensor image and erases its low or high frequencies.
+    This transform does not support PIL Image.
+
+    Args:
+         p: probability that the random erasing operation will be performed.
+         scale: range of proportion of erased area against input image.
+         ratio: range of aspect ratio of erased area.
+
+    Returns:
+        Erased Image.
+
+    Example:
+        >>> transform = transforms.Compose([
+        >>>   transforms.RandomHorizontalFlip(),
+        >>>   transforms.PILToTensor(),
+        >>>   transforms.ConvertImageDtype(torch.float),
+        >>>   transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        >>>   RandomFrequencyErasing(1.0),
+        >>> ])
+    """
+
+    def __init__(self, p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3)):
+        super().__init__()
+        if not isinstance(scale, (tuple, list)):
+            raise TypeError("Scale should be a sequence")
+        if not isinstance(ratio, (tuple, list)):
+            raise TypeError("Ratio should be a sequence")
+        if (scale[0] > scale[1]) or (ratio[0] > ratio[1]):
+            warnings.warn("Scale and ratio should be of kind (min, max)")
+        if scale[0] < 0 or scale[1] > 1:
+            raise ValueError("Scale should be between 0 and 1")
+        if p < 0 or p > 1:
+            raise ValueError("Random erasing probability should be between 0 and 1")
+
+        self.p = p
+        self.scale = scale
+        self.ratio = ratio
+
+    @staticmethod
+    def get_params(img: Tensor, scale: Tuple[float, float], ratio: Tuple[float, float]) -> Tuple[int, int, int, int, Tensor]:
+        """Get parameters for ``erase`` for a random erasing.
+
+        Args:
+            img (Tensor): Tensor image to be erased.
+            scale (sequence): range of proportion of erased area against input image.
+            ratio (sequence): range of aspect ratio of erased area.
+
+        Returns:
+            tuple: params (i, j, h, w) to be passed to ``erase`` for random frequencies erasing.
+        """
+        img_h, img_w = img.shape[-2], img.shape[-1]
+        area = img_h * img_w
+
+        log_ratio = torch.log(torch.tensor(ratio))
+        for _ in range(10):
+            erase_area = area * torch.empty(1).uniform_(scale[0], scale[1]).item()
+            aspect_ratio = torch.exp(torch.empty(1).uniform_(log_ratio[0], log_ratio[1])).item()
+
+            h = int(round(math.sqrt(erase_area * aspect_ratio)))
+            w = int(round(math.sqrt(erase_area / aspect_ratio)))
+            if not (h < img_h and w < img_w):
+                continue
+
+            i = torch.randint(0, img_h - h + 1, size=(1,)).item()
+            j = torch.randint(0, img_w - w + 1, size=(1,)).item()
+            return i, j, h, w
+
+        # Return original image
+        return 0, 0, img_h, img_w
+
+    def forward(self, img):
+        """
+        Args:
+            img (Tensor): Tensor image to be erased.
+
+        Returns:
+            img (Tensor): Erased Tensor image.
+        """
+        if torch.rand(1) < self.p:
+            i, j, h, w = self.get_params(img, scale=self.scale, ratio=self.ratio)
+
+            freq_img = fft.fftshift(fft.fft2(img))
+
+            r = torch.randint(0, int(math.sqrt(img.shape[-1] * img.shape[-1]) / 6), [1]).item()
+            mask = get_gaussian_kernel2d(img.shape[-1], r, False).to(img.device)
+
+            if torch.rand(1) > 0.5:
+                # erase high frequency information
+                freq_l = freq_img * mask
+                img_l = fft.ifft2(fft.ifftshift(freq_l)).real
+
+                img[:, i:i+h, j:j+w] = img_l[:, i:i+h, j:j+w]
+                return img
+            else:
+                # erase low frequency information
+                freq_h = freq_img * (1.0 - mask)
+                img_h = fft.ifft2(fft.ifftshift(freq_h)).real
+
+                img[:, i:i+h, j:j+w] = img_h[:, i:i+h, j:j+w]
+                return img
+        return img
+
+    def __repr__(self) -> str:
+        s = (
+            f"{self.__class__.__name__}"
+            f"(p={self.p}, "
+            f"scale={self.scale}, "
+            f"ratio={self.ratio})"
         )
         return s
 

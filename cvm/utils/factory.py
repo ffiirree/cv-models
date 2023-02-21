@@ -45,20 +45,24 @@ __all__ = [
 
 @pipeline_def
 def create_dali_pipeline(
-    data_dir,
-    crop_size,
-    resize_size,
-    shard_id,
-    num_shards,
-    random_scale=[0.08, 1.0],
+    data_dir: str,
+    crop_size: int,
+    resize_size: int,
+    shard_id: int,
+    num_shards: int,
+    random_scale: List[float] = [0.08, 1.0],
+    random_ratio: List[float] = [3. / 4., 4. / 3.],
     interpolation=types.INTERP_TRIANGULAR,
-    antialias=True,
-    dali_cpu=False,
-    is_training=True,
-    hflip=0.5,
-    color_jitter=0.0,
+    antialias: bool = True,
+    dali_cpu: bool = False,
+    is_training: bool = True,
+    hflip: float = 0.5,
+    color_jitter: float = 0.0,
     random_erasing=0.0,
 ):
+    """
+        See: https://github.com/NVIDIA/DALI/blob/main/docs/examples/use_cases/pytorch/resnet50/main.py#L95
+    """
     images, labels = fn.readers.file(
         file_root=data_dir,
         shard_id=shard_id,
@@ -86,7 +90,7 @@ def create_dali_pipeline(
             host_memory_padding=host_memory_padding,
             preallocate_width_hint=preallocate_width_hint,
             preallocate_height_hint=preallocate_height_hint,
-            random_aspect_ratio=[3/4, 4/3],
+            random_aspect_ratio=random_ratio,
             random_area=random_scale,
             num_attempts=100
         )
@@ -105,11 +109,11 @@ def create_dali_pipeline(
                 images,
                 device=dali_device,
                 brightness=fn.random.uniform(
-                    range=[1 - color_jitter, 1.0 + color_jitter]),
+                    range=[1.0 - color_jitter, 1.0 + color_jitter]),
                 contrast=fn.random.uniform(
-                    range=[1 - color_jitter, 1.0 + color_jitter]),
+                    range=[1.0 - color_jitter, 1.0 + color_jitter]),
                 saturation=fn.random.uniform(
-                    range=[1 - color_jitter, 1.0 + color_jitter])
+                    range=[1.0 - color_jitter, 1.0 + color_jitter])
             )
 
         mirror = fn.random.coin_flip(probability=hflip) if hflip > 0. else None
@@ -141,6 +145,18 @@ def create_dali_pipeline(
         std=[0.229 * 255, 0.224 * 255, 0.225 * 255],
         mirror=mirror
     )
+    
+    # random erasing
+    if is_training and random_erasing > 0.0:
+        images = fn.erase(
+            images,
+            anchor=fn.random.uniform(range=(0.0, 1.0), shape=2),
+            shape=fn.random.uniform(range=(0.02, 0.33), shape=2),
+            axis_names="HW",
+            fill_value=[0.0],
+            normalized_anchor=True,
+            normalized_shape=True
+        )
 
     labels = labels.gpu()
     return images, labels
@@ -153,7 +169,7 @@ def create_model(
     sync_bn: bool = False,
     distributed: bool = False,
     local_rank: int = 0,
-    weights: str='DEFAULT',
+    weights: str = 'DEFAULT',
     **kwargs
 ):
     if name.startswith('torch/'):
@@ -352,6 +368,7 @@ def create_transforms(
     resize_size: int = 256,
     crop_size: int = 224,
     random_scale: List[float] = [0.08, 1.0],
+    random_ratio: List[float] = [3. / 4., 4. / 3.],
     padding: int = 0,
     interpolation=T.InterpolationMode.BILINEAR,
     random_crop: bool = False,
@@ -363,6 +380,7 @@ def create_transforms(
     color_jitter=None,
     augment: str = None,
     random_erasing: float = 0.,
+    random_frequencies_erasing: float = 0.,
     dataset_image_size: int = 0
 ):
     ops = []
@@ -383,7 +401,7 @@ def create_transforms(
             ops.append(T.RandomResizedCrop(
                 crop_size,
                 scale=random_scale,
-                ratio=(3. / 4., 4. / 3.),
+                ratio=random_ratio,
                 interpolation=interpolation
             ))
 
@@ -425,6 +443,9 @@ def create_transforms(
 
     if is_training and random_erasing > 0.0:
         ops.append(T.RandomErasing(random_erasing, inplace=True))
+
+    if is_training and random_frequencies_erasing > 0.0:
+        ops.append(RandomFrequencyErasing(random_frequencies_erasing))
 
     return T.Compose(ops)
 
@@ -509,6 +530,7 @@ def create_loader(
     vflip: float = 0.0,
     color_jitter: float = 0.0,
     random_erasing: float = 0.0,
+    random_frequencies_erasing: float = 0.0,
     dali: bool = False,
     dali_cpu: bool = True,
     augment: str = None,
@@ -526,6 +548,7 @@ def create_loader(
     if dali:
         assert _get_name(dataset).lower() == 'imagenet', ''
         assert ra_repetitions == 0, 'Do not support RepeatedAugmentation when using nvidia/dali.'
+        assert random_frequencies_erasing == 0.0, 'Do not support RandomFrequenciesErasing when using nvidia/dali.'
 
         pipe = create_dali_pipeline(
             batch_size=batch_size,
@@ -538,6 +561,7 @@ def create_loader(
             crop_size=crop_size if is_training else val_crop_size,
             resize_size=val_resize_size,
             random_scale=kwargs.get('random_scale', [0.08, 1.0]),
+            random_ratio=kwargs.get('random_ratio', [3. / 4., 4. / 3.]),
             interpolation=_to_dali_interpolation(interpolation),
             dali_cpu=dali_cpu,
             shard_id=local_rank,
@@ -559,11 +583,13 @@ def create_loader(
             transform = transform or create_transforms(
                 is_training=is_training,
                 random_scale=kwargs.get('random_scale', [0.08, 1.0]),
+                random_ratio=kwargs.get('random_ratio', [3. / 4., 4. / 3.]),
                 interpolation=T.InterpolationMode(interpolation),
                 hflip=hflip,
                 vflip=vflip,
                 color_jitter=color_jitter,
                 random_erasing=random_erasing,
+                random_frequencies_erasing=random_frequencies_erasing,
                 augment=augment,
                 mean=kwargs.get('mean', _get_dataset_mean_or_std(dataset, 'mean')),
                 std=kwargs.get('std', _get_dataset_mean_or_std(dataset, 'std')),

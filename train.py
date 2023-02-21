@@ -21,11 +21,18 @@ def parse_args():
                         help='number of data loading workers pre GPU. (default: 4)')
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
-    parser.add_argument('--random-scale', type=float, nargs='+', default=[0.08, 1.0])
-    parser.add_argument('--crop-size', type=int, default=224)
-    parser.add_argument('--crop-padding', type=int, default=4, metavar='S')
-    parser.add_argument('--val-resize-size', type=int, default=256)
-    parser.add_argument('--val-crop-size', type=int, default=224)
+    parser.add_argument('--random-scale', type=float, nargs='+', default=[0.08, 1.0],
+                        help="scale range for 'RandomReiszeCrop()'. (training stage)")
+    parser.add_argument('--random-ratio', type=float, nargs='+', default=[3./4., 4./3.], 
+                        help="ratio range for 'RandomResizedCrop()'. (training stage)")
+    parser.add_argument('--crop-size', type=int, default=224,
+                        help="crop size for 'RandomResizedCrop()'/'RandomCrop()'. (training stage)")
+    parser.add_argument('--crop-padding', type=int, default=4, metavar='S',
+                        help="crop padding for 'RandomCrop()'. (training stage)")
+    parser.add_argument('--val-resize-size', type=int, default=256,
+                        help="size for 'Resize()'. (validation stage)")
+    parser.add_argument('--val-crop-size', type=int, default=224,
+                        help="crop size for 'CenterCrop()'. (validation stage)")
     parser.add_argument("--interpolation", default="bilinear", type=str,
                         help="the interpolation method (default: bilinear)")
 
@@ -37,7 +44,8 @@ def parse_args():
     parser.add_argument('--model-path', type=str, default=None)
     parser.add_argument('--num-classes', type=int, default=1000, metavar='N',
                         help='number of label classes')
-    parser.add_argument('--in-channels', type=int, default=3, metavar='N')
+    parser.add_argument('--in-channels', type=int, default=3, metavar='N',
+                        help='number of image channels.')
     parser.add_argument('--bn-eps', type=float, default=None)
     parser.add_argument('--bn-momentum', type=float, default=None)
 
@@ -80,10 +88,10 @@ def parse_args():
     parser.add_argument('--hflip', type=float, default=0.5, metavar='P')
     parser.add_argument('--vflip', type=float, default=0.0, metavar='P')
     parser.add_argument('--color-jitter', type=float, default=0., metavar='M')
-    parser.add_argument('--random-erasing', type=float,
-                        default=0., metavar='P')
+    parser.add_argument('--random-erasing', type=float, default=0., metavar='P')
     parser.add_argument('--mixup-alpha', type=float, default=0., metavar='V',
                         help='beta distribution parameter for mixup sampling. (default: 0.0)')
+    parser.add_argument('--random-frequencies-erasing', type=float, default=0., metavar='P')
     parser.add_argument('--cutmix-alpha', type=float, default=0., metavar='V',
                         help='beta distribution parameter for cutmix sampling. (default: 0.0)')
     parser.add_argument('--label-smoothing', type=float, default=0.0,
@@ -312,10 +320,10 @@ if __name__ == '__main__':
                 model_path = f'{log_dir}/{model_name}_{epoch:0>3}_{time.time()}.pth'
                 torch.save(model.module.state_dict(), model_path)
                 logger.info(f'Saved: {model_path}!')
-                
+
                 if model_ema is not None:
                     torch.save(model_ema.module.state_dict(), f'{log_dir}/{model_name}_EMA_{epoch:0>3}_{time.time()}.pth')
     except:
         logger.error(traceback.format_exc())
-            
+
     logger.info(f'Total time: {benchmark.elapsed():>.3f}s')

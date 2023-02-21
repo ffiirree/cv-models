@@ -21,6 +21,9 @@ def parse_args():
                         help='number of data loading workers pre GPU. (default: 4)')
     parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                         help='mini-batch size, this is the total batch size of all GPUs. (default: 256)')
+    parser.add_argument('--num-classes', type=int, default=1000, metavar='N',
+                        help='number of label classes')
+    parser.add_argument('--in-channels', type=int, default=3, metavar='N')
     parser.add_argument('--crop-size', type=int, default=224)
     parser.add_argument('--resize-size', type=int, default=232)
     parser.add_argument('--dali', action='store_true', help='use nvidia dali.')
@@ -66,6 +69,8 @@ if __name__ == '__main__':
 
     model = create_model(
         args.model,
+        in_channels=args.in_channels,
+        num_classes=args.num_classes,
         pretrained=True,
         pth=args.model_path,
         weights=args.model_weights
@@ -84,7 +89,7 @@ if __name__ == '__main__':
     )
 
     real_evaluator = ImageNet1KRealLabelsEvaluator(
-        val_loader.dataset.samples, 
+        val_loader.dataset.samples,
         args.real_labels
     ) if args.real_labels else None
 
