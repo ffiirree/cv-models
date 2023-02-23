@@ -31,7 +31,7 @@ from typing import Tuple
 from torch import fft
 from cvm.models.ops.functional import get_gaussian_kernel2d
 
-__all__ = ['RandomMixup', 'RandomCutmix', 'RandomFrequencyErasing',
+__all__ = ['RandomMixup', 'RandomCutmix', 'RandomFrequencyErasing', 'RandomGaussianBlur',
            'auto_augment_transform', 'rand_augment_transform', 'augment_and_mix_transform']
 
 
@@ -1068,6 +1068,35 @@ class RandomFrequencyErasing(torch.nn.Module):
             f"scale={self.scale}, "
             f"ratio={self.ratio})"
         )
+        return s
+
+
+class RandomGaussianBlur(torch.nn.Module):
+    """Blurs image with randomly chosen Gaussian blur.
+    If the image is torch Tensor, it is expected
+    to have [..., C, H, W] shape, where ... means an arbitrary number of leading dimensions.
+
+    Notice: 
+        kernel_size = 2 * ceil(3 * sigma) + 1
+    """
+
+    def __init__(self, kernel_size_range=(3, 13), sigma_range=(0.1, 2.0)):
+        super().__init__()
+
+        self.ksr = kernel_size_range
+        self.sigma_range = sigma_range
+
+    def forward(self, img: Tensor) -> Tensor:
+        sigma = torch.empty(1).uniform_(self.sigma_range[0], self.sigma_range[1]).item()
+        kernel_size = math.ceil(3.0 * sigma) * 2 + 1
+
+        if self.ksr is not None:
+            kernel_size = min(max(kernel_size, min(self.ksr)), max(self.ksr))
+
+        return F.gaussian_blur(img, kernel_size, sigma)
+
+    def __repr__(self) -> str:
+        s = f"{self.__class__.__name__}(kernel_size_range={self.ksr}, sigma_range={self.sigma_range})"
         return s
 
 

@@ -92,6 +92,7 @@ def parse_args():
     parser.add_argument('--mixup-alpha', type=float, default=0., metavar='V',
                         help='beta distribution parameter for mixup sampling. (default: 0.0)')
     parser.add_argument('--random-frequencies-erasing', type=float, default=0., metavar='P')
+    parser.add_argument('--random-gaussian-blur', type=float, nargs='+', default=None)
     parser.add_argument('--cutmix-alpha', type=float, default=0., metavar='V',
                         help='beta distribution parameter for cutmix sampling. (default: 0.0)')
     parser.add_argument('--label-smoothing', type=float, default=0.0,

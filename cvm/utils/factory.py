@@ -58,7 +58,8 @@ def create_dali_pipeline(
     is_training: bool = True,
     hflip: float = 0.5,
     color_jitter: float = 0.0,
-    random_erasing=0.0,
+    random_erasing: float = 0.0,
+    random_gaussian_blur: List[float] = None,
 ):
     """
         See: https://github.com/NVIDIA/DALI/blob/main/docs/examples/use_cases/pytorch/resnet50/main.py#L95
@@ -116,6 +117,13 @@ def create_dali_pipeline(
                     range=[1.0 - color_jitter, 1.0 + color_jitter])
             )
 
+        if random_gaussian_blur is not None:
+            images = fn.gaussian_blur(
+                images,
+                device=dali_device,
+                sigma=fn.random.uniform(range=random_gaussian_blur)
+            )
+
         mirror = fn.random.coin_flip(probability=hflip) if hflip > 0. else None
 
     else:
@@ -145,7 +153,7 @@ def create_dali_pipeline(
         std=[0.229 * 255, 0.224 * 255, 0.225 * 255],
         mirror=mirror
     )
-    
+
     # random erasing
     if is_training and random_erasing > 0.0:
         images = fn.erase(
@@ -377,10 +385,11 @@ def create_transforms(
     std=IMAGE_STD,
     hflip: float = 0.5,
     vflip: float = 0.0,
-    color_jitter=None,
+    color_jitter: float = None,
     augment: str = None,
     random_erasing: float = 0.,
     random_frequencies_erasing: float = 0.,
+    random_gaussian_blur: List[float] = None,
     dataset_image_size: int = 0
 ):
     ops = []
@@ -414,6 +423,7 @@ def create_transforms(
             img_size_min = min(crop_size)
         else:
             img_size_min = crop_size
+
         aug_hparams = dict(
             translate_const=int(img_size_min * 0.45),
             img_mean=tuple([min(255, round(255 * x)) for x in mean]),
@@ -436,6 +446,9 @@ def create_transforms(
 
         if color_jitter > 0.0:
             ops.append(T.ColorJitter(*((color_jitter, ) * 3)))  # no hue
+
+        if random_gaussian_blur is not None:
+            ops.append(RandomGaussianBlur(sigma_range=random_gaussian_blur))
 
     ops.append(T.PILToTensor())
     ops.append(T.ConvertImageDtype(torch.float))
@@ -531,6 +544,7 @@ def create_loader(
     color_jitter: float = 0.0,
     random_erasing: float = 0.0,
     random_frequencies_erasing: float = 0.0,
+    random_gaussian_blur: List[float] = 0.0,
     dali: bool = False,
     dali_cpu: bool = True,
     augment: str = None,
@@ -569,7 +583,8 @@ def create_loader(
             is_training=is_training,
             hflip=hflip,
             color_jitter=color_jitter,
-            random_erasing=random_erasing
+            random_erasing=random_erasing,
+            random_gaussian_blur=random_gaussian_blur
         )
         pipe.build()
         return DataIterator(DALIClassificationIterator(
@@ -590,6 +605,7 @@ def create_loader(
                 color_jitter=color_jitter,
                 random_erasing=random_erasing,
                 random_frequencies_erasing=random_frequencies_erasing,
+                random_gaussian_blur=random_gaussian_blur,
                 augment=augment,
                 mean=kwargs.get('mean', _get_dataset_mean_or_std(dataset, 'mean')),
                 std=kwargs.get('std', _get_dataset_mean_or_std(dataset, 'std')),
