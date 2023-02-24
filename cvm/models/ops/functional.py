@@ -1,8 +1,10 @@
 import torch
+from torch import fft
 
 __all__ = ['channel_shuffle', 'make_divisible',
            'get_gaussian_kernel1d', 'get_gaussian_kernel2d',
-           'get_gaussian_bandpass_kernel2d', 'get_gaussian_kernels2d']
+           'get_gaussian_bandpass_kernel2d', 'get_gaussian_kernels2d',
+           'get_distance_grid', 'spectral_filter']
 
 
 def channel_shuffle(x, groups):
@@ -53,7 +55,7 @@ def get_gaussian_kernel2d(kernel_size, sigma: float, normalize: bool = True):
     return pdf / pdf.sum() if normalize else pdf
 
 
-def get_gaussian_bandpass_kernel2d(kernel_size, sigma: float,  W: float):
+def get_gaussian_bandpass_kernel2d(kernel_size, sigma: float, W: float):
     ksize_half = (kernel_size - 1) * 0.5
 
     xs = torch.linspace(-ksize_half, ksize_half, steps=kernel_size)
@@ -64,7 +66,7 @@ def get_gaussian_bandpass_kernel2d(kernel_size, sigma: float,  W: float):
     d2 = x * x + y * y
     d = torch.sqrt(d2)
 
-    return 1.0 - torch.exp(-((d2 - sigma * sigma) / (d * W)).pow(2))
+    return torch.exp(-((d2 - sigma * sigma) / (d * W)).pow(2))
 
 
 def get_gaussian_kernels2d(kernel_size, sigma: torch.Tensor, normalize: bool = True):
@@ -77,4 +79,23 @@ def get_gaussian_kernels2d(kernel_size, sigma: torch.Tensor, normalize: bool = T
 
     pdf = torch.exp(-0.5 * ((x * x + y * y).repeat(sigma.shape) / torch.pow(sigma, 2)))
 
-    return  pdf / pdf.sum([-2, -1], keepdim=True) if normalize else pdf
+    return pdf / pdf.sum([-2, -1], keepdim=True) if normalize else pdf
+
+
+def get_distance_grid(size):
+    size_half = (size - 1) * 0.5
+
+    xs = torch.linspace(-size_half, size_half, steps=size)
+    ys = torch.linspace(-size_half, size_half, steps=size)
+
+    x, y = torch.meshgrid(xs, ys, indexing='xy')
+
+    return torch.sqrt(x * x + y * y)
+
+
+def spectral_filter(x, callback):
+    fre_x = fft.fftshift(fft.fft2(x))
+
+    fre_x = callback(fre_x)
+
+    return fft.ifft2(fft.ifftshift(fre_x)).real

@@ -4,6 +4,7 @@ import torch
 from tqdm import tqdm
 from cvm.utils import accuracy, AverageMeter, create_loader, create_model, list_models, list_datasets
 from cvm.data import ImageNet1KRealLabelsEvaluator
+from cvm.models.ops.functional import *
 
 
 def parse_args():
@@ -29,6 +30,9 @@ def parse_args():
     parser.add_argument('--dali', action='store_true', help='use nvidia dali.')
     parser.add_argument('--dali-cpu', action='store_true',
                         help='runs CPU based version of DALI pipeline. (default: false)')
+    parser.add_argument('--bandpass', type=int, nargs='+', default=None)
+    parser.add_argument('--bandreject', type=int, nargs='+', default=None)
+    parser.add_argument('--filter-type', type=str, default="ideal", choices=['ideal', 'gaussian'])
     return parser.parse_args()
 
 
@@ -36,8 +40,36 @@ def validate(val_loader, model, real_evaluator, args):
     top1 = AverageMeter()
     top5 = AverageMeter()
 
+    mask = get_distance_grid(args.crop_size)
+
     model.eval()
     for (images, target) in tqdm(val_loader, desc='validating', unit='batch'):
+        if args.bandpass is not None:
+            assert len(args.bandpass) == 2, '--bandpass : [min, max]'
+            if args.filter_type == 'ideal':
+                kernel = (mask < args.bandpass[0]) | (mask > args.bandpass[1])
+                images = spectral_filter(images, lambda fr: torch.masked_fill(fr, kernel.to(fr.device), 0.0))
+            elif args.filter_type == 'gaussian':
+                kernel = get_gaussian_bandpass_kernel2d(
+                    images.size()[-1],
+                    (args.bandpass[0] + args.bandpass[1]) / 2,
+                    args.bandpass[1] - args.bandpass[0]
+                )
+                images = spectral_filter(images, lambda fr: fr * kernel.to(fr.device))
+
+        if args.bandreject is not None:
+            assert len(args.bandreject) == 2, '--bandreject : [min, max]'
+            if args.filter_type == 'ideal':
+                kernel = (mask > args.bandreject[0]) & (mask < args.bandreject[1])
+                images = spectral_filter(images, lambda fr: lambda fr: torch.masked_fill(fr, kernel.to(fr.device), 0.0))
+            elif args.filter_type == 'gaussian':
+                kernel = get_gaussian_bandpass_kernel2d(
+                    images.size()[-1],
+                    (args.bandpass[0] + args.bandpass[1]) / 2,
+                    args.bandpass[1] - args.bandpass[0]
+                )
+                images = spectral_filter(images, lambda fr: fr * (1.0 - kernel.to(fr.devcie)))
+
         with torch.inference_mode():
             output = model(images)
 
@@ -71,6 +103,7 @@ if __name__ == '__main__':
         args.model,
         in_channels=args.in_channels,
         num_classes=args.num_classes,
+        thumbnail=(args.crop_size < 128),
         pretrained=True,
         pth=args.model_path,
         weights=args.model_weights
