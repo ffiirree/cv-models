@@ -98,6 +98,8 @@
 ### VAEs
 
 - [x] [`VAE`](cvm/models/vae/vae.py) - [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114), 2013
+- [x] [`CVAE`](cvm/models/vae/cvae.py) - [Learning Structured Output Representation using Deep Conditional Generative Models
+](https://papers.nips.cc/paper/2015/hash/8d55a249e6baa5c06772297520da2051-Abstract.html), NeurIPS, 2015
 - [ ] `β-VAE` - [beta-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework](https://openreview.net/forum?id=Sy2fzU9gl), ICLR, 2017
 
 
