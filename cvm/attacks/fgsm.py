@@ -31,4 +31,4 @@ class FGSM(Attacker):
         return self.unprepare_inputs(images_adv)
 
     def __repr__(self) -> str:
-        return f'FGSM(eps={self.epsilon:>6.4f}, normalized={self.normalized}, mean={self.mean}, std={self.std})'
+        return f'FGSM(eps={self.epsilon:>6.4f}({self.epsilon * 255.0:>.1f}/255.0), normalized={self.normalized}, mean={self.mean}, std={self.std})'
