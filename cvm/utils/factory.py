@@ -544,7 +544,7 @@ def create_loader(
     color_jitter: float = 0.0,
     random_erasing: float = 0.0,
     random_frequencies_erasing: float = 0.0,
-    random_gaussian_blur: List[float] = 0.0,
+    random_gaussian_blur: List[float] = None,
     dali: bool = False,
     dali_cpu: bool = True,
     augment: str = None,
