@@ -116,7 +116,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
     end = time.time()
     for i, (images, targets) in enumerate(train_loader):
         optimizer.zero_grad(set_to_none=True)
-        with torch.cuda.amp.autocast(enabled=args.amp):
+        with torch.amp.autocast(device_type='cuda', enabled=args.amp):
             outputs = model(images)
             loss = criterion(outputs['out'], targets)
             if args.aux_loss:
@@ -230,7 +230,7 @@ if __name__ == '__main__':
     optimizer = create_optimizer(args.optim, params_to_optimize, **dict(vars(args)))
     criterion = nn.CrossEntropyLoss(ignore_index=255)
 
-    scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
+    scaler = torch.amp.GradScaler(enabled=args.amp)
 
     scheduler = create_scheduler(
         args.lr_sched,

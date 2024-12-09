@@ -37,7 +37,7 @@ if __name__ == '__main__':
         ]
     ) as prof, tqdm(total=5) as pbar:
         for _ in range(5):
-            with torch.cuda.amp.autocast(enabled=args.amp):
+            with torch.amp.autocast(device_type='cuda',enabled=args.amp):
                 output = model(images)
 
             prof.step()

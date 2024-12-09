@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torchvision
 from torchvision import datasets
-import torchvision.transforms as T
+import torchvision.transforms.v2 as T
 
 from PIL import Image
 
@@ -450,8 +450,8 @@ def create_transforms(
         if random_gaussian_blur is not None:
             ops.append(RandomGaussianBlur(sigma_range=random_gaussian_blur))
 
-    ops.append(T.PILToTensor())
-    ops.append(T.ConvertImageDtype(torch.float))
+    ops.append(T.ToImage())
+    ops.append(T.ToDtype(torch.float, scale=True))
     ops.append(T.Normalize(mean, std))
 
     if is_training and random_erasing > 0.0:

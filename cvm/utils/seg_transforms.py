@@ -1,7 +1,7 @@
 import torch
 import numpy as np
-import torchvision.transforms as T
-from torchvision.transforms import functional as TF
+import torchvision.transforms.v2 as T
+from torchvision.transforms.v2 import functional as TF
 
 
 class Compose(T.Compose):

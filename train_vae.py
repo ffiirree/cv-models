@@ -143,7 +143,7 @@ if __name__ == '__main__':
         **(dict(vars(args)))
     )
 
-    scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
+    scaler = torch.amp.GradScaler(enabled=args.amp)
 
     if args.local_rank == 0:
         logger.info(f'Model: \n{model}')
@@ -159,7 +159,7 @@ if __name__ == '__main__':
         for i, (images, _) in enumerate(train_loader):
 
             optimizer.zero_grad(set_to_none=True)
-            with torch.cuda.amp.autocast(enabled=args.amp):
+            with torch.amp.autocast(device_type='cuda', enabled=args.amp):
                 output, mu, logvar = model(images)
                 loss = criterion(output, images, mu, logvar)
 

@@ -5,7 +5,7 @@ import datetime
 import argparse
 import torch
 import torch.nn as nn
-import torchvision.transforms as T
+import torchvision.transforms.v2 as T
 
 from cvm.utils import *
 
@@ -146,7 +146,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, scaler, epoch, a
             input, target = mixupcutmix_fn(input, target)
 
         optimizer.zero_grad(set_to_none=True)
-        with torch.cuda.amp.autocast(enabled=args.amp):
+        with torch.amp.autocast(device_type='cuda', enabled=args.amp):
             output = model(input)
             loss = criterion(output, target)
 
@@ -264,16 +264,16 @@ if __name__ == '__main__':
     mixup_transforms = []
     if args.mixup_alpha > 0.0:
         mixup_transforms.append(
-            RandomMixup(args.num_classes, p=1.0, alpha=args.mixup_alpha)
+            T.MixUp(alpha=args.mixup_alpha, num_classes=args.num_classes)
         )
     if args.cutmix_alpha > 0.0:
         mixup_transforms.append(
-            RandomCutmix(args.num_classes, p=1.0, alpha=args.cutmix_alpha)
+            T.CutMix(alpha=args.cutmix_alpha, num_classes=args.num_classes)
         )
     if mixup_transforms:
         mixupcutmix_fn = T.RandomChoice(mixup_transforms)
 
-    scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
+    scaler = torch.amp.GradScaler(enabled=args.amp)
 
     scheduler = create_scheduler(
         args.lr_sched,

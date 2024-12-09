@@ -23,7 +23,7 @@ class InferenceBenchmarkRunner():
 
     def infer(self):
         start = self.timestamp()
-        with torch.cuda.amp.autocast(enabled=self.amp):
+        with torch.amp.autocast(device_type='cuda', enabled=self.amp):
             output = self.model(self.input)
         end = self.timestamp(True)
         return end - start
