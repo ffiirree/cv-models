@@ -14,9 +14,9 @@ class Compose(T.Compose):
         return images, targets
 
 
-class PILToTensor:
+class ToImage:
     def __call__(self, images, targets):
-        return TF.to_tensor(images), torch.as_tensor(np.array(targets), dtype=torch.int64)
+        return TF.to_image(images), torch.as_tensor(np.array(targets), dtype=torch.int64)
 
     def __repr__(self):
         return self.__class__.__name__ + '()'
@@ -50,9 +50,9 @@ class RandomVerticalFlip(torch.nn.Module):
         return self.__class__.__name__ + '(p={})'.format(self.p)
 
 
-class ConvertImageDtype(T.ConvertImageDtype):
-    def __init__(self, dtype: torch.dtype) -> None:
-        super().__init__(dtype=dtype)
+class ToDtype(T.ToDtype):
+    def __init__(self, dtype, scale: bool = False) -> None:
+        super().__init__(dtype=dtype, scale=scale)
 
     def forward(self, images, targets):
         return super().forward(images), targets

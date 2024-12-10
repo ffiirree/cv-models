@@ -482,8 +482,8 @@ def create_segmentation_transforms(
     else:
         ops.append(ST.Resize(resize_size, interpolation=interpolation))
 
-    ops.append(ST.PILToTensor())
-    ops.append(ST.ConvertImageDtype(torch.float))
+    ops.append(ST.ToImage())
+    ops.append(ST.ToDtype(torch.float, scale=True))
     ops.append(ST.Normalize(mean, std))
 
     return ST.Compose(ops)
